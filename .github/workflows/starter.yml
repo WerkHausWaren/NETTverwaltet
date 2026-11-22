@@ -101,12 +101,13 @@ jobs:
           U=https://verein.localhost; R="--resolve verein.localhost:443:127.0.0.1"
           tok=$(curl -sk $R -c kekse -b kekse $U/einrichten | grep -o 'name="csrf_token" value="[^"]*"' | head -1 | sed 's/.*value="//;s/"$//')
           test -n "$tok" || { echo "::error::Formular der Erst-Einrichtung ohne Schutz-Token"; exit 1; }
-          ziel=$(curl -sk $R -c kekse -b kekse -o /dev/null -w "%{redirect_url}" \
+          # Wie ein Browser: Herkunftsseite mitschicken (der Formularschutz verlangt sie bei HTTPS)
+          ziel=$(curl -sk $R -c kekse -b kekse -e "$U/einrichten" -o antwort.html -w "%{redirect_url}" \
             --data-urlencode "csrf_token=$tok" --data-urlencode "vereinsname=Testverein e.V." \
             --data-urlencode "ort=Musterstadt" --data-urlencode "vereins_email=info@verein.example" \
             --data-urlencode "email=vorstand@verein.example" --data-urlencode "passwort=Probe-Passwort-123" \
             --data-urlencode "passwort2=Probe-Passwort-123" $U/einrichten)
           echo "Weiterleitung nach: $ziel"
-          echo "$ziel" | grep -q "2fa" || { echo "::error::Erst-Einrichtung hat kein Konto angelegt"; exit 1; }
+          echo "$ziel" | grep -q "2fa" || { echo "::error::Erst-Einrichtung hat kein Konto angelegt"; head -c 600 antwort.html; exit 1; }
           curl -sk $R -b kekse -o /dev/null -w "%{http_code}" $U/einrichten | grep -q 302 || { echo "::error::Erst-Einrichtung bleibt offen"; exit 1; }
           echo "OK: Server-Weg läuft bis zum ersten Verwaltungskonto."
