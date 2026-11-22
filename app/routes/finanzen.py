@@ -10,6 +10,7 @@ from flask import (Blueprint, render_template, request, redirect, url_for,
 from ..db import get_db, get_einstellungen, now_iso, aktiver_verein_id
 from ..funktionen import wer
 from .. import speicher, konten, paypal_csv, sparkasse_csv
+from ..html_sicher import zurueck as _zurueck
 
 bp = Blueprint("finanzen", __name__, url_prefix="/finanzen")
 
@@ -564,7 +565,7 @@ def loeschen(bid):
         conn.commit()
         flash("Buchung gelöscht.", "erfolg")
     conn.close()
-    return redirect(request.referrer or url_for("finanzen.liste"))
+    return redirect(_zurueck(url_for("finanzen.liste")))
 
 
 @bp.route("/<int:bid>/stornieren", methods=["POST"])
@@ -579,11 +580,11 @@ def stornieren(bid):
     if b["storno_von"]:
         conn.close()
         flash("Diese Buchung ist selbst ein Storno – bitte ggf. das Original bearbeiten.", "fehler")
-        return redirect(request.referrer or url_for("finanzen.liste"))
+        return redirect(_zurueck(url_for("finanzen.liste")))
     if conn.execute("SELECT 1 FROM buchungen WHERE verein_id=? AND storno_von=?", (vid, bid)).fetchone():
         conn.close()
         flash("Diese Buchung wurde bereits storniert.", "fehler")
-        return redirect(request.referrer or url_for("finanzen.liste"))
+        return redirect(_zurueck(url_for("finanzen.liste")))
     heute = now_iso()[:10]
     gegentyp = "ausgabe" if b["typ"] == "einnahme" else "einnahme"
     conn.execute(
@@ -596,7 +597,7 @@ def stornieren(bid):
     conn.commit()
     conn.close()
     flash("Storno-Buchung angelegt – Original und Gegenbuchung bleiben nachvollziehbar. ↩️", "erfolg")
-    return redirect(request.referrer or url_for("finanzen.liste"))
+    return redirect(_zurueck(url_for("finanzen.liste")))
 
 
 @bp.route("/<int:bid>/splitten", methods=["GET", "POST"])
@@ -851,7 +852,8 @@ def umsatz_verbuchen():
     conn = get_db()
     vid = aktiver_verein_id()
     geldkonto_id = request.form.get("geldkonto_id", type=int)
-    zurueck = request.form.get("zurueck") or url_for("finanzen.liste")
+    from ..html_sicher import lokales_ziel
+    zurueck = lokales_ziel(request.form.get("zurueck"), url_for("finanzen.liste"))
     idxs = request.form.getlist("uebernehmen")
     angelegt = uebersprungen = 0
     konflikte = []
@@ -1309,7 +1311,7 @@ def dauer_verbuchen(did):
         conn.commit()
         flash(f"„{d['name']}“ verbucht (Beleg-Nr. {belegnr}). Nächste Fälligkeit gesetzt.", "erfolg")
     conn.close()
-    return redirect(request.referrer or url_for("finanzen.dauerbuchungen"))
+    return redirect(_zurueck(url_for("finanzen.dauerbuchungen")))
 
 
 @bp.route("/dauerbuchungen/<int:did>/speichern", methods=["POST"])

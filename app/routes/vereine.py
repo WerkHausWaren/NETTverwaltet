@@ -8,6 +8,7 @@ Registry (data/system.db) kennt nur die Vereinsliste + den aktiven Verein.
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from ..db import (get_db_fuer, verein_db_pfad, now_iso, aktiver_verein_id,
                   setze_aktiven_verein, alle_vereine, erstelle_verein, loesche_verein)
+from ..html_sicher import zurueck as _zurueck
 
 bp = Blueprint("vereine", __name__, url_prefix="/vereine")
 
@@ -55,7 +56,7 @@ def wechseln(vid):
     if vid in namen:
         setze_aktiven_verein(vid)
         flash(f"Aktiver Verein: {namen[vid] or 'Ohne Namen'}", "info")
-    return redirect(request.referrer or url_for("dashboard.index"))
+    return redirect(_zurueck(url_for("dashboard.index")))
 
 
 @bp.route("/<int:vid>/loeschen", methods=["POST"])

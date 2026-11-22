@@ -8,6 +8,7 @@ Zwei Rechtestufen:
 Alle Pfade werden gegen Path-Traversal abgesichert (Ablage bleibt im Vereins-Wurzelordner).
 """
 import os
+import posixpath
 import shutil
 from datetime import datetime
 
@@ -49,9 +50,22 @@ def aufloesen(vid, relpfad):
     return ziel
 
 
+def normalisiert(relpfad):
+    """Pfad so, wie ihn das Dateisystem auflöst: „./Vorstand“, „X/../Vorstand“, „.\\Vorstand“
+    → „Vorstand“. Alle Rechteprüfungen MÜSSEN darauf arbeiten, nie auf dem rohen Wert –
+    sonst ließe sich der Vorstandsordner mit „./Vorstand/…“ umgehen (CodeQL-Triage 22.11.2026)."""
+    s = posixpath.normpath("/" + (relpfad or "").replace("\\", "/").strip())
+    return "" if s == "/" else s.lstrip("/")
+
+
+def _teile(relpfad):
+    return [t for t in normalisiert(relpfad).split("/") if t]
+
+
 def ist_vorstand(relpfad):
-    teile = [t for t in (relpfad or "").replace("\\", "/").strip("/").split("/") if t]
-    return bool(teile) and teile[0] == VORSTAND_ORDNER
+    teile = _teile(relpfad)
+    # ohne Groß/Klein: auf dem Mac sind „vorstand“ und „Vorstand“ derselbe Ordner
+    return bool(teile) and teile[0].casefold() == VORSTAND_ORDNER.casefold()
 
 
 # ------------------- Ordner-Sichtbarkeit je Gruppe ------------------------
@@ -71,10 +85,13 @@ def darf_sehen(relpfad, regeln, gruppen_ids):
     if not regeln:
         return True
     gruppen = set(gruppen_ids or [])
+    regeln_cf = {}
+    for pfad, gids in regeln.items():
+        regeln_cf.setdefault(normalisiert(pfad).casefold(), set()).update(gids)
     akk = ""
-    for teil in [t for t in (relpfad or "").replace("\\", "/").strip("/").split("/") if t]:
+    for teil in _teile(relpfad):
         akk = (akk + "/" + teil).strip("/")
-        erlaubt = regeln.get(akk)
+        erlaubt = regeln_cf.get(akk.casefold())
         if erlaubt and not (gruppen & erlaubt):
             return False
     return True

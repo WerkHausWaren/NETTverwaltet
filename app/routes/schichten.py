@@ -279,10 +279,8 @@ def _datum_gueltig(d):
 
 def _sicher_weiter(standard):
     """weiter-Parameter nur als lokalen Pfad übernehmen (kein Open Redirect)."""
-    ziel = (request.form.get("weiter") or "").strip()
-    if ziel.startswith("/") and not ziel.startswith("//"):
-        return ziel
-    return standard
+    from ..html_sicher import lokales_ziel
+    return lokales_ziel(request.form.get("weiter"), standard)
 
 
 def waehlbare_mitglieder(conn, vid):

@@ -63,7 +63,8 @@ def create_app():
         from flask import session as _session, redirect as _redirect, request as _request
         if code in _sprache.SPRACHEN:
             _session["sprache"] = code
-        ziel = _request.referrer or url_for("portal.home")
+        from .html_sicher import zurueck as _zurueck
+        ziel = _zurueck(url_for("portal.home"))
         return _redirect(ziel)
 
     # Wöchentliche Datensicherung: beim Start prüfen, ob eine fällig ist

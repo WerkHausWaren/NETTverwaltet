@@ -13,6 +13,7 @@ from ..db import (get_db, get_einstellungen, now_iso, aktiver_verein_id,
                   benutzer_ids_mit_rolle, oeffentliche_suche)
 from ..funktionen import wer
 from .. import caldav, push, ics_export, termin_maske, termin_extras
+from ..html_sicher import zurueck as _zurueck
 
 bp = Blueprint("termine", __name__, url_prefix="/termine")
 
@@ -830,7 +831,7 @@ def abgesagt_setzen(tid):
         flash(f"🔁 {betroffen} Termine der Serie {wort}."
               + (" Tipp: Die Angemeldeten über „Info/Voucher senden“ informieren." if neu else ""),
               "info" if neu else "erfolg")
-        return redirect(request.referrer or url_for("termine.detail", tid=tid))
+        return redirect(_zurueck(url_for("termine.detail", tid=tid)))
     conn.execute("UPDATE termine SET abgesagt=? WHERE id=?", (neu, tid))
     conn.commit()
     conn.close()
@@ -839,7 +840,7 @@ def abgesagt_setzen(tid):
               "„Info/Voucher senden“ mit der Vorlage „Absage“ informieren.", "info")
     else:
         flash("Absage aufgehoben – die Veranstaltung findet wieder statt.", "erfolg")
-    return redirect(request.referrer or url_for("termine.detail", tid=tid))
+    return redirect(_zurueck(url_for("termine.detail", tid=tid)))
 
 
 @bp.route("/<int:tid>/aktiv", methods=["POST"])
@@ -870,7 +871,7 @@ def aktiv_setzen(tid):
             flash("Auf Entwurf gesetzt und aus Nextcloud entfernt.", "info")
     else:
         flash("Veröffentlicht." if neu_aktiv else "Auf Entwurf gesetzt.", "erfolg")
-    return redirect(request.referrer or url_for("termine.detail", tid=tid))
+    return redirect(_zurueck(url_for("termine.detail", tid=tid)))
 
 
 @bp.route("/<int:tid>/kategorie", methods=["POST"])
