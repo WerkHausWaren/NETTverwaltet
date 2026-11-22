@@ -10,7 +10,7 @@ pyotp>=2.9
 segno>=1.6
 webauthn==2.7.1      # Face ID / Fingerabdruck (Passkeys); 2.7.1 läuft lokal (3.9) und im Image (3.12)
 Pillow>=10.0
-argon2-cffi>=23.0
+argon2-cffi>=25.1.0
 pywebpush>=1.14
 cryptography>=42.0
 # pypdf an Major 6 binden: finanz_vorlagen._formularfelder nutzt die private
