@@ -6,7 +6,7 @@ gunicorn>=21.0
 Flask-Login>=0.6
 Flask-WTF>=1.2
 requests>=2.31
-pyotp>=2.9
+pyotp>=2.12.1
 segno>=1.6
 webauthn==2.7.1      # Face ID / Fingerabdruck (Passkeys); 2.7.1 läuft lokal (3.9) und im Image (3.12)
 Pillow>=10.0
