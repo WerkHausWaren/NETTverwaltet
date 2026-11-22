@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Mein Bankzugang{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h1>💳 Mein Bankzugang</h1>
+        <div class="sub">Mit deinen eigenen Zugangsdaten bei der Bank anmelden</div>
+    </div>
+</div>
+
+<div class="hilfe-box">
+    <strong>Warum jede Person eigene Daten braucht.</strong>
+    Das <b>Konto</b> gehört dem Verein
+    {% if e.bank_iban %}(<b>{{ e.bank_iban }}</b>{% if e.konto_bezeichnung %}, {{ e.konto_bezeichnung }}{% endif %}){% endif %} –
+    daran ändert sich nichts. Nur die <b>Anmeldung</b> ist persönlich: Du meldest dich
+    mit deinem eigenen Online-Banking-Zugang an, so wie du es auch in der Banking-App
+    tust. Deine PIN wird verschlüsselt gespeichert und ist für niemanden sonst sichtbar –
+    auch nicht für andere Vorstandsmitglieder.
+</div>
+
+{% if not bank_verfuegbar %}
+<div class="karte" style="border-left:4px solid var(--warn-rand)">
+    <p style="margin:0">⚠️ Die Bank-Bibliothek ist auf diesem Server nicht installiert –
+        der Direktabruf steht deshalb gerade nicht zur Verfügung.</p>
+</div>
+{% endif %}
+
+<form method="post">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+<div class="karte">
+    <h2 style="margin-top:0">Deine Anmeldung bei der Bank</h2>
+    <div class="feld-reihe">
+        <div class="feld">
+            <label for="benutzer">Anmeldename / Legitimations-ID</label>
+            <input type="text" id="benutzer" name="benutzer" autocomplete="off"
+                   value="{{ z.bank_fints_benutzer or '' }}">
+            <div class="feld-hinweis">Derselbe Name, mit dem du dich im Online-Banking anmeldest.</div>
+        </div>
+        <div class="feld">
+            <label for="pin">Online-Banking-PIN</label>
+            <input type="password" id="pin" name="pin" value="" autocomplete="new-password"
+                   placeholder="{{ 'gespeichert – leer lassen zum Behalten' if z.bank_fints_pin else '' }}">
+            <div class="feld-hinweis">Die PIN für den <b>Online-Zugang</b> – nicht die Karten-PIN.</div>
+        </div>
+    </div>
+    <div class="feld">
+        <label for="produkt_id">Produkt-Kennung (optional)</label>
+        <input type="text" id="produkt_id" name="produkt_id" autocomplete="off"
+               value="{{ z.bank_fints_produkt_id or '' }}">
+        <div class="feld-hinweis">Nur nötig, wenn deine Bank ausdrücklich danach fragt. Sonst leer lassen.</div>
+    </div>
+
+    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn">Speichern</button>
+        {% if z.bank_fints_benutzer %}
+        <button class="btn btn-sekundaer" name="loeschen" value="1"
+                onclick="return confirm('Deinen Bankzugang wirklich entfernen?')">Zugang entfernen</button>
+        {% endif %}
+        <a class="btn btn-sekundaer" href="{{ url_for('bank.index') }}">Zu den Umsätzen →</a>
+    </div>
+</div>
+</form>
+
+<div class="karte">
+    <h2 style="margin-top:0">Stand</h2>
+    {% if zugang and not fehlt %}
+    <p style="margin:0 0 6px">✅ Dein Zugang ist vollständig hinterlegt – du kannst Umsätze abrufen.</p>
+    {% if z.bank_fints_client_data %}
+    <p class="feld-hinweis" style="margin:0">🔗 Deine Anmeldung ist bei der Bank als Gerät bekannt.
+        Dadurch fragt die Bank nur noch etwa alle 90 Tage nach einer TAN – dazwischen läuft
+        der Abruf ohne Nachfrage.</p>
+    {% else %}
+    <p class="feld-hinweis" style="margin:0">Beim ersten Abruf fragt die Bank nach einer TAN.
+        Danach merkt sie sich diese Anmeldung, und die nächsten Abrufe laufen für etwa
+        90 Tage ohne TAN.</p>
+    {% endif %}
+    {% elif zugang and fehlt %}
+    <p style="margin:0">⚠️ Es fehlt noch: <b>{{ fehlt | join(', ') }}</b>.
+        {% if 'Bankleitzahl (BLZ)' in fehlt or 'FinTS-Adresse (URL)' in fehlt %}
+        <span class="feld-hinweis">Bankleitzahl und FinTS-Adresse gehören zum Vereinskonto – die trägt
+        der Vorstand einmalig unter <a href="{{ url_for('einstellungen.index') }}">Einstellungen</a> ein
+        (sie ergeben sich meist automatisch aus der IBAN).</span>{% endif %}</p>
+    {% else %}
+    <p style="margin:0">Du hast noch keinen Bankzugang hinterlegt. Trag oben deinen Anmeldenamen
+        und deine PIN ein – dann kannst du die Umsätze des Vereinskontos abrufen.</p>
+    {% endif %}
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Gut zu wissen</h2>
+    <ul class="punkte" style="margin-bottom:0">
+        <li><b class="akz">Drei Fehlversuche sperren den Zugang.</b> Wenn die Anmeldung nicht
+            klappt, prüf deine Daten lieber einmal im Online-Banking im Browser, statt es
+            mehrfach zu versuchen.</li>
+        <li><b class="akz">Die TAN lässt sich nicht abschalten.</b> Das schreibt die
+            Zahlungsdiensterichtlinie vor. Was geht: Die Bank merkt sich deine Anmeldung und
+            fragt dann nur noch etwa alle 90 Tage nach.</li>
+        <li><b class="akz">Freischaltung nötig.</b> Manche Banken – besonders Sparkassen –
+            verlangen, dass der Zugang für Finanzsoftware („FinTS/HBCI") erst freigeschaltet
+            wird. Das erledigt die Bank auf Nachfrage.</li>
+        <li><b class="akz">Wer sieht was?</b> Deine Zugangsdaten gehören nur dir. Die
+            abgerufenen Umsätze landen im gemeinsamen Kassenbuch – die sieht der Vorstand.</li>
+    </ul>
+</div>
+
+{% endblock %}

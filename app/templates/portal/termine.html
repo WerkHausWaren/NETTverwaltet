@@ -1,0 +1,430 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Termine{% endblock %}
+{% block inhalt %}
+{% with untertitel = ((anzahl_termine ~ (' Termin' if anzahl_termine == 1 else ' Termine') ~ (' ab heute' if zeitraum == 'kommend' and not q and not kat and not ziele and not bis else '')) if termine else '') %}
+{% include "portal/_ws_titel.html" %}
+{% endwith %}
+{% if highlights %}
+<section class="hl-bereich" aria-label="Highlights">
+    {% for h in highlights %}{% include "portal/_highlight_karte.html" %}{% endfor %}
+</section>
+{% endif %}
+{# Kompakter Kopf (19.11.2026): eine Leiste mit Ansicht, Suche, Zeitraum und Merkliste,
+   darunter EINE Knopfleiste mit Schnellfiltern, Kategorien und „Für wen“. #}
+{% set filter_aktiv = q or kat or gruppe or ziele or zeitraum != 'kommend' or (von and von != heute_iso) or bis %}
+{% set suche_aktiv = q or zeitraum != 'kommend' or (von and von != heute_iso) or bis %}
+<div class="tl-kopfleiste{{ ' suche-offen' if suche_aktiv }}">
+    <div class="tl-ansicht">
+        <span class="ans-tab aktiv">Liste</span>
+        <a class="ans-tab" href="{{ url_for('portal.kalender', ansicht='monat') }}">Monat</a>
+        <a class="ans-tab" href="{{ url_for('portal.kalender', ansicht='woche') }}">Woche</a>
+    </div>
+    <button type="button" class="tl-lupe" aria-controls="tl-suche" aria-expanded="{{ 'true' if suche_aktiv else 'false' }}"
+            title="Suchen und Zeitraum wählen" aria-label="Suchen und Zeitraum wählen"
+            onclick="var k=this.closest('.tl-kopfleiste'),o=k.classList.toggle('suche-offen');this.setAttribute('aria-expanded',o);if(o)k.querySelector('.tl-q').focus()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button>
+    <form method="get" class="tl-suche" id="tl-suche" role="search">
+        {% if kat %}<input type="hidden" name="kat" value="{{ kat }}">{% endif %}
+        {% for z in ziele %}<input type="hidden" name="ziel" value="{{ z }}">{% endfor %}
+        {% if gruppe %}<input type="hidden" name="gruppe" value="{{ gruppe }}">{% endif %}
+        <input type="search" name="q" value="{{ q }}" placeholder="Termine durchsuchen …" aria-label="Termine durchsuchen" class="tl-q">
+        <select name="zeitraum" aria-label="Zeitraum" class="tl-zr"
+                onchange="var v=this.form.von;if(v&&v.value===v.dataset.standard)v.value='';this.form.submit()">
+            <option value="kommend" {{ 'selected' if zeitraum=='kommend' }}>Kommende</option>
+            <option value="alle" {{ 'selected' if zeitraum=='alle' }}>Alle</option>
+            <option value="vergangen" {{ 'selected' if zeitraum=='vergangen' }}>Vergangene</option>
+        </select>
+        <input type="date" name="von" value="{{ von or (heute_iso if zeitraum == 'kommend' else '') }}" data-standard="{{ heute_iso }}"
+               onchange="this.form.submit()" aria-label="Datum von" title="Datum von" class="tl-von">
+        <span class="tl-bis-strich" aria-hidden="true">–</span>
+        <input type="date" name="bis" value="{{ bis }}" onchange="this.form.submit()" aria-label="Datum bis" title="Datum bis" class="tl-bis">
+        <button class="mp-btn tl-los">Suchen</button>
+    </form>
+    <a class="merk-tab" href="{{ url_for('portal.merkliste') }}" title="Mein Merkzettel" aria-label="Mein Merkzettel">♥{% set mz = merk_zahl() %}<span class="merk-zahl">{{ mz if mz else '' }}</span></a>
+</div>
+{% set schnell_aktiv = (von, bis) %}
+<nav class="tl-chips" aria-label="Filter">
+    <a class="tl-chip{{ ' aktiv' if not filter_aktiv }}" href="{{ url_for('portal.termine') }}">Alle</a>
+    <a class="tl-chip{{ ' aktiv' if schnell_aktiv == schnell.heute }}" href="{{ url_for('portal.termine', von=schnell.heute[0], bis=schnell.heute[1], kat=kat or None, ziel=ziele or None, gruppe=gruppe or None) }}">Heute</a>
+    <a class="tl-chip{{ ' aktiv' if schnell_aktiv == schnell.wochenende and schnell.wochenende != schnell.heute }}" href="{{ url_for('portal.termine', von=schnell.wochenende[0], bis=schnell.wochenende[1], kat=kat or None, ziel=ziele or None, gruppe=gruppe or None) }}">Wochenende</a>
+    <a class="tl-chip{{ ' aktiv' if schnell_aktiv == schnell.woche }}" href="{{ url_for('portal.termine', von=schnell.woche[0], bis=schnell.woche[1], kat=kat or None, ziel=ziele or None, gruppe=gruppe or None) }}">7 Tage</a>
+    {% if ziel_knoepfe %}<span class="tl-trenner" aria-hidden="true"></span>
+    {% for zk, zn in ziel_knoepfe %}
+    {% set neu_ziele = (ziele | reject('equalto', zk) | list) if zk in ziele else (ziele + [zk]) %}
+    <a class="tl-chip ziel{{ ' aktiv' if zk in ziele }}" aria-pressed="{{ 'true' if zk in ziele else 'false' }}"
+       href="{{ url_for('portal.termine', ziel=neu_ziele or None, kat=kat or None, gruppe=gruppe or None, von=von or None, bis=bis or None, q=q or None) }}">{{ zn }}</a>
+    {% endfor %}{% endif %}
+    <span class="tl-trenner" aria-hidden="true"></span>
+    {% for kn in kat_knoepfe %}
+    <a class="tl-chip kat{{ ' aktiv' if kn.aktiv }}" style="--kf:{{ kn.farbe|hexfarbe('var(--mp)') }}"
+       href="{{ url_for('portal.termine', kat=(kn.kat if kn.kat and not kn.aktiv else None), gruppe=(kn.gruppe if kn.gruppe and not kn.aktiv else None), von=von or None, bis=bis or None, ziel=ziele or None, q=q or None) }}">{{ kn.label }}</a>
+    {% endfor %}
+    {% if filter_aktiv %}<a class="tl-chip tl-zurueck" href="{{ url_for('portal.termine') }}">Filter zurücksetzen</a>{% endif %}
+</nav>
+<div class="tl-neben">
+
+<div class="mp-karte tl-liste">
+    {% if termine %}
+    {# tl-raster: mobil ein normaler Block; im Website-Stil (Gäste am Computer) ein Kartenraster #}
+    <div class="tl-raster">
+        {% set MONL = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'] %}
+        {# Nachladen (21.11.2026): ohne Filter zuerst nur 20 Termine, der Rest steckt in Portionen
+           (data-portion) und wird per Knopf aufgeklappt. Ein Tag wird nie geteilt; schmale
+           „Raum belegt“-Zeilen zählen nicht mit. Alles bleibt im Seitencode (Google, Suche). #}
+        {% set PORTION = 20 %}
+        {% set ns = namespace(portion=1, n=0) %}
+        {% for t in termine %}
+        {% if not loop.first and t.datum != termine[loop.index0 - 1].datum and ns.n >= ns.portion * PORTION %}{% set ns.portion = ns.portion + 1 %}{% endif %}
+        {% set teil = ns.portion if not filter_aktiv else 1 %}
+        {% if not t.verborgen %}{% set ns.n = ns.n + 1 %}{% endif %}
+        {% set weg = ' tl-weg' if teil > 1 else '' %}
+        {% set si = schicht_info.get(t.id) %}
+        {% set MONK = ['Jan.', 'Feb.', 'März', 'Apr.', 'Mai', 'Juni', 'Juli', 'Aug.', 'Sep.', 'Okt.', 'Nov.', 'Dez.'] %}
+        {% if loop.first or t.datum[0:7] != termine[loop.index0 - 1].datum[0:7] %}
+        <div class="tl-monatskopf{{ weg }}" data-portion="{{ teil }}">{{ MONL[(t.datum[5:7]|int) - 1] }} {{ t.datum[0:4] }}</div>
+        {% endif %}
+        {# Handy: Tageskopf statt Datumsspalte – „Heute · Do, 19. Nov.“ (klebt beim Scrollen) #}
+        {% if loop.first or t.datum != termine[loop.index0 - 1].datum %}
+        <div class="tl-tageskopf{{ weg }}" data-portion="{{ teil }}">{% if t.hinweis and t.hinweis.tag %}<b>{{ t.hinweis.tag }}</b> · {% endif %}{{ t.datum|wt }}, {{ t.datum[8:10]|int }}. {{ MONK[(t.datum[5:7]|int) - 1] }}{% if t.datum[0:4] != heute_iso[0:4] %} {{ t.datum[0:4] }}{% endif %}</div>
+        {% endif %}
+        {% set anmeldbar = not t.abgesagt and design and design.modul_veranstaltungen and t.anmeldung_aktiv and t.datum >= heute_iso and (not t.anmeldeschluss or t.anmeldeschluss >= heute_iso) %}
+        {% set frei = (t.max_teilnehmer - t.belegt) if (anmeldbar and t.max_teilnehmer) else None %}
+        <a href="{{ termin_link(t) }}" data-portion="{{ teil }}" class="tl-eintrag{{ weg }}{{ ' tl-letzt' if loop.last }}{{ ' ist-abgesagt' if t.abgesagt }}{{ ' ist-verborgen' if t.verborgen }}" style="--tf:{{ t.farbe|hexfarbe('var(--linie)') }};--tf-text:{{ t.farbe|kontrast if t.farbe else '#fff' }}">
+            {# Vorschaubild: nur im Website-Stil sichtbar; display:none + loading=lazy lädt mobil nichts #}
+            {% if t.bild %}<img class="tl-bild" src="{{ url_for('termine.bild', tid=t.id, v=t.bild) }}" alt="" loading="lazy">
+            {% elif t.kat_bild and t.kategorie_id %}<img class="tl-bild" src="{{ url_for('portal.kategorie_bild', kid=t.kategorie_id, v=t.kat_bild) }}" alt="" loading="lazy">
+            {% else %}<span class="tl-platz" aria-hidden="true"></span>{% endif %}
+            {# Website-Stil: Banner quer über das Bild bei abgesagten bzw. ausgebuchten Terminen #}
+            {% if t.abgesagt %}<span class="tl-banner abgesagt"><span>Abgesagt</span></span>
+            {% elif frei is not none and frei <= 0 %}<span class="tl-banner voll"><span>Ausgebucht</span></span>{% endif %}
+            <div class="tl-datum{{ ' bald' if t.hinweis and t.hinweis.tag and not t.verborgen }}" style="min-width:52px;text-align:center">
+                <div class="feld-hinweis tl-wt" style="font-size:11px">{{ t.hinweis.tag if t.hinweis and t.hinweis.tag else t.datum|wt }}</div>
+                <div class="tl-tag" style="font-weight:800;color:{{ t.farbe|hexfarbe('var(--mp)') }};font-size:18px">{{ t.datum[8:10] }}</div>
+                <div class="feld-hinweis tl-mj">{{ t.datum[5:7] }}/{{ t.datum[0:4] }}</div>
+                <div class="tl-monat">{{ MONK[(t.datum[5:7]|int) - 1] }}</div>
+            </div>
+            {% if (t.preis or 0) > 0 and not t.verborgen %}<span class="tl-preis">{{ ('%.2f'|format(t.preis))|replace('.', ',') }} €</span>{% endif %}
+            <div class="tl-text" style="flex:1;min-width:0">
+                <div class="tl-titel" style="font-weight:600{{ ';color:var(--text-schwach);text-decoration:line-through' if t.abgesagt }}">{% if t.serie_id %}<span title="Teil einer Terminreihe">🔁</span> {% endif %}{{ t.titel }}
+                    {% if t.bewertung %}<span style="font-size:12.5px;font-weight:700;color:var(--warn-text);white-space:nowrap;text-decoration:none">⭐ {{ ('%.1f'|format(t.bewertung))|replace('.', ',') }}</span>{% endif %}</div>
+                {% if t.wiederkehrend %}<div class="tl-regel">Regelmäßig: {{ t.wiederkehrend.muster }}</div>{% endif %}
+                {% if t.verborgen %}<div class="tl-belegt">{% if t.uhrzeit %}{{ t.uhrzeit }}{% if t.uhrzeit_bis %}–{{ t.uhrzeit_bis }}{% endif %} Uhr · {% endif %}{{ 'Mitgliederveranstaltung' if t.nur_mitglieder else 'Raum belegt' }}</div>{% endif %}
+                {# Handy: EINE Zeile „19:00 Uhr · WerkHaus · ● Kino“ – Regelmäßiges ersetzt die Uhrzeit #}
+                <div class="tl-kurz">{% if t.wiederkehrend %}{{ t.wiederkehrend.muster }}{% elif t.uhrzeit %}{{ t.uhrzeit }}{% if t.uhrzeit_bis %}–{{ t.uhrzeit_bis }}{% endif %} Uhr{% endif %}{% if t.ort %}{% if t.wiederkehrend or t.uhrzeit %} · {% endif %}{{ t.ort.split(',')[0] }}{% endif %}{% if t.kategorie %}<span class="tl-kurz-kat">{{ t.kategorie }}</span>{% endif %}</div>
+                {% set ziele = zielgruppen_liste(t.zielgruppen) if not t.verborgen else [] %}
+                {% set eintritt_text = ('Eintritt frei' if t.eintritt_art == 'frei' else ('Spende erwünscht' if t.eintritt_art == 'spende' else '')) if not t.verborgen else '' %}
+                {% set mit_badges = anmeldbar or t.abgesagt or t.nur_mitglieder or t.sponsor_name or t.kategorie
+                                    or (t.hinweis and t.hinweis.eile) or eintritt_text or ziele or ((t.preis or 0) > 0 and not t.verborgen) %}
+                <div class="tl-zeile">
+                <div class="feld-hinweis tl-meta">{% if t.uhrzeit %}<span class="tl-ic">🕒 </span>{{ t.uhrzeit }}{% if t.uhrzeit_bis %}–{{ t.uhrzeit_bis }}{% endif %} Uhr{% endif %}{% if t.ort %} · <span class="tl-ic">📍 </span>{{ t.ort }}{% endif %}</div>
+                {% if mit_badges %}
+                <div class="tl-badges" style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap">
+                    {% if t.kategorie %}<span class="tl-kat-pille" style="background:{{ (t.farbe|hexfarbe ~ '1c') if t.farbe else 'var(--neutral-grund)' }};color:{{ t.farbe|hexfarbe('var(--neutral-text)') }};border:1px solid {{ (t.farbe|hexfarbe ~ '66') if t.farbe else 'var(--linie)' }};border-radius:999px;padding:2px 9px;font-size:12px;font-weight:700">{{ t.kategorie }}</span>{% endif %}
+                    {% if t.abgesagt %}
+                    <span class="abgesagt-badge">⛔ Abgesagt</span>
+                    {% elif frei is not none and frei <= 0 %}
+                    <span class="voll-va-badge">Ausgebucht<span class="wl">· Warteliste möglich</span></span>
+                    {% elif frei is not none and frei <= 5 %}
+                    <span class="wenig-badge">🔥 {% if current_user.is_authenticated %}Nur noch {{ frei }} {{ 'Platz' if frei == 1 else 'Plätze' }} frei{% else %}Nur noch wenige Plätze frei{% endif %}</span>
+                    {% elif frei is not none %}
+                    <span class="frei-badge">🪑 {% if current_user.is_authenticated %}{{ frei }} {% endif %}Plätze frei</span>
+                    {% elif anmeldbar %}
+                    <span class="anmeld-badge">🎟️ Anmeldung möglich</span>
+                    {% endif %}
+                    {% if t.nur_mitglieder %}<span class="intern-badge">👥 Nur für Mitglieder</span>{% endif %}
+                    {% if t.hinweis and t.hinweis.eile and not t.abgesagt and not t.verborgen %}<span class="eile-badge">{{ t.hinweis.eile }}</span>{% endif %}
+                    {% if (t.preis or 0) > 0 and not t.verborgen %}<span class="eintritt-badge tl-preis-badge">{{ ('%.2f'|format(t.preis))|replace('.', ',') }} €</span>
+                    {% elif eintritt_text %}<span class="eintritt-badge">{{ eintritt_text }}</span>{% endif %}
+                    {% for zk, zn in ziele %}<span class="ziel-badge">{{ zn }}</span>{% endfor %}
+                    {% if t.sponsor_name or t.sponsor_logo %}<span class="tl-partner-badge"{% if t.sponsor_url %} role="link" tabindex="0" data-href="{{ t.sponsor_url|sichere_url }}" data-neu-tab="1"{% endif %}
+                          title="Mit freundlicher Unterstützung von {{ t.sponsor_name or 'unserem Partner' }}{{ ' – öffnet in einem neuen Tab' if t.sponsor_url }}">{% if t.sponsor_logo %}<img src="{{ url_for('termine.sponsor_logo', tid=t.id) }}" alt="{{ t.sponsor_name or 'Logo unseres Partners' }}" loading="lazy">{% else %}🤝 {{ t.sponsor_name }}{% endif %}</span>{% endif %}
+                </div>
+                {% endif %}
+                </div>
+                {# Gäste ohne Anmeldung: nur Kategorien, keine Zahlen – deshalb auch kein Auslastungsbalken #}
+                {% if mit_badges and frei is not none and current_user.is_authenticated %}
+                <div class="auslastung" title="{{ 'Ausgebucht' if frei <= 0 else (frei ~ ' Plätze frei') }}">
+                    <div style="width:{{ (100 * t.belegt / t.max_teilnehmer) | round | int if t.max_teilnehmer else 0 }}%;
+                                background:{{ 'var(--rot)' if frei <= 0 else ('var(--gelb)' if frei <= 5 else 'var(--gruen)') }}"></div>
+                </div>
+                {% endif %}
+                {# Website-Stil: Teaser + Anmelde-Hinweis (mobil ausgeblendet) #}
+                {% if t.beschreibung and not t.verborgen %}
+                <div class="tl-teaser">{{ t.beschreibung|teaser(170) }}</div>
+                <div class="tl-mehr">Mehr anzeigen</div>
+                {% endif %}
+                {# Website-Stil: Mitwirkende (Referent:in, Trainer:in, Band) und Sponsor/Kooperation mit Logo #}
+                {% if not t.verborgen %}
+                {% if t.mitwirkende %}<div class="tl-mit">Mit {{ t.mitwirkende }}</div>{% endif %}
+                {% if t.trailer_url %}{% set ist_film = ('kino' in ((t.kategorie or '') ~ ' ' ~ t.titel)|lower) or ('film' in ((t.kategorie or '') ~ ' ' ~ t.titel)|lower) %}
+                <span class="tl-play" role="link" tabindex="0" data-href="{{ t.trailer_url|sichere_url }}" data-neu-tab="1"
+                      title="öffnet in einem neuen Tab"><i aria-hidden="true">▶</i>{{ 'Trailer ansehen' if ist_film else 'Hörprobe anhören' }}</span>{% endif %}
+                {% if t.sponsor_name or t.sponsor_logo %}
+                <div class="tl-partner">
+                    {% if not t.sponsor_logo %}<span class="tl-partner-text">Mit freundlicher Unterstützung von</span>{% endif %}
+                    <span class="tl-partner-inhalt"{% if t.sponsor_url %} role="link" tabindex="0" data-href="{{ t.sponsor_url|sichere_url }}" data-neu-tab="1"{% endif %}
+                          title="Mit freundlicher Unterstützung von {{ t.sponsor_name or 'unserem Partner' }}{{ ' – öffnet in einem neuen Tab' if t.sponsor_url }}">
+                        {% if t.sponsor_logo %}<img src="{{ url_for('termine.sponsor_logo', tid=t.id) }}" alt="{{ t.sponsor_name or 'Logo unseres Partners' }}" loading="lazy">
+                        {% else %}<span>{{ t.sponsor_name }}</span>{% if t.sponsor_url %}<span class="tl-extern" aria-hidden="true">↗</span>{% endif %}{% endif %}
+                    </span>
+                </div>
+                {% endif %}
+                {% endif %}
+                {% if not t.verborgen and not t.abgesagt and t.datum >= heute_iso %}
+                <div class="tl-aktion">
+                {% if anmeldbar and t.anmeldung_token %}
+                    <span class="tl-anmelden" role="link" tabindex="0"
+                          data-href="{{ url_for('veranstaltungen.oeffentlich', token=t.anmeldung_token) }}">{{ 'Auf die Warteliste' if (frei is not none and frei <= 0) else 'Jetzt anmelden' }}</span>
+                {% elif not t.anmeldung_aktiv %}
+                    <span class="tl-vorbei">Einfach vorbeikommen – keine Anmeldung nötig</span>
+                {% endif %}
+                {# Website-Stil: schnell aktiv werden – Kalender, Route, alle Termine einer Reihe #}
+                <span class="tl-werkzeuge">
+                    <span class="tl-werkzeug" role="link" tabindex="0" data-href="{{ url_for('portal.termin_ics', tid=t.id) }}"
+                          title="In meinen Kalender übernehmen">Kalender</span>
+                    {% if t.ort %}<span class="tl-werkzeug" role="link" tabindex="0" data-neu-tab="1"
+                          data-href="https://www.google.com/maps/search/?api=1&query={{ t.ort | urlencode }}"
+                          title="Weg dorthin – öffnet die Karte in einem neuen Tab">Route</span>{% endif %}
+                    {% if t.wiederkehrend %}<span class="tl-werkzeug" role="link" tabindex="0"
+                          data-href="{{ url_for('portal.termine', q=t.wiederkehrend.suche) }}">Alle {{ t.wiederkehrend.anzahl }} Termine ›</span>{% endif %}
+                </span>
+                </div>
+                {% endif %}
+                {% if si and si.gesamt %}
+                <div style="display:flex;align-items:center;gap:6px;margin-top:7px;flex-wrap:wrap">
+                    {% for name in si.namen %}<span class="schicht-name">{{ name }}</span>{% endfor %}
+                    {% if si.offen %}<span class="offen-badge">{{ si.offen }} offen</span>{% endif %}
+                    {% if not si.offen %}<span class="voll-badge">✓ besetzt</span>{% endif %}
+                </div>
+                {% endif %}
+            </div>
+            {% if not t.verborgen %}<span class="teilen" role="button" tabindex="0" title="Termin teilen" aria-label="Termin teilen: {{ t.titel }}"
+                  data-url="{{ termin_link(t) }}"
+                  data-text="{{ t.titel }} – {{ t.datum|wt }}, {{ t.datum[8:10] }}.{{ t.datum[5:7] }}.{{ t.datum[0:4] }}{% if t.uhrzeit %}, {{ t.uhrzeit }} Uhr{% endif %}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg></span>{% endif %}
+            {% if not t.verborgen %}<span class="herz{{ ' an' if t.id in (gemerkt or []) }}" role="button" tabindex="0" data-tid="{{ t.id }}"
+                  aria-pressed="{{ 'true' if t.id in (gemerkt or []) else 'false' }}"
+                  title="{{ 'Gemerkt – nochmal tippen zum Entfernen' if t.id in (gemerkt or []) else 'Auf den Merkzettel' }}"></span>{% endif %}
+            {# Handy: Anmelde-Symbol neben Teilen und Herz – nur wo man sich anmelden kann (19.11.2026) #}
+            {% if anmeldbar and t.anmeldung_token and not t.verborgen %}{% set wl_voll = frei is not none and frei <= 0 %}
+            <span class="tl-anm-ic{{ ' voll' if wl_voll }}" role="link" tabindex="0"
+                  data-href="{{ url_for('veranstaltungen.oeffentlich', token=t.anmeldung_token) }}"
+                  title="{{ 'Auf die Warteliste' if wl_voll else 'Jetzt anmelden' }}" aria-label="{{ 'Auf die Warteliste' if wl_voll else 'Jetzt anmelden' }}: {{ t.titel }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a3 3 0 0 0 0 6v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a3 3 0 0 0 0-6z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg></span>
+            {% endif %}
+            <div class="tl-pfeil" style="align-self:center;color:var(--text-schwach)">›</div>
+        </a>
+        {% endfor %}
+    </div>
+    {% if not filter_aktiv and ns.portion > 1 %}
+    <div class="tl-mehr-wrap">
+        <button type="button" class="tl-mehr-knopf" data-portionen="{{ ns.portion }}">Weitere Termine anzeigen</button>
+        <span class="tl-mehr-rest feld-hinweis"></span>
+    </div>
+    <script>
+    (function () {
+        var knopf = document.querySelector(".tl-mehr-knopf");
+        if (!knopf) return;
+        var max = parseInt(knopf.getAttribute("data-portionen"), 10) || 1, offen = 1;
+        var rest = document.querySelector(".tl-mehr-rest");
+        var schluessel = "tl-portion:" + location.pathname + location.search;
+        function zaehle() {
+            var n = document.querySelectorAll("a.tl-eintrag.tl-weg:not(.ist-verborgen)").length;
+            rest.textContent = n ? "noch " + n + (n === 1 ? " Termin" : " Termine") : "";
+            if (!n) knopf.parentNode.style.display = "none";
+        }
+        function zeige(bis) {
+            for (var p = offen + 1; p <= Math.min(bis, max); p++) {
+                document.querySelectorAll('[data-portion="' + p + '"]').forEach(function (el) { el.classList.remove("tl-weg"); });
+            }
+            offen = Math.max(offen, Math.min(bis, max));
+            try { sessionStorage.setItem(schluessel, String(offen)); } catch (e) {}
+            zaehle();
+        }
+        knopf.addEventListener("click", function () { zeige(offen + 1); });
+        // Zurück aus einem Termin: bereits aufgeklappte Portionen wieder zeigen
+        try { var gemerkt = parseInt(sessionStorage.getItem(schluessel), 10); if (gemerkt > 1) zeige(gemerkt); } catch (e) {}
+        zaehle();
+    })();
+    </script>
+    {% endif %}
+    {% else %}
+        <p class="feld-hinweis">{% if filter_aktiv %}Keine Termine gefunden. Versuch andere Suchbegriffe oder Filter.{% else %}Aktuell sind keine Termine eingetragen.{% endif %}</p>
+    {% endif %}
+</div>
+</div>
+
+<style>
+    .schicht-name { display:inline-block; padding:2px 9px; border-radius:999px; background:var(--mp); color:var(--auf-primaer);
+                    font-size:12px; font-weight:600; white-space:nowrap; }
+    .ini { display:inline-grid; place-items:center; width:26px; height:26px; border-radius:50%;
+           background:var(--mp); color:var(--auf-primaer); font-size:11px; font-weight:700; }
+    .offen-badge { background:var(--fehler-grund); color:var(--fehler-text); border:1px solid var(--fehler-rand); border-radius:999px;
+                   padding:2px 9px; font-size:12px; font-weight:700; }
+    .voll-badge { background:var(--gut-grund); color:var(--gut-text); border:1px solid var(--gut-rand); border-radius:999px;
+                  padding:2px 9px; font-size:12px; font-weight:600; }
+    .anmeld-badge { background:var(--info-grund); color:var(--info-text); border:1px solid var(--info-rand); border-radius:999px;
+                    padding:2px 9px; font-size:12px; font-weight:700; }
+    .frei-badge { background:var(--gut-grund); color:var(--gut-text); border:1px solid var(--gut-rand); border-radius:999px;
+                  padding:2px 9px; font-size:12px; font-weight:700; }
+    .wenig-badge { background:var(--warn-grund); color:var(--warn-text); border:1px solid var(--gelb); border-radius:999px;
+                   padding:2px 9px; font-size:12px; font-weight:700; }
+    .voll-va-badge { background:var(--fehler-grund); color:var(--fehler-text); border:1px solid var(--fehler-rand);
+                     border-radius:999px; padding:2px 10px; font-size:12px; font-weight:800; }
+    .voll-va-badge .wl { font-weight:500; color:var(--text-schwach); margin-left:4px; }
+    .intern-badge { background:var(--neutral-grund); color:var(--neutral-text); border:1px solid var(--linie); border-radius:999px;
+                    padding:2px 9px; font-size:12px; font-weight:700; }
+    .abgesagt-badge { background:var(--fehler-grund); color:var(--fehler-text); border-radius:999px; padding:2px 10px;
+                      font-size:12px; font-weight:800; }
+    .auslastung { height:5px; background:var(--flaeche-3); border-radius:999px; margin-top:6px; max-width:260px; overflow:hidden; }
+    .auslastung div { height:100%; border-radius:999px; }
+    .ans-tab { flex:0 0 auto; padding:7px 14px; border-radius:999px; font-size:14px; font-weight:600;
+               text-decoration:none; color:var(--mp); border:1px solid var(--mp); background:var(--flaeche); }
+    .ans-tab.aktiv { background:var(--mp); color:var(--auf-primaer); }
+    /* Nachladen: noch nicht aufgeklappte Portionen */
+    .tl-weg { display:none !important; }
+    .tl-mehr-wrap { display:flex; flex-direction:column; align-items:center; gap:4px; padding:14px 0 4px; }
+    .tl-mehr-knopf { border:1px solid var(--linie); background:transparent; color:var(--text-hell); border-radius:999px;
+                     padding:6px 16px; font-size:13.5px; font-weight:500; cursor:pointer; }
+    .tl-mehr-knopf::after { content:" ▾"; font-size:11px; }
+    .tl-mehr-knopf:hover, .tl-mehr-knopf:focus-visible { color:var(--text-stark); border-color:var(--text-hell); }
+    .tl-mehr-rest { font-size:12px; }
+    /* Listeneintrag – Werte 1:1 aus dem früheren Inline-Stil (Handy bleibt pixelgleich) */
+    a.tl-eintrag, a.tl-eintrag:hover { display:flex; gap:12px; padding:12px 0 12px 10px; text-decoration:none; color:inherit;
+                  border-left:4px solid var(--tf); border-bottom:1px solid var(--linie); }
+    a.tl-eintrag.tl-letzt { border-bottom:0; }
+    .tl-banner, .tl-werkzeuge, .tl-regel { display:none; }
+    /* Kompakter Kopf: Ansicht · Suche · Zeitraum · Merkliste (mobil zwei Zeilen, am Computer eine) */
+    .tl-kopfleiste { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:12px; }
+    .tl-ansicht { display:inline-flex; gap:2px; padding:3px; border-radius:999px; background:var(--flaeche-3); border:1px solid var(--linie); }
+    .tl-ansicht .ans-tab { border:0; background:transparent; padding:6px 13px; font-size:13.5px; color:var(--text-stark); }
+    .tl-ansicht .ans-tab.aktiv { background:var(--mp); color:var(--auf-primaer); }
+    .merk-tab { margin-left:auto; display:inline-flex; align-items:center; gap:4px; padding:0 4px; font-size:30px; line-height:1;
+                color:#e11d48; text-decoration:none; }
+    .merk-tab .merk-zahl { font-size:15px; font-weight:800; margin-left:0; }
+    .tl-suche { order:3; flex:1 1 100%; display:grid; grid-template-columns:minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+                gap:6px; margin:0; }
+    .tl-suche input, .tl-suche select { width:100%; min-width:0; height:38px; box-sizing:border-box; padding:6px 10px; font-size:14px;
+                border:1px solid var(--linie); border-radius:10px; background:var(--flaeche); color:var(--text); }
+    .tl-q { grid-column:1 / 4; }
+    .tl-zr { grid-column:1; } .tl-von { grid-column:2; } .tl-bis { grid-column:3 / 5; } .tl-bis-strich { display:none; }
+    .tl-suche .tl-los { grid-column:4; grid-row:1; width:auto; height:38px; padding:0 16px; font-size:14px; }
+    @media (min-width: 980px) {
+        .tl-kopfleiste { flex-wrap:nowrap; }
+        .tl-suche { order:0; flex:1; display:flex; align-items:center; }
+        .tl-suche input, .tl-suche select { width:auto; }
+        .tl-suche .tl-q { flex:1 1 200px; width:auto; } .tl-suche .tl-zr { flex:none; }
+        .tl-suche .tl-von, .tl-suche .tl-bis { flex:0 0 150px; width:150px; }
+        .tl-suche .tl-los { flex:none; }
+        .tl-bis-strich { display:inline; color:var(--text-hell); }
+        .merk-tab { margin-left:6px; }
+    }
+    .tl-trenner { flex:none; width:1px; align-self:stretch; margin:3px 4px; background:var(--linie); }
+    /* „Für wen“: mehrere wählbar – Häkchen zeigt, was aktiv ist */
+    .tl-chip.ziel { background:var(--info-grund); color:var(--info-text); border-color:var(--info-rand); }
+    .tl-chip.ziel.aktiv { background:var(--info-text); color:var(--flaeche); border-color:var(--info-text); }
+    .tl-chip.ziel.aktiv::before { content:"✓ "; }
+    .tl-zurueck { color:var(--text-hell); border-style:dashed; font-weight:500; }
+    /* Filterleisten (alle Breiten): mobil waagerecht wischbar */
+    .tl-chips { display:flex; gap:6px; margin-top:10px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none; }
+    .tl-chips::-webkit-scrollbar { display:none; }
+    .tl-chip { flex:none; padding:6px 12px; border-radius:999px; font-size:13px; font-weight:600; text-decoration:none;
+               color:var(--text-stark); background:var(--flaeche); border:1px solid var(--linie); white-space:nowrap; }
+    .tl-chip.aktiv { background:var(--mp); color:var(--auf-primaer); border-color:var(--mp); }
+    .tl-chip.kat::before { content:""; display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--kf); margin-right:6px; }
+    .tl-chip.kat.aktiv { background:var(--kf); border-color:var(--kf); color:#fff; }
+    .tl-chip.kat.aktiv::before { background:#fff; }
+    .tl-monatskopf { font-size:13px; font-weight:800; color:var(--text-hell); text-transform:uppercase; letter-spacing:.05em;
+                     padding:12px 0 4px; }
+    .tl-raster > .tl-monatskopf:first-child { padding-top:4px; }
+    .tl-regel { display:block; margin-top:4px; font-size:13px; font-weight:600; color:var(--text-hell); }
+    .tl-datum.bald .tl-wt { color:var(--mp); font-weight:800; }
+    /* Nicht öffentliche Termine (für Gäste maskiert): bis zum Beginn ausgegraut – kein Angebot, nur Belegung */
+    a.tl-eintrag.ist-verborgen { opacity:.55; }
+    a.tl-eintrag.ist-verborgen .tl-bild, a.tl-eintrag.ist-verborgen .tl-platz { filter:grayscale(1); }
+    .eile-badge { background:var(--warn-grund); color:var(--warn-text); border:1px solid var(--gelb); border-radius:999px;
+                  padding:2px 9px; font-size:12px; font-weight:700; }
+    .eintritt-badge { background:var(--gut-grund); color:var(--gut-text); border:1px solid var(--gut-rand); border-radius:999px;
+                      padding:2px 9px; font-size:12px; font-weight:700; }
+    .ziel-badge { background:var(--info-grund); color:var(--info-text); border:1px solid var(--info-rand); border-radius:999px;
+                  padding:2px 9px; font-size:12px; font-weight:600; }
+    .eile-badge, .eintritt-badge, .ziel-badge { white-space:nowrap; }
+    .tl-eintrag .teilen { align-self:center; display:grid; place-items:center; width:30px; height:30px; color:var(--text-schwach); cursor:pointer; }
+    .tl-eintrag .teilen svg { width:19px; height:19px; }
+    .tl-bild, .tl-platz, .tl-monat, .tl-preis, .tl-teaser, .tl-mehr, .tl-aktion, .tl-mit, .tl-partner, .tl-play { display:none; }
+    .tl-lupe, .tl-tageskopf, .tl-kurz, .tl-belegt, .tl-anm-ic { display:none; }
+    .tl-partner-badge img { display:block; height:24px; max-width:96px; object-fit:contain; background:#fff; border-radius:5px; padding:2px 4px; }
+    .tl-partner-badge[data-href] { cursor:pointer; }
+    /* ---------- Handy (unter 980 px), Wunsch 19.11.2026: kompakter Kopf, Tagesköpfe statt Datumsspalte,
+       kompakte Karte mit Vorschaubild (ohne Bild: Vereinslogo), Kategoriefarbe bleibt links ---------- */
+    @media (max-width: 979px) and (prefers-color-scheme: dark) {
+        :root[data-modus="auto"] a.tl-eintrag .tl-platz { background-color:color-mix(in srgb, var(--tf) 28%, #b9c2d0); }
+    }
+    @media (max-width: 979px) {
+        .tl-kopfleiste { flex-wrap:wrap; }
+        .tl-lupe { display:grid; place-items:center; margin-left:auto; width:38px; height:38px; padding:0; border-radius:50%;
+                   border:1px solid var(--linie); background:var(--flaeche); color:var(--text-stark); cursor:pointer; }
+        .tl-lupe svg { width:19px; height:19px; }
+        .tl-kopfleiste.suche-offen .tl-lupe { background:var(--mp); border-color:var(--mp); color:var(--auf-primaer); }
+        .merk-tab { display:none; }   /* Handy: Herz sitzt jetzt im Kopf */
+        .tl-suche { display:none; }
+        .tl-kopfleiste.suche-offen .tl-suche { display:grid; }
+        .tl-liste { padding-top:4px; }
+        .tl-monatskopf { display:none; }
+        .tl-tageskopf { display:block; position:sticky; top:calc(60px + env(safe-area-inset-top)); z-index:3; margin:0 -18px; padding:9px 18px 7px;
+                        background:var(--flaeche); border-bottom:1px solid var(--linie);
+                        font-size:13.5px; font-weight:700; color:var(--text-hell); }
+        .tl-tageskopf b { color:var(--mp); font-weight:800; }
+        a.tl-eintrag, a.tl-eintrag:hover { display:grid; grid-template-columns:92px minmax(0, 1fr) 34px; grid-template-rows:auto auto 1fr;
+                        column-gap:11px; align-items:start; padding:0; }
+        /* Bild schließt ohne Rand an den Kategorie-Streifen an und füllt die volle Kartenhöhe (Wunsch 19.11.) */
+        .tl-bild, .tl-platz { display:block; grid-column:1; grid-row:1 / 4; align-self:stretch; width:100%; height:100%;
+                              min-height:64px; border-radius:0; object-fit:cover; background-color:var(--flaeche-2); }
+        .tl-platz { box-sizing:border-box; border-right:1px solid var(--linie); background:#fff center / 92% no-repeat;
+                    {% if design and design.logo_dateiname %}background-image:url("{{ url_for('portal.logo') }}");{% endif %} }
+        .tl-datum, .tl-pfeil, .tl-meta, .tl-kat-pille, .tl-regel { display:none !important; }
+        .tl-text { grid-column:2; grid-row:1 / 4; padding:11px 0; }
+        /* Pastelltönung der Kategorie als Kartengrund (10 %, Wunsch 19.11.) – auch im Dunkelmodus lesbar,
+           weil mit der Kartenfläche gemischt; feine Trennlinie in Kartenfarbe zwischen den Einträgen */
+        a.tl-eintrag:not(.ist-verborgen) { background:color-mix(in srgb, var(--tf) 10%, var(--flaeche));
+                        border-bottom:2px solid var(--flaeche); }
+        /* Logo-Platzhalter: weißer Logo-Grund verschmilzt mit der Kartentönung (background-blend-mode) */
+        a.tl-eintrag:not(.ist-verborgen) .tl-platz { border-right:0; background-blend-mode:multiply;
+                        background-color:color-mix(in srgb, var(--tf) 10%, #ffffff); }
+        :root[data-modus="dunkel"] a.tl-eintrag .tl-platz { background-color:color-mix(in srgb, var(--tf) 28%, #b9c2d0); }
+        .tl-titel { font-size:15.5px; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        .tl-kurz { display:block; margin-top:3px; font-size:13px; line-height:1.4; color:var(--text-hell); }
+        .tl-kurz-kat { display:block; font-weight:600; color:var(--text-stark); }
+        .tl-badges { margin-top:5px !important; gap:4px 5px !important; }
+        .tl-badges > span { font-size:11.5px !important; padding:1px 8px !important; }
+        .tl-badges > .tl-partner-badge { padding:0 !important; }
+        .tl-eintrag .teilen { grid-column:3; grid-row:1; align-self:start; width:34px; height:30px; margin-top:8px; }
+        .tl-eintrag .herz { grid-column:3; grid-row:2; align-self:start; justify-self:center; font-size:22px; padding:2px 4px; }
+        .tl-anm-ic { display:grid; grid-column:3; grid-row:3; align-self:start; justify-self:center; place-items:center;
+                     width:34px; height:32px; margin-top:2px; color:#2563eb; cursor:pointer; }
+        .tl-anm-ic svg { width:22px; height:22px; }
+        .tl-anm-ic.voll { color:var(--text-hell); }
+        .voll-va-badge .wl { display:none; }   /* „Warteliste“ zeigt das Ticket-Symbol */
+        /* „Für wen“ steht auf der Terminseite und in den Filtern – in der Handy-Liste nicht (Wunsch 19.11.) */
+        .tl-badges > .ziel-badge { display:none; }
+        /* Interne Termine für Gäste: nur eine schmale Zeile „16:30–18:30 Uhr · Raum belegt“ */
+        a.tl-eintrag.ist-verborgen, a.tl-eintrag.ist-verborgen:hover { grid-template-columns:minmax(0, 1fr); grid-template-rows:auto;
+                        padding-top:6px; padding-bottom:6px; opacity:1; }
+        a.tl-eintrag.ist-verborgen .tl-bild, a.tl-eintrag.ist-verborgen .tl-platz, a.tl-eintrag.ist-verborgen .tl-titel,
+        a.tl-eintrag.ist-verborgen .tl-kurz, a.tl-eintrag.ist-verborgen .tl-badges { display:none !important; }
+        a.tl-eintrag.ist-verborgen .tl-text { grid-column:1; grid-row:1; padding:0 0 0 10px; }
+        .tl-belegt { display:block; font-size:13px; color:var(--text-schwach); }
+    }
+</style>
+<script>
+    // Anmelde-Knopf in der Karte: führt direkt zur Anmeldung statt zur Terminseite
+    // (ein echter Link darf nicht in dem Karten-Link stecken).
+    // Gleiches gilt für den Sponsor-Link – er öffnet sich in einem neuen Tab.
+    document.querySelectorAll(".tl-anmelden, .tl-partner-inhalt[data-href], .tl-partner-badge[data-href], .tl-anm-ic[data-href], .tl-play[data-href], .tl-werkzeug[data-href]").forEach(function (k) {
+        function los(e) {
+            e.preventDefault(); e.stopPropagation();
+            if (k.dataset.neuTab) window.open(k.dataset.href, "_blank", "noopener");
+            else window.location.href = k.dataset.href;
+        }
+        k.addEventListener("click", los);
+        k.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") los(e); });
+    });
+</script>
+{% endblock %}

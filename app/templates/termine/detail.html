@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% block title %}{{ t.titel }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ t.titel }}{% if serie_info %} <a href="{{ url_for('termine.serie', sid=t.serie_id) }}"
+            class="badge badge-gruppe" style="vertical-align:middle;text-decoration:none"
+            title="Zur Serien-Übersicht">🔁 Serie {{ serie_info.pos }}/{{ serie_info.gesamt }}</a>{% endif %}{% if t.abgesagt %} <span class="badge" style="background:var(--fehler-grund);color:var(--fehler-text);border:1px solid var(--fehler-rand);vertical-align:middle">⛔ Abgesagt</span>{% endif %}</h1>
+        <div class="sub">{{ t.datum | datum_wt }}{% if t.uhrzeit %} um {{ t.uhrzeit }}{% endif %}{% if t.ort %} · {{ t.ort }}{% endif %} · Eintritt {{ (t.preis | euro) if t.preis else 'frei' }}</div>
+    </div>
+    <div class="aktionen">
+        {% if serie_info %}
+        <details style="display:inline-block;position:relative">
+            <summary class="btn btn-sekundaer" style="list-style:none;cursor:pointer">{{ '↩️ Absage aufheben' if t.abgesagt else '⛔ Absagen' }} ▾</summary>
+            <div style="position:absolute;right:0;z-index:30;background:var(--flaeche);border:1px solid var(--grau-linie);border-radius:10px;padding:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);min-width:270px;display:flex;flex-direction:column;gap:6px">
+                {% for wert, beschriftung in [('einzeln', '… nur diesen Termin'),
+                                              ('folgende', '… diesen und alle folgenden'),
+                                              ('serie', '… die ganze Serie (' ~ serie_info.gesamt ~ ' Termine)')] %}
+                <form method="post" action="{{ url_for('termine.abgesagt_setzen', tid=t.id) }}"
+                      {% if not t.abgesagt %}onsubmit="return confirm('Wirklich absagen ({{ beschriftung[2:] }})? Die Anmeldung wird gesperrt.')"{% endif %}>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="umfang" value="{{ wert }}">
+                    <button class="btn btn-sekundaer btn-klein" style="width:100%;text-align:left">{{ beschriftung }}</button>
+                </form>
+                {% endfor %}
+            </div>
+        </details>
+        {% else %}
+        <form method="post" action="{{ url_for('termine.abgesagt_setzen', tid=t.id) }}" style="display:inline"
+              {% if not t.abgesagt %}onsubmit="return confirm('Veranstaltung wirklich absagen? Die Anmeldung wird gesperrt.')"{% endif %}>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sekundaer">{{ '↩️ Absage aufheben' if t.abgesagt else '⛔ Absagen' }}</button>
+        </form>
+        {% endif %}
+        <a href="{{ url_for('kalender.index') }}" class="btn btn-sekundaer">← Zum Kalender</a>
+        <a href="{{ url_for('termine.ics', tid=t.id) }}" class="btn btn-sekundaer">📅 In meinen Kalender</a>
+        <a href="{{ url_for('termine.bearbeiten', tid=t.id) }}" class="btn">✏️ Bearbeiten</a>
+        {% if serie_info %}
+        <details style="display:inline-block;position:relative">
+            <summary class="btn btn-gefahr" style="list-style:none;cursor:pointer">🗑️ Löschen ▾</summary>
+            <div style="position:absolute;right:0;z-index:30;background:var(--flaeche);border:1px solid var(--grau-linie);border-radius:10px;padding:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);min-width:270px;display:flex;flex-direction:column;gap:6px">
+                {% for wert, beschriftung in [('einzeln', '… nur diesen Termin'),
+                                              ('folgende', '… diesen und alle folgenden'),
+                                              ('serie', '… die ganze Serie (' ~ serie_info.gesamt ~ ' Termine)')] %}
+                <form method="post" action="{{ url_for('termine.loeschen', tid=t.id) }}"
+                      onsubmit="return confirm('Wirklich löschen ({{ beschriftung[2:] }})? Das lässt sich nicht rückgängig machen.')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="umfang" value="{{ wert }}">
+                    <button class="btn btn-sekundaer btn-klein" style="width:100%;text-align:left">{{ beschriftung }}</button>
+                </form>
+                {% endfor %}
+            </div>
+        </details>
+        {% else %}
+        <form method="post" action="{{ url_for('termine.loeschen', tid=t.id) }}"
+              onsubmit="return confirm('Termin löschen?')" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-gefahr">🗑️ Löschen</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+{% if serie_info %}
+<div class="karte" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 14px">
+    <strong>🔁 {{ serie_info.pos }}. von {{ serie_info.gesamt }} Terminen dieser Serie</strong>
+    {% if serie_info.voriger %}
+    <a href="{{ url_for('termine.detail', tid=serie_info.voriger.id) }}" class="btn btn-sekundaer btn-klein">‹ {{ serie_info.voriger.datum | datum_wt }}</a>
+    {% endif %}
+    <a href="{{ url_for('termine.serie', sid=t.serie_id) }}" class="btn btn-sekundaer btn-klein">📋 Ganze Serie</a>
+    {% if serie_info.naechster %}
+    <a href="{{ url_for('termine.detail', tid=serie_info.naechster.id) }}" class="btn btn-sekundaer btn-klein">{{ serie_info.naechster.datum | datum_wt }} ›</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if vorher or nachher %}
+<div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:12px">
+    {% if vorher %}<a href="{{ url_for('termine.detail', tid=vorher.id) }}" class="btn btn-sekundaer" title="{{ vorher.titel }}">‹ {{ vorher.titel[:30] }}{{ '…' if vorher.titel|length > 30 }}</a>{% else %}<span></span>{% endif %}
+    {% if nachher %}<a href="{{ url_for('termine.detail', tid=nachher.id) }}" class="btn btn-sekundaer" title="{{ nachher.titel }}">{{ nachher.titel[:30] }}{{ '…' if nachher.titel|length > 30 }} ›</a>{% else %}<span></span>{% endif %}
+</div>
+{% endif %}
+
+{% if t.bild %}
+<div class="karte" style="padding:0;overflow:hidden">
+    <img src="{{ url_for('termine.bild', tid=t.id, v=t.bild) }}" alt="{{ t.titel }}" style="width:100%;max-height:340px;object-fit:cover;display:block">
+    {% if t.quelle_url %}<div style="padding:6px 12px;font-size:12px;color:var(--text-hell)">Bild & Daten importiert von <a href="{{ t.quelle_url|sichere_url }}" target="_blank" rel="noopener">auf-nach-mv.de ↗</a></div>{% endif %}
+</div>
+{% endif %}
+
+<div class="karte" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;{{ 'border-left:4px solid var(--gelb)' if not t.aktiv }}">
+    <strong>Status:</strong>
+    {% if t.aktiv %}<span class="badge badge-aktiv">✔ aktiv · veröffentlicht</span>
+    {% else %}<span class="badge badge-ehrenmitglied">✎ Entwurf · nicht veröffentlicht</span>{% endif %}
+    <form method="post" action="{{ url_for('termine.aktiv_setzen', tid=t.id) }}" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-klein {{ 'btn-sekundaer' if t.aktiv }}">{{ '⏸ Auf Entwurf setzen' if t.aktiv else '🚀 Jetzt veröffentlichen' }}</button>
+    </form>
+    {% if design and design.ncc_url %}<span class="feld-hinweis">{{ 'In Nextcloud sichtbar.' if t.aktiv else 'Erst nach Veröffentlichung in Nextcloud.' }}</span>{% endif %}
+</div>
+
+<div class="karte" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <strong>Kategorie:</strong>
+    <form method="post" action="{{ url_for('termine.kategorie_setzen', tid=t.id) }}" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <select name="kategorie_id" onchange="this.form.submit()">
+            <option value="">— ohne —</option>
+            {% for k in kategorien %}<option value="{{ k.id }}" {{ 'selected' if t.kategorie_id==k.id }}>{{ k.name }}</option>{% endfor %}
+        </select>
+    </form>
+    {% for k in kategorien if k.id==t.kategorie_id %}<span class="badge" style="background:{{ k.farbe|hexfarbe }};color:{{ k.farbe|kontrast }}">{{ k.name }}</span>{% endfor %}
+    <a href="{{ url_for('kalender.kategorien') }}" class="feld-hinweis">Kategorien verwalten</a>
+</div>
+
+{% if t.beschreibung %}<div class="karte"><p style="white-space:pre-wrap;margin:0">{{ t.beschreibung }}</p></div>{% endif %}
+
+{% if t.stornobedingung %}<div class="karte" style="display:flex;gap:10px;align-items:flex-start"><strong style="white-space:nowrap">↩️ Stornierung:</strong><span>{{ t.stornobedingung }}</span></div>{% endif %}
+
+{% if t.sponsor_name or t.sponsor_logo %}
+<div class="karte" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <strong>🤝 Mit Unterstützung von:</strong>
+    {% if t.sponsor_logo %}{% if t.sponsor_url %}<a href="{{ t.sponsor_url|sichere_url }}" target="_blank" rel="noopener"><img src="{{ url_for('termine.sponsor_logo', tid=t.id) }}" style="max-height:44px"></a>{% else %}<img src="{{ url_for('termine.sponsor_logo', tid=t.id) }}" style="max-height:44px">{% endif %}{% endif %}
+    {% if t.sponsor_name %}{% if t.sponsor_url %}<a href="{{ t.sponsor_url|sichere_url }}" target="_blank" rel="noopener">{{ t.sponsor_name }}</a>{% else %}<span>{{ t.sponsor_name }}</span>{% endif %}{% endif %}
+</div>
+{% endif %}
+
+{% set mitglieder_ja = teilnehmer|selectattr('status','equalto','zugesagt')|list|length %}
+{% set extern_teil = anmeldestand.teilnehmer if anmeldestand else 0 %}
+{% if mitglieder_ja or extern_teil %}
+<div class="karte" style="display:flex;gap:22px;flex-wrap:wrap;align-items:baseline;border-left:4px solid var(--gruen)">
+    <div><strong style="font-size:24px">{{ mitglieder_ja + extern_teil }}</strong> <span class="feld-hinweis">Teilnehmende gesamt</span></div>
+    <span class="feld-hinweis">👥 {{ mitglieder_ja }} Mitglieder (zugesagt){% if t.anmeldung_aktiv %} · 🎟️ {{ extern_teil }} externe Anmeldungen{% endif %}</span>
+</div>
+{% endif %}
+
+{% if t.anmeldung_aktiv %}
+<div class="karte" style="border-left:4px solid var(--blau)">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <h2 style="margin:0">🎟️ Anmeldungen (extern)</h2>
+        <a href="{{ url_for('veranstaltungen.detail', tid=t.id) }}" class="btn">Anmeldungen verwalten →</a>
+    </div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:10px">
+        <div><strong style="font-size:22px">{{ anmeldestand.teilnehmer }}{% if t.max_teilnehmer %}<span style="font-size:15px;color:var(--text-hell)"> / {{ t.max_teilnehmer }}</span>{% endif %}</strong><br><span class="feld-hinweis">Teilnehmende{% if t.min_teilnehmer %} (min. {{ t.min_teilnehmer }}{% if anmeldestand.teilnehmer >= t.min_teilnehmer %} ✓{% endif %}){% endif %}</span></div>
+        <div><strong style="font-size:22px">{{ anmeldestand.anmeldungen }}</strong><br><span class="feld-hinweis">Anmeldungen{% if anmeldestand.warteliste %} · {{ anmeldestand.warteliste }} Warteliste{% endif %}</span></div>
+        {% if anmeldestand.offen %}<div><strong style="font-size:22px;color:var(--rot)">{{ anmeldestand.offen | euro }}</strong><br><span class="feld-hinweis">offen</span></div>{% endif %}
+    </div>
+    {% if anmelde_link %}
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px">
+        <input id="anmlink" type="text" readonly value="{{ anmelde_link }}" style="flex:1;min-width:240px;font-family:monospace;font-size:13px">
+        <button type="button" class="btn btn-sekundaer" onclick="navigator.clipboard.writeText(document.getElementById('anmlink').value);this.textContent='✓ Kopiert';">📋 Link</button>
+        <a href="{{ anmelde_link }}" target="_blank" class="btn btn-sekundaer">Öffnen ↗</a>
+    </div>
+    {% else %}<p class="feld-hinweis" style="margin-top:8px">Kein öffentlicher Link aktiv – im Editor „Öffentliche Anmeldung" aktivieren oder Anmeldungen manuell erfassen.</p>{% endif %}
+</div>
+{% endif %}
+
+<div class="karte">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2 style="margin:0">👥 Mitglieder ({{ teilnehmer|length }})</h2>
+        <a href="{{ url_for('kommunikation.neu') }}" class="btn btn-sekundaer btn-klein">✉️ Einladung schreiben</a>
+    </div>
+    {% if teilnehmer %}
+    <table style="margin-top:14px">
+        <thead><tr><th>Name</th><th>E-Mail</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for p in teilnehmer %}
+            <tr>
+                <td>{{ p.vorname }} {{ p.nachname }}</td>
+                <td>{{ p.email }}</td>
+                <td>
+                    <form method="post" action="{{ url_for('termine.status_setzen', tid=t.id) }}" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="mitglied_id" value="{{ p.id }}">
+                        <select name="status" onchange="this.form.submit()">
+                            {% for s in status_optionen %}<option value="{{ s }}" {{ 'selected' if p.status==s }}>{{ s }}</option>{% endfor %}
+                        </select>
+                    </form>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="feld-hinweis">Noch keine Mitglieder eingetragen. Füge unten welche hinzu.</p>
+    {% endif %}
+</div>
+
+<div class="karte">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2 style="margin:0">Schichten zu dieser Veranstaltung</h2>
+        {# Führt in die Termin-Maske (Abschnitt Schichten & Helfer) – dort gibt
+           es Rolle, Plätze und den Zeit-Vorschlag; der frühere Direkt-POST
+           scheiterte immer an den fehlenden Pflicht-Uhrzeiten (Audit 06.11.). #}
+        <a class="btn btn-sekundaer btn-klein"
+           href="{{ url_for('termine.bearbeiten', tid=t.id) }}#schichten">＋ Schicht anlegen</a>
+    </div>
+    {% if schichten %}
+    <table style="margin-top:12px">
+        <thead><tr><th>Schicht</th><th>Zeit</th><th class="rechts">Besetzung</th></tr></thead>
+        <tbody>
+        {% for sch in schichten %}
+        <tr onclick="window.location='{{ url_for('schichten.detail', sid=sch.id) }}'" style="cursor:pointer">
+            <td><strong>{{ sch.titel }}</strong></td>
+            <td>{% if sch.zeit_von and sch.zeit_bis %}🕒 {{ sch.zeit_von }}–{{ sch.zeit_bis }} Uhr{% else %}<span style="color:var(--rot)">⚠️ Zeit fehlt</span>{% endif %}</td>
+            <td class="rechts">
+                {% if sch.slots %}<span class="badge {{ 'badge-aktiv' if sch.besetzt==sch.slots else 'badge-offen' }}">{{ sch.besetzt }}/{{ sch.slots }}</span>
+                {% else %}<span class="feld-hinweis">keine Positionen</span>{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="feld-hinweis" style="margin-top:8px">Noch keine Schichten. Lege mit „＋ Schicht anlegen" eine an – Titel, Datum und Ort werden übernommen.</p>
+    {% endif %}
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Mitglieder einladen</h2>
+    <form method="post" action="{{ url_for('termine.teilnehmer_hinzufuegen', tid=t.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div style="max-height:260px;overflow-y:auto;border:1px solid var(--grau-linie);border-radius:8px;padding:8px;margin-bottom:12px">
+            {% for m in alle %}
+            {% if m.id not in teilnehmer_ids %}
+            <label style="display:flex;gap:8px;align-items:center;padding:3px 2px;font-weight:400">
+                <input type="checkbox" name="mitglieder" value="{{ m.id }}" style="width:auto">
+                {{ m.vorname }} {{ m.nachname }}
+            </label>
+            {% endif %}
+            {% endfor %}
+        </div>
+        <button type="submit" class="btn">＋ Ausgewählte hinzufügen</button>
+    </form>
+</div>
+{% endblock %}

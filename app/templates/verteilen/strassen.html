@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Straßen für Verteilaktionen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>🏘️ Straßen</h1>
+        <div class="sub">Der Straßenstamm für alle Verteilaktionen – mit Haushalten und Lage auf der Karte</div>
+    </div>
+    <div class="aktionen"><a href="{{ url_for('verteilen.index') }}" class="btn btn-sekundaer">‹ Verteilaktionen</a></div>
+</div>
+
+<div class="karte" id="import">
+    <h2 style="margin-top:0">📥 Straßen importieren</h2>
+    {% if vorschau %}
+    <form method="post" action="{{ url_for('verteilen.strassen_import') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="schritt" value="uebernehmen">
+        <p style="margin-top:0">Datei <strong>{{ vorschau.datei }}</strong>{% if vorschau.stand %} (Stand {{ vorschau.stand }}){% endif %}
+            – welche Orte sollen übernommen werden?</p>
+        <div style="display:flex;gap:6px 16px;flex-wrap:wrap;margin-bottom:10px;max-height:260px;overflow:auto">
+            {% for ort, n in vorschau.orte %}<label style="font-weight:400"><input type="checkbox" name="orte" value="{{ ort }}" {{ 'checked' if vorschau.orte|length == 1 }}> {{ ort }} <span class="feld-hinweis">({{ n }})</span></label>{% endfor %}
+        </div>
+        <div class="feld-hinweis" style="margin-bottom:10px">Schon vorhandene Straßen (gleicher Ort und Name) werden
+            aktualisiert. Von Hand korrigierte Haushalte bleiben dabei erhalten.</div>
+        <button type="submit" class="btn">✅ Übernehmen</button>
+    </form>
+    <form method="post" action="{{ url_for('verteilen.strassen_import_abbrechen') }}" style="margin-top:8px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-sekundaer btn-klein">Abbrechen</button>
+    </form>
+    {% else %}
+    <form method="post" action="{{ url_for('verteilen.strassen_import') }}" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld"><label for="i-datei">CSV- oder JSON-Datei</label>
+            <input type="file" id="i-datei" name="datei" accept=".csv,.json,.txt" required></div>
+        <div class="feld-hinweis" style="margin-bottom:10px">CSV mit Kopfzeile
+            <code>ort;strasse;adressen;haushalte;lat;lon</code> (Semikolon oder Komma) oder JSON im Format
+            <code>{"strassen": [{"ort", "name", "haushalte", "lat", "lon"}]}</code>. Straßenlisten für jeden Ort lassen
+            sich aus OpenStreetMap erzeugen – Haushalte sind dann geschätzt und können hier korrigiert werden.</div>
+        <button type="submit" class="btn">Weiter – Orte auswählen</button>
+    </form>
+    {% endif %}
+</div>
+
+{% for ort, liste in orte.items() %}
+<div class="karte">
+    <details {{ 'open' if orte|length == 1 }}>
+        <summary style="cursor:pointer"><strong>📍 {{ ort }}</strong> – {{ liste|length }} Straßen ·
+            ≈ {{ '{:,}'.format(liste | sum(attribute='haushalte')).replace(',', '.') }} Haushalte</summary>
+        <div class="tabellen-scroll" style="margin-top:10px">
+        <table>
+            <thead><tr><th>Straße</th><th class="rechts">Adressen</th><th>Haushalte</th><th>Karte</th><th></th></tr></thead>
+            <tbody>{% for s in liste %}
+            <tr id="s{{ s.id }}">
+                <td>{{ s.name }}</td><td class="rechts">{{ s.adressen }}</td>
+                <td>
+                    <form method="post" action="{{ url_for('verteilen.haushalte', sid=s.id) }}" style="display:flex;gap:6px;align-items:center">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="number" name="haushalte" value="{{ s.haushalte }}" min="0" max="100000" style="width:90px" aria-label="Haushalte {{ s.name }}">
+                        <button class="btn btn-sekundaer btn-klein" title="Haushalte speichern">💾</button>
+                        {% if s.haushalte_von_hand %}<span class="feld-hinweis" title="von Hand korrigiert – bleibt beim Import erhalten">✍️</span>{% endif %}
+                    </form>
+                </td>
+                <td>{{ '📍' if s.lat is not none else '–' }}</td>
+                <td class="rechts">
+                    <form method="post" action="{{ url_for('verteilen.strasse_loeschen', sid=s.id) }}" style="display:inline"
+                          onsubmit="return confirm('Straße „{{ s.name }}“ entfernen?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn btn-sekundaer btn-klein" title="Straße entfernen">✕</button>
+                    </form>
+                </td>
+            </tr>{% endfor %}</tbody>
+        </table>
+        </div>
+    </details>
+</div>
+{% else %}
+<p class="feld-hinweis">Noch keine Straßen angelegt.</p>
+{% endfor %}
+{% endblock %}

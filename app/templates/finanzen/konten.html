@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Kontenrahmen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Kontenrahmen</h1><div class="sub">Konten für gemeinnützige Vereine – nach steuerlichen Sphären</div></div>
+    <a href="{{ url_for('finanzen.liste') }}" class="btn btn-sekundaer">← Zum Kassenbuch</a>
+</div>
+
+<div class="hilfe-box">
+    Angelehnt an den <strong>DATEV-SKR-49</strong> (Vereine). Die vier Sphären trennen steuerbegünstigte
+    von steuerpflichtigen Bereichen – wichtig für die Gemeinnützigkeit und das Finanzamt.
+    Du kannst eigene Konten ergänzen oder nicht benötigte deaktivieren.
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Eigenes Konto anlegen</h2>
+    <form method="post" action="{{ url_for('finanzen.kontenrahmen') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld-reihe">
+            <div class="feld"><label>Nummer</label><input type="text" name="nummer" placeholder="z.B. 0150"></div>
+            <div class="feld"><label>Name</label><input type="text" name="name" placeholder="z.B. Erlöse Basar" required></div>
+            <div class="feld"><label>Art</label>
+                <select name="typ"><option value="einnahme">Einnahme</option><option value="ausgabe">Ausgabe</option></select>
+            </div>
+            <div class="feld"><label>Sphäre</label>
+                <select name="sphaere">
+                    {% for skey, sname in sphaeren_namen.items() %}<option value="{{ skey }}">{{ sname }}</option>{% endfor %}
+                </select>
+            </div>
+        </div>
+        <button type="submit" class="btn">＋ Konto anlegen</button>
+    </form>
+</div>
+
+{% for skey in sphaeren_reihenfolge %}
+{% if gruppen.get(skey) %}
+<h2>{{ sphaeren_namen[skey] }}</h2>
+<table>
+    <thead><tr><th>Nr.</th><th>Konto</th><th>Art</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for k in gruppen[skey] %}
+    <tr {{ 'style=opacity:0.5' if not k.aktiv }}>
+        <td>{{ k.nummer }}</td>
+        <td>{{ k.name }}</td>
+        <td>{{ 'Einnahme' if k.typ=='einnahme' else 'Ausgabe' }}</td>
+        <td>{{ 'aktiv' if k.aktiv else 'inaktiv' }}</td>
+        <td class="rechts">
+            <form method="post" action="{{ url_for('finanzen.konto_umschalten', kid=k.id) }}" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-sekundaer btn-klein">{{ 'deaktivieren' if k.aktiv else 'aktivieren' }}</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endfor %}
+{% endblock %}

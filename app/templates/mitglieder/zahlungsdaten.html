@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Zahlungsangaben – {{ m.vorname }} {{ m.nachname }}{% endblock %}
+{% block content %}
+
+<p><a href="{{ url_for('mitglieder.detail', mid=m.id) }}" class="feld-hinweis">‹ Zurück zum Mitglied</a></p>
+
+<h1 style="margin-bottom:4px">💳 Zahlungsangaben</h1>
+<p class="feld-hinweis" style="margin-top:0">{{ m.vorname }} {{ m.nachname }}{% if m.mitgliedsnummer %}
+    · Mitgliedsnummer {{ m.mitgliedsnummer }}{% endif %}</p>
+
+<form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="karte">
+        <h2 style="margin-top:0;font-size:17px">Wie wird gezahlt?</h2>
+        <div class="feld-reihe">
+            <div class="feld">
+                <label>Zahlungsart</label>
+                <select name="zahlungsart">
+                    <option value="">— keine Angabe —</option>
+                    {% for z in zahlungsarten %}
+                    <option value="{{ z }}" {{ 'selected' if m.zahlungsart == z }}>{{ z }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="karte">
+        <h2 style="margin-top:0;font-size:17px">Bankverbindung</h2>
+        <div class="feld-reihe">
+            <div class="feld">
+                <label>IBAN</label>
+                <input type="text" name="iban" value="{{ m.iban or '' }}" placeholder="DE.. .... .... .... .... ..">
+                <div class="feld-hinweis">Wird beim Speichern auf Richtigkeit geprüft.</div>
+            </div>
+            <div class="feld">
+                <label>BIC <span class="feld-hinweis">(optional)</span></label>
+                <input type="text" name="bic" value="{{ m.bic or '' }}">
+            </div>
+        </div>
+        <div class="feld">
+            <label>Kontoinhaber:in <span class="feld-hinweis">(nur wenn abweichend)</span></label>
+            <input type="text" name="kontoinhaber" value="{{ m.kontoinhaber or '' }}"
+                   placeholder="{{ m.vorname }} {{ m.nachname }}">
+        </div>
+    </div>
+
+    <div class="karte">
+        <h2 style="margin-top:0;font-size:17px">Lastschriftmandat</h2>
+        <p class="feld-hinweis" style="margin-top:0">Für einen Einzug braucht die Bank beides:
+            eine <strong>Mandatsreferenz</strong> und das <strong>Datum der Unterschrift</strong>.
+            Fehlt eines davon, lässt die Verwaltung die Person beim Einzug aus.</p>
+
+        <label style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+            <input type="checkbox" name="mandat_vorhanden" value="1" {{ 'checked' if m.mandat_vorhanden }}>
+            <span>Ein unterschriebenes Mandat liegt vor</span>
+        </label>
+
+        <div class="feld-reihe">
+            <div class="feld">
+                <label>Mandatsreferenz</label>
+                {% if gebunden %}
+                <input type="text" value="{{ m.mandatsreferenz or '' }}" disabled>
+                <div class="feld-hinweis">🔒 Diese Referenz wurde schon für einen Einzug verwendet.
+                    Sie muss so bleiben, wie die Bank sie kennt.</div>
+                {% else %}
+                <input type="text" name="mandatsreferenz" value="{{ m.mandatsreferenz or '' }}"
+                       placeholder="wird beim Speichern automatisch vergeben">
+                <div class="feld-hinweis">Leer lassen genügt – die Verwaltung vergibt eine
+                    eindeutige Referenz.</div>
+                {% endif %}
+            </div>
+            <div class="feld">
+                <label>Unterschrieben am</label>
+                <input type="date" name="mandatsdatum" value="{{ m.mandatsdatum or '' }}">
+                {% if verfaellt %}
+                <div class="feld-hinweis">Ohne Nutzung gültig bis {{ verfaellt | datum_de }}.</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="feld">
+            <label>Unterschriebenes Mandat hinterlegen <span class="feld-hinweis">(optional)</span></label>
+            <input type="file" name="mandat_datei" accept=".pdf,.jpg,.jpeg,.png">
+            {% if m.mandat_dateiname %}
+            <div class="feld-hinweis">Hinterlegt:
+                <a href="{{ url_for('mitglieder.mandat', mid=m.id) }}" target="_blank">{{ m.mandat_dateiname }}</a></div>
+            {% endif %}
+        </div>
+    </div>
+
+    <button class="btn">Speichern</button>
+</form>
+
+{% endblock %}

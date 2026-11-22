@@ -1,0 +1,21 @@
+Flask>=3.0
+fints>=5.0
+
+# Produktionsbetrieb / Sicherheit (Server)
+gunicorn>=21.0
+Flask-Login>=0.6
+Flask-WTF>=1.2
+requests>=2.31
+pyotp>=2.9
+segno>=1.6
+webauthn==2.7.1      # Face ID / Fingerabdruck (Passkeys); 2.7.1 läuft lokal (3.9) und im Image (3.12)
+Pillow>=10.0
+argon2-cffi>=23.0
+pywebpush>=1.14
+cryptography>=42.0
+# pypdf an Major 6 binden: finanz_vorlagen._formularfelder nutzt die private
+# Methode writer._add_object (kein oeffentliches Pendant); ein kuenftiges
+# pypdf 7 koennte sie umbenennen -> Kassen-Vorlagen-Downloads waeren tot.
+# Vor Anhebung auf >=7: tests/test_finanz_vorlagen.py laufen lassen.
+pypdf>=6,<7
+fpdf2

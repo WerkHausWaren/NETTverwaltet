@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Adventskalender{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h1>🎄 Lebendiger Adventskalender</h1>
+        <div class="sub">Türchen der Saison, Einleitungstext der öffentlichen Seite und das Archiv</div>
+    </div>
+    <div class="aktionen">
+        {% if kats %}<a href="{{ url_for('kalender.index', kat=kats[0].name) }}" class="btn btn-sekundaer">📆 Im Kalender filtern</a>{% endif %}
+        <a href="{{ url_for('portal.adventskalender') }}" target="_blank" rel="noopener" class="btn">🌐 Öffentliche Seite ansehen ↗</a>
+    </div>
+</div>
+
+{% if not kats %}
+<div class="hilfe-box">
+    <strong>Noch keine Adventskalender-Kategorie.</strong>
+    Die öffentliche Seite und diese Liste füllen sich automatisch aus allen Terminen,
+    deren Kategorie-Name „Adventskalender" enthält (z. B. „Lebendiger Adventskalender LAK").
+    Lege die Kategorie unter <a href="{{ url_for('kalender.kategorien') }}">Termine → Kategorien</a> an
+    und ordne ihr die Türchen zu.
+</div>
+{% endif %}
+
+<div class="karte">
+    <h2 style="margin-top:0">🚪 Türchen dieser Saison{% if saison %} ({{ saison }}){% endif %}</h2>
+    {% if tuerchen %}
+    <div style="overflow-x:auto">
+    <table class="tabelle">
+        <thead><tr><th>Datum</th><th>Titel</th><th>Status</th><th>Anmeldungen</th><th></th></tr></thead>
+        <tbody>
+        {% for t in tuerchen %}
+        <tr{% if t.abgesagt %} style="opacity:.6"{% endif %}>
+            <td style="white-space:nowrap">{{ t.datum | datum_wt }}{% if t.uhrzeit %} · {{ t.uhrzeit }}{% endif %}</td>
+            <td>{{ t.titel }}{% if t.ort %} <span class="feld-hinweis">({{ t.ort }})</span>{% endif %}</td>
+            <td style="white-space:nowrap">{% if t.abgesagt %}⛔ abgesagt{% elif not t.aktiv %}📝 Entwurf{% else %}✅ aktiv{% endif %}{% if t.nur_mitglieder %} · 🔒 nur Mitglieder{% endif %}</td>
+            <td style="white-space:nowrap">{% if t.belegt is not none %}{{ t.belegt }} / {{ t.max_teilnehmer }}{% else %}–{% endif %}</td>
+            <td style="text-align:right"><a class="btn btn-klein" href="{{ url_for('termine.bearbeiten', tid=t.id) }}">✏️ Bearbeiten</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="feld-hinweis">Noch keine Türchen – neue Termine mit der Adventskalender-Kategorie erscheinen hier automatisch.</p>
+    {% endif %}
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">✏️ Einleitungstext der öffentlichen Seite</h2>
+    <form method="post" action="{{ url_for('lak.einleitung_speichern') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld">
+            <label for="lak_einleitung">Eigener Text (leer lassen = eingebauter Text)</label>
+            <textarea id="lak_einleitung" name="lak_einleitung" rows="5"
+                      placeholder="Der Lebendige Adventskalender öffnet [JAHR] zum [AUFLAGE] Mal seine Türchen in Musterstadt. Hinter jedem Türchen steckt ein Erlebnis, bei dem Menschen zusammenkommen. …">{{ einst.lak_einleitung or '' }}</textarea>
+            <div class="feld-hinweis">Platzhalter: <code>[JAHR]</code> wird zum Saison-Jahr,
+                <code>[AUFLAGE]</code> zum Zahlwort („vierten“). Zeilenumbrüche bleiben erhalten.
+                Die Zeile „Folge uns:“ mit den Kanal-Knöpfen steht automatisch darunter.
+                Hinweis: Ein eigener Text erscheint in allen Sprachen gleich – nur der
+                eingebaute Text hat Übersetzungen (EN/UA).</div>
+        </div>
+        <button type="submit" class="btn">Speichern</button>
+    </form>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">📚 Archiv vergangener Jahrgänge</h2>
+    <p class="feld-hinweis" style="margin-top:0">Je Jahrgang ein schönes Bild, ein Rückblickstext
+        und die Teilnehmerzahl – als PDF im Vereins-Briefkopf exportierbar (Chronik, Förderanträge, Presse).</p>
+
+    {% for a in archiv %}
+    <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;border-top:1px solid var(--linie,#e2e8f0);padding:14px 0">
+        {% if a.bild %}
+        <img src="{{ url_for('lak.archiv_bild', saison=a.saison, v=a.bild) }}" alt="Bild {{ a.saison }}"
+             style="width:150px;max-height:110px;object-fit:cover;border-radius:8px">
+        {% endif %}
+        <div style="flex:1;min-width:240px">
+            <strong style="font-size:17px">{{ a.saison }}</strong>
+            <span class="feld-hinweis" style="margin-left:8px">{{ a.tuerchen or '–' }} Türchen · {{ a.teilnehmerzahl or '–' }} Teilnehmer:innen</span>
+            {% if a.text %}<p style="white-space:pre-line;margin:6px 0">{{ a.text[:220] }}{% if a.text|length > 220 %} …{% endif %}</p>{% endif %}
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <a class="btn btn-klein" href="{{ url_for('lak.archiv_pdf', saison=a.saison) }}">⬇️ PDF</a>
+                <details style="display:inline-block">
+                    <summary class="btn btn-klein btn-sekundaer" style="list-style:none;cursor:pointer">✏️ Bearbeiten</summary>
+                    <form method="post" action="{{ url_for('lak.archiv_speichern') }}" enctype="multipart/form-data" style="margin-top:10px;max-width:640px">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="saison" value="{{ a.saison }}">
+                        <div class="feld"><label>Rückblickstext</label>
+                            <textarea name="text" rows="5">{{ a.text or '' }}</textarea></div>
+                        <div class="feld-reihe">
+                            <div class="feld"><label>Teilnehmer:innen</label>
+                                <input type="number" name="teilnehmerzahl" min="0" value="{{ a.teilnehmerzahl if a.teilnehmerzahl is not none else '' }}"></div>
+                            <div class="feld"><label>Türchen</label>
+                                <input type="number" name="tuerchen" min="0" value="{{ a.tuerchen if a.tuerchen is not none else '' }}"></div>
+                        </div>
+                        <div class="feld"><label>Neues Bild (ersetzt das bisherige)</label>
+                            <input type="file" name="bild_datei" accept="image/*"></div>
+                        <div class="feld"><label>… oder Bild-Adresse (URL)</label>
+                            <input type="url" name="bild_url" placeholder="https://…"></div>
+                        {% if a.bild %}<label style="display:block;margin:6px 0"><input type="checkbox" name="bild_entfernen"> Bild entfernen</label>{% endif %}
+                        <button type="submit" class="btn">Jahrgang speichern</button>
+                    </form>
+                </details>
+                <form method="post" action="{{ url_for('lak.archiv_loeschen', saison=a.saison) }}" style="display:inline"
+                      onsubmit="return confirm('Jahrgang {{ a.saison }} wirklich aus dem Archiv löschen? Bild und Text gehen verloren.')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-klein btn-gefahr">🗑️ Löschen</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <p class="feld-hinweis">Noch keine Jahrgänge im Archiv.</p>
+    {% endfor %}
+
+    <details style="margin-top:14px"{% if not archiv %} open{% endif %}>
+        <summary class="btn btn-sekundaer" style="list-style:none;cursor:pointer;display:inline-block">➕ Jahrgang anlegen</summary>
+        <form method="post" action="{{ url_for('lak.archiv_speichern') }}" enctype="multipart/form-data" style="margin-top:12px;max-width:640px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="feld-reihe">
+                <div class="feld"><label>Saison (Jahr) *</label>
+                    <input type="number" name="saison" min="2000" max="2100" required
+                           value="{{ vorschlaege[0].saison if vorschlaege else '' }}"></div>
+                <div class="feld"><label>Teilnehmer:innen</label>
+                    <input type="number" name="teilnehmerzahl" min="0" placeholder="leer = automatisch"></div>
+                <div class="feld"><label>Türchen</label>
+                    <input type="number" name="tuerchen" min="0" placeholder="leer = automatisch"></div>
+            </div>
+            {% if vorschlaege %}
+            <div class="feld-hinweis" style="margin:4px 0 10px">Aus den App-Anmeldungen bekannt:
+                {% for v in vorschlaege %}{{ v.saison }} ({{ v.tuerchen }} Türchen, {{ v.teilnehmer }} Teilnehmer:innen){{ ' · ' if not loop.last }}{% endfor %}
+                – leere Zahlenfelder werden damit gefüllt. Ältere Jahre ohne App-Anmeldung bitte von Hand eintragen.</div>
+            {% endif %}
+            <div class="feld"><label>Rückblickstext</label>
+                <textarea name="text" rows="5" placeholder="Wie war der Kalender in diesem Jahr? Höhepunkte, Dank, besondere Momente …"></textarea></div>
+            <div class="feld"><label>Bild hochladen</label>
+                <input type="file" name="bild_datei" accept="image/*"></div>
+            <div class="feld"><label>… oder Bild-Adresse (URL)</label>
+                <input type="url" name="bild_url" placeholder="https://…"></div>
+            <button type="submit" class="btn">Ins Archiv aufnehmen</button>
+        </form>
+    </details>
+</div>
+
+{% endblock %}

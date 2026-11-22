@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Logo im Kreis{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🔵 Logo im Kreis anpassen</h1><div class="sub">Kreisfarbe, Zoom und Ausschnitt wählen</div></div>
+    <a href="{{ url_for('einstellungen.index') }}" class="btn btn-sekundaer">← Einstellungen</a>
+</div>
+
+<form method="post" action="{{ url_for('einstellungen.logo_kreis_speichern') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="haupt-neben neben-links" style="--neben:280px;gap:28px">
+
+    <div class="karte" style="text-align:center">
+        <div class="feld-hinweis" style="margin-bottom:10px">Vorschau (ziehen zum Verschieben)</div>
+        <div id="vorschau" style="width:240px;height:240px;border-radius:50%;margin:0 auto;cursor:grab;
+            background-repeat:no-repeat;box-shadow:0 2px 12px rgba(0,0,0,.2);
+            background-image:url('{{ url_for('einstellungen.logo', verein_id=e.id) }}?v={{ e.logo_dateiname }}');"></div>
+        <div class="feld-hinweis" style="margin-top:10px">So erscheint das Logo in der Seitenleiste.</div>
+    </div>
+
+    <div class="karte">
+        <div class="feld">
+            <label>Kreisfarbe</label>
+            <input type="color" id="farbe" name="logo_kreis_farbe" value="{{ e.logo_kreis_farbe or '#ffffff' }}" style="height:44px;width:80px">
+            <span class="feld-hinweis">Sichtbar hinter transparenten Bereichen oder wenn das Logo kleiner als der Kreis ist.</span>
+        </div>
+        <div class="feld">
+            <label>Zoom: <span id="zoomWert">{{ e.logo_zoom or 100 }}</span>%</label>
+            <input type="range" id="zoom" name="logo_zoom" min="20" max="400" value="{{ e.logo_zoom or 100 }}" style="width:100%">
+            <div class="feld-hinweis">Kleiner = ganzes Logo im Kreis · größer = Ausschnitt (hineinzoomen).</div>
+        </div>
+        <div class="feld">
+            <label>Horizontal: <span id="xWert">{{ e.logo_pos_x if e.logo_pos_x is not none else 50 }}</span>%</label>
+            <input type="range" id="posx" name="logo_pos_x" min="0" max="100" value="{{ e.logo_pos_x if e.logo_pos_x is not none else 50 }}" style="width:100%">
+        </div>
+        <div class="feld">
+            <label>Vertikal: <span id="yWert">{{ e.logo_pos_y if e.logo_pos_y is not none else 50 }}</span>%</label>
+            <input type="range" id="posy" name="logo_pos_y" min="0" max="100" value="{{ e.logo_pos_y if e.logo_pos_y is not none else 50 }}" style="width:100%">
+        </div>
+        <div class="aktionen" style="margin-top:8px">
+            <button type="submit" class="btn">💾 Speichern</button>
+            <button type="button" class="btn btn-sekundaer" onclick="zuruecksetzen()">Zurücksetzen</button>
+        </div>
+    </div>
+</div>
+</form>
+
+<script>
+(function(){
+    var v=document.getElementById('vorschau'),
+        farbe=document.getElementById('farbe'), zoom=document.getElementById('zoom'),
+        px=document.getElementById('posx'), py=document.getElementById('posy');
+    function aktualisieren(){
+        v.style.backgroundColor=farbe.value;
+        v.style.backgroundSize=zoom.value+'%';
+        v.style.backgroundPosition=px.value+'% '+py.value+'%';
+        document.getElementById('zoomWert').textContent=zoom.value;
+        document.getElementById('xWert').textContent=px.value;
+        document.getElementById('yWert').textContent=py.value;
+    }
+    [farbe,zoom,px,py].forEach(function(el){ el.addEventListener('input', aktualisieren); });
+    aktualisieren();
+
+    // Ziehen zum Verschieben
+    var ziehen=false, sx=0, sy=0, spx=0, spy=0;
+    v.addEventListener('mousedown', function(e){ ziehen=true; sx=e.clientX; sy=e.clientY; spx=+px.value; spy=+py.value; v.style.cursor='grabbing'; e.preventDefault(); });
+    window.addEventListener('mousemove', function(e){
+        if(!ziehen) return;
+        var w=v.offsetWidth||240;
+        px.value=Math.max(0,Math.min(100, spx - (e.clientX-sx)/w*100));
+        py.value=Math.max(0,Math.min(100, spy - (e.clientY-sy)/w*100));
+        aktualisieren();
+    });
+    window.addEventListener('mouseup', function(){ ziehen=false; v.style.cursor='grab'; });
+
+    window.zuruecksetzen=function(){ farbe.value='#ffffff'; zoom.value=100; px.value=50; py.value=50; aktualisieren(); };
+})();
+</script>
+{% endblock %}

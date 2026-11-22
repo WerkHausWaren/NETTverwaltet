@@ -1,0 +1,59 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Rückmeldungen{% endblock %}
+{% block inhalt %}
+<div class="mp-schmal">
+<p style="margin:14px 0 0"><a href="{{ url_for('portal.home') }}" style="text-decoration:none;color:var(--mp);font-weight:600">‹ Start</a></p>
+
+<div class="mp-karte" style="background:linear-gradient(135deg,var(--mp),var(--blau-dunkel));color:var(--auf-primaer);border:none">
+    <div style="display:flex;align-items:center;gap:14px">
+        <div style="font-size:34px;font-weight:800;line-height:1">{{ besucher_30 }}</div>
+        <div><div style="font-weight:700">Besucher:innen in 30 Tagen</div>
+             <div style="opacity:.9;font-size:13px">aus den gemeldeten Schichten</div></div>
+    </div>
+</div>
+
+<div class="mp-karte">
+    <h2 style="margin:0 0 6px;font-size:17px">📊 {{ t("k_rueckmeldungen") }}</h2>
+    {% if liste %}
+        {% for r in liste %}
+        <div id="rm{{ r.id }}" style="scroll-margin-top:80px;display:flex;gap:11px;padding:12px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}">
+            <div class="rm-ini" title="{{ r.vorname }} {{ r.nachname }}">{{ (r.vorname or ' ')[:1] }}{{ (r.nachname or ' ')[:1] }}</div>
+            <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+                    <span style="font-weight:600">{{ r.termin_titel or r.schicht_titel or 'Schicht' }}</span>
+                    {% if not r.gelesen %}<span class="neu-badge">neu</span>{% endif %}
+                </div>
+                <div class="feld-hinweis">{{ r.erstellt_am[8:10] }}.{{ r.erstellt_am[5:7] }}.{{ r.erstellt_am[0:4] }}{% if r.vorname %} · {{ r.vorname }} {{ r.nachname }}{% endif %}</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+                    {% if r.besucher is not none %}<span class="rm-chip">👥 {{ r.besucher }} Besucher:innen</span>{% endif %}
+                    {% if r.einnahmen %}<span class="rm-chip">💶 {{ r.einnahmen }}</span>{% endif %}
+                </div>
+                {% if r.fragen %}<div style="margin-top:6px;font-size:14px">❓ <strong>Frage:</strong> {{ r.fragen }}</div>{% endif %}
+                {% if r.nachricht %}<div style="margin-top:4px;font-size:14px">💬 {{ r.nachricht }}</div>{% endif %}
+                {% if r.antwort %}<div style="margin-top:8px;background:var(--gut-grund);border:1px solid var(--gut-rand);border-radius:8px;padding:8px 10px;font-size:14px">💬 <strong>Antwort vom Vorstand:</strong> {{ r.antwort }}</div>{% endif %}
+                {% if ist_admin %}
+                <form method="post" action="{{ url_for('portal.rueckmeldung_gelesen', rid=r.id) }}" style="margin-top:8px">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="rm-gelesen {{ 'ist-gelesen' if r.gelesen }}">{{ '✓ gelesen' if r.gelesen else 'Als gelesen markieren' }}</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p class="feld-hinweis">Noch keine Rückmeldungen. Nach einer Schicht kannst du unter „Schichten" eine Nachbereitung ausfüllen.</p>
+    {% endif %}
+</div>
+
+<style>
+    .rm-chip { background:var(--info-grund); color:var(--info-text); border:1px solid var(--info-rand); border-radius:999px; padding:2px 10px; font-size:13px; font-weight:600; }
+    .rm-ini { width:40px; height:40px; border-radius:50%; flex:none; background:var(--mp); color:var(--auf-primaer);
+              display:grid; place-items:center; font-size:14px; font-weight:700; text-transform:uppercase; }
+    .neu-badge { background:var(--fehler-grund); color:var(--fehler-text); border:1px solid var(--fehler-rand); border-radius:999px; padding:1px 8px; font-size:11px; font-weight:700; }
+    .rm-gelesen { border:1px solid var(--mp); background:var(--flaeche); color:var(--mp); border-radius:9px; padding:6px 12px; font-size:13px; font-weight:600; cursor:pointer; }
+    .rm-gelesen.ist-gelesen { border-color:var(--gut-rand); background:var(--gut-grund); color:var(--gut-text); }
+    [id^="rm"]:target { border-radius:10px; animation: rm-highlight 2.4s ease; }
+    @keyframes rm-highlight { 0%, 55% { background:var(--warn-grund); } 100% { background:transparent; } }
+</style>
+</div>
+{% endblock %}

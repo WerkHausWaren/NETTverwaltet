@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Buchung aufteilen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>➗ Buchung aufteilen</h1>
+        <div class="sub">Einen Gesamtbetrag auf mehrere Zwecke verteilen – z. B. 50 € = 30 € Beitrag + 20 € Spende</div></div>
+    <a href="{{ url_for('finanzen.liste') }}" class="btn btn-sekundaer">← Zur Buchungsliste</a>
+</div>
+
+<div class="karte">
+    <strong>Original:</strong> {{ b.datum | datum_de }} · {{ b.beschreibung or b.kategorie }}
+    · <span style="color:{{ 'var(--gruen)' if b.typ=='einnahme' else 'var(--rot)' }};font-weight:700">
+        {{ '+' if b.typ=='einnahme' else '−' }} {{ b.betrag | euro }}</span>
+    {% if b.beleg_dateiname %} · 📎 Beleg (wandert zu Teil 1){% endif %}
+</div>
+
+<div class="hilfe-box">💡 Trage unten die Teilbeträge ein. Die Summe muss genau
+    <strong>{{ b.betrag | euro }}</strong> ergeben – die Rest-Anzeige hilft dir dabei.
+    Danach ersetzt die Aufteilung die Original-Buchung; Datum und Geldkonto bleiben gleich.</div>
+
+<form method="post" class="karte">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <table id="split-tabelle">
+        <thead><tr><th style="width:130px">Betrag (€)</th><th>Kategorie</th><th>Text (optional)</th><th></th></tr></thead>
+        <tbody>
+        {% for i in [0, 1] %}
+        <tr>
+            <td><input type="text" name="teil_betrag" inputmode="decimal" placeholder="0,00"
+                       oninput="restRechnen()" style="width:110px"></td>
+            <td><select name="teil_konto">
+                <option value="">– wie Original ({{ b.kategorie or 'ohne' }}) –</option>
+                {% for k in konten %}{% if k.typ == b.typ %}<option value="{{ k.id }}" {{ 'selected' if i == 0 and k.id == b.konto_id }}>{{ k.nummer }} {{ k.name }}</option>{% endif %}{% endfor %}
+            </select></td>
+            <td><input type="text" name="teil_text" placeholder="z. B. Spende"></td>
+            <td></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <button type="button" class="btn btn-sekundaer" style="margin-top:8px" onclick="zeileDazu()">＋ Weitere Zeile</button>
+    <div style="margin:14px 0;font-size:16px">
+        Summe der Teile: <strong id="split-summe">0,00 €</strong> ·
+        Rest: <strong id="split-rest" style="color:var(--rot)">{{ b.betrag | euro }}</strong>
+    </div>
+    <button class="btn" id="split-ok" disabled>➗ Aufteilen</button>
+    <span class="feld-hinweis" style="margin-left:8px">Der Knopf wird aktiv, sobald die Summe genau aufgeht.</span>
+</form>
+
+<script>
+var GESAMT = {{ b.betrag or 0 }};
+function restRechnen() {
+    var summe = 0;
+    document.querySelectorAll('input[name=teil_betrag]').forEach(function (f) {
+        summe += parseFloat((f.value || '0').replace(',', '.')) || 0;
+    });
+    var rest = Math.round((GESAMT - summe) * 100) / 100;
+    function eur(x) { return x.toFixed(2).replace('.', ',') + ' €'; }
+    document.getElementById('split-summe').textContent = eur(summe);
+    var r = document.getElementById('split-rest');
+    r.textContent = eur(rest);
+    r.style.color = Math.abs(rest) < 0.005 ? 'var(--gruen)' : 'var(--rot)';
+    document.getElementById('split-ok').disabled = !(Math.abs(rest) < 0.005 && summe > 0);
+}
+function zeileDazu() {
+    var tb = document.querySelector('#split-tabelle tbody');
+    var neu = tb.rows[0].cloneNode(true);
+    neu.querySelectorAll('input').forEach(function (f) { f.value = ''; });
+    neu.querySelector('select').selectedIndex = 0;
+    var del = document.createElement('button');
+    del.type = 'button'; del.className = 'btn btn-sekundaer btn-klein'; del.textContent = '✕';
+    del.onclick = function () { neu.remove(); restRechnen(); };
+    neu.cells[3].appendChild(del);
+    tb.appendChild(neu);
+}
+restRechnen();
+</script>
+{% endblock %}

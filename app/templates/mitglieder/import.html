@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Mitglieder importieren{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Mitglieder importieren</h1><div class="sub">Bestehende Mitglieder aus einer CSV-Datei übernehmen</div></div>
+    <a href="{{ url_for('mitglieder.liste') }}" class="btn btn-sekundaer">← Zurück</a>
+</div>
+
+<div class="hilfe-box">
+    <strong>So funktioniert's:</strong> Die erste Zeile der CSV-Datei muss Spaltenüberschriften enthalten.
+    Trennzeichen <code>;</code> oder <code>,</code> werden automatisch erkannt, ebenso Umlaute.
+    Erkannte Spaltennamen (Kleinschreibung genügt):
+    <p class="feld-hinweis" style="margin-top:8px">{{ felder | join(', ') }}</p>
+    Tipp: Exportiere zunächst über „Export“ eine Beispieldatei, um das genaue Format zu sehen.
+</div>
+
+<div class="karte">
+    <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld">
+            <label>CSV-Datei</label>
+            <input type="file" name="datei" accept=".csv,text/csv" required>
+        </div>
+        <button type="submit" class="btn">⬆️ Importieren</button>
+    </form>
+</div>
+{% endblock %}

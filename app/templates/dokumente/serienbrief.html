@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Serienbrief{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Serienbrief</h1><div class="sub">Persönlich adressierte Briefe für ausgewählte Mitglieder</div></div>
+    <a href="{{ url_for('dokumente.index') }}" class="btn btn-sekundaer">← Zurück</a>
+</div>
+
+<form method="post" target="_blank">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="haupt-neben" style="--neben:300px">
+    <div class="karte">
+        <div class="feld"><label>Betreff</label><input type="text" name="betreff" value="{{ vor_betreff }}" placeholder="z.B. Einladung zur Jahreshauptversammlung"></div>
+        <div class="feld"><label>Brieftext</label>
+            <textarea name="inhalt" style="min-height:320px" placeholder="{anrede} {titel} {nachname},&#10;&#10;hiermit laden wir Sie herzlich ein …&#10;&#10;Mit freundlichen Grüßen&#10;{vereinsname}">{{ vor_text }}</textarea>
+            <div class="feld-hinweis">Platzhalter: <code>{anrede}</code> <code>{titel}</code> <code>{vorname}</code> <code>{nachname}</code> <code>{strasse}</code> <code>{plz}</code> <code>{ort}</code> <code>{mitgliedsnummer}</code> <code>{vereinsname}</code></div>
+        </div>
+        <button type="submit" class="btn">📄 Briefe erzeugen (öffnet Druckansicht)</button>
+    </div>
+
+    <div class="karte">
+        <h2 style="margin-top:0">Empfänger:innen</h2>
+        <div class="feld" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <button type="button" class="btn btn-sekundaer btn-klein" onclick="alle(true)">Alle</button>
+            <button type="button" class="btn btn-sekundaer btn-klein" onclick="alle(false)">Keine</button>
+            <button type="button" class="btn btn-klein" onclick="ohneMail()"
+                    title="Genau die Mitglieder, die ihr nur per Post erreicht">📮 Nur ohne E-Mail ({{ ohne_mail_n }})</button>
+        </div>
+        {% if gruppen %}
+        <div class="feld"><select onchange="gruppe(this.value)">
+            <option value="">– Gruppe wählen –</option>
+            {% for g in gruppen %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+        </select></div>
+        {% endif %}
+        <div style="max-height:360px;overflow-y:auto;border:1px solid var(--grau-linie);border-radius:8px;padding:8px">
+            {% for m in mitglieder %}
+            <label style="display:flex;gap:8px;align-items:center;padding:3px 2px;font-weight:400">
+                <input type="checkbox" name="empfaenger" value="{{ m.id }}" class="emp" style="width:auto">
+                {{ m.vorname }} {{ m.nachname }} <span class="feld-hinweis">{{ m.ort }}</span>
+                {% if not m.email %}<span class="badge badge-gruppe" style="font-size:10px" title="keine E-Mail hinterlegt">📮 Post</span>{% endif %}
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+</form>
+<script>
+var gruppenMap = {{ gruppen_map|safe }};
+var ohneMailIds = {{ ohne_mail_ids|safe }};
+function ohneMail() {
+    document.querySelectorAll('.emp').forEach(function (c) {
+        c.checked = ohneMailIds.indexOf(parseInt(c.value, 10)) !== -1;
+    });
+}
+{% if vorlage == 'ohne_mail' %}window.addEventListener('DOMContentLoaded', ohneMail);{% endif %}
+function alle(z){ document.querySelectorAll('.emp').forEach(function(c){c.checked=z;}); }
+function gruppe(g){ if(!g)return; var ids=gruppenMap[g]||[];
+    document.querySelectorAll('.emp').forEach(function(c){ if(ids.indexOf(parseInt(c.value))!==-1) c.checked=true; }); }
+</script>
+{% endblock %}

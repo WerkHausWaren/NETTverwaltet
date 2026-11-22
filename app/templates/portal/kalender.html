@@ -1,0 +1,126 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Kalender{% endblock %}
+{% block inhalt %}
+{# Desktopversion: Kalender bewusst gedeckelt – die quadratischen Tageszellen würden sonst riesig.
+   Im Website-Stil (Gäste am Computer) volle Breite mit Terminchips je Tag. #}
+<div class="kal-rahmen" style="max-width:760px;margin:0 auto">
+{% with untertitel = titel %}{% include "portal/_ws_titel.html" %}{% endwith %}
+
+<div class="mp-karte">
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+        <a class="ans-tab {{ 'aktiv' if ansicht=='monat' }}" href="{{ url_for('portal.kalender', ansicht='monat') }}">Monat</a>
+        <a class="ans-tab {{ 'aktiv' if ansicht=='woche' }}" href="{{ url_for('portal.kalender', ansicht='woche') }}">Woche</a>
+        <a class="ans-tab" href="{{ url_for('portal.termine') }}" style="margin-left:auto"><span class="ans-ic">☰ </span>Liste</a>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <a class="nav-pfeil" rel="nofollow" href="{{ url_for('portal.kalender', ansicht=ansicht, d=prev) }}" aria-label="zurück">‹</a>
+        <div class="kal-titel" style="font-weight:700;font-size:16px;text-align:center">{{ titel }}</div>
+        <a class="nav-pfeil" rel="nofollow" href="{{ url_for('portal.kalender', ansicht=ansicht, d=nxt) }}" aria-label="weiter">›</a>
+    </div>
+    <div style="text-align:center;margin-top:6px"><a class="feld-hinweis" href="{{ url_for('portal.kalender', ansicht=ansicht) }}">heute</a></div>
+</div>
+
+{% if ansicht == 'monat' %}
+<div class="mp-karte kal-monat">
+    <div class="kal-kopf">{% for w in wochentage %}<div>{{ w }}</div>{% endfor %}</div>
+    {% for woche in grid %}
+    <div class="kal-woche">
+        {% for tag in woche %}
+        <a class="kal-tag{{ ' aus' if not tag.im_monat }}{{ ' heute' if tag.heute }}"
+           href="{{ url_for('portal.kalender', ansicht='woche', d=tag.iso) if tag.termine else '#' }}">
+            <span class="nr">{{ tag.tag }}</span>
+            <span class="punkte">
+                {% for t in tag.termine[:4] %}<i style="background:{{ t.farbe|hexfarbe('var(--mp)') }}"></i>{% endfor %}
+            </span>
+            {# Website-Stil: Chips mit Kategoriefarbe, Uhrzeit und Titelanfang – Klick öffnet den Termin #}
+            <span class="kal-chips">
+                {% for t in tag.termine[:3] %}<span class="kal-chip{{ ' verborgen' if t.verborgen }}" style="--kf:{{ t.farbe|hexfarbe('var(--mp)') }}"
+                    data-href="{{ termin_link(t) }}" title="{{ t.titel }}{% if t.uhrzeit %} · {{ t.uhrzeit }} Uhr{% endif %}">{% if t.uhrzeit %}<b>{{ t.uhrzeit }}</b> {% endif %}{{ t.titel }}</span>{% endfor %}
+                {% if tag.termine|length > 3 %}<span class="kal-mehr">+{{ tag.termine|length - 3 }} weitere</span>{% endif %}
+            </span>
+        </a>
+        {% endfor %}
+    </div>
+    {% endfor %}
+    {# Legende der Kategorien dieses Monats (nur im Website-Stil sichtbar) #}
+    {% set gesehen = [] %}
+    <div class="kal-legende">
+    {% for t in agenda if t.kategorie and not t.verborgen and t.kategorie not in gesehen %}{% if gesehen.append(t.kategorie) %}{% endif %}
+        <span style="--kf:{{ t.farbe|hexfarbe('var(--mp)') }}">{{ t.kategorie }}</span>
+    {% endfor %}
+    </div>
+</div>
+
+<div class="mp-karte">
+    <h2 style="margin:0 0 6px;font-size:16px">Termine im {{ titel }}</h2>
+    {% if agenda %}
+        {% for t in agenda %}
+        <a href="{{ termin_link(t) }}" style="display:flex;gap:11px;align-items:center;padding:9px 0;text-decoration:none;color:inherit;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}">
+            <span style="width:5px;align-self:stretch;border-radius:3px;background:{{ t.farbe|hexfarbe('var(--mp)') }};min-height:34px"></span>
+            <div style="min-width:44px;text-align:center"><div class="feld-hinweis" style="font-size:11px">{{ t.datum|wt }}</div><div style="font-weight:800;color:{{ t.farbe|hexfarbe('var(--mp)') }}">{{ t.datum[8:10] }}.{{ t.datum[5:7] }}.</div></div>
+            <div style="flex:1;min-width:0"><div style="font-weight:600">{{ t.titel }}</div>
+                {% if t.uhrzeit %}<div class="feld-hinweis">🕒 {{ t.uhrzeit }}{% if t.uhrzeit_bis %}–{{ t.uhrzeit_bis }}{% endif %} Uhr</div>{% endif %}</div>
+            <span style="color:var(--text-schwach)">›</span>
+        </a>
+        {% endfor %}
+    {% else %}
+        <p class="feld-hinweis">In diesem Monat sind keine Termine.</p>
+    {% endif %}
+</div>
+
+{% else %}
+{# Wochenansicht: 7 Tage als Agenda – im Website-Stil 7 Spalten wie die Monatsansicht #}
+<div class="mp-karte kal-wochenraster">
+    {% for tag in grid[0] %}
+    <div class="kal-wtag{{ ' heute' if tag.heute }}" style="padding:10px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}">
+        <div class="kal-wkopf" style="display:flex;align-items:baseline;gap:8px">
+            <div style="font-weight:700;{{ 'color:var(--mp)' if tag.heute }}">{{ tag.wtag }}</div>
+            <div class="feld-hinweis">{{ tag.tag }}.{% if tag.heute %} · heute{% endif %}</div>
+        </div>
+        {% if tag.termine %}
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
+            {% for t in tag.termine %}
+            <a href="{{ termin_link(t) }}" class="wtermin{{ ' verborgen' if t.verborgen }}" style="border-left:4px solid {{ t.farbe|hexfarbe('var(--mp)') }};--kf:{{ t.farbe|hexfarbe('var(--mp)') }}">
+                <div style="font-weight:600">{{ t.titel }}</div>
+                {% if t.kategorie %}<div class="w-kat">{{ t.kategorie }}</div>{% endif %}
+                {% if t.uhrzeit %}<div class="feld-hinweis">🕒 {{ t.uhrzeit }}{% if t.uhrzeit_bis %}–{{ t.uhrzeit_bis }}{% endif %} Uhr</div>{% endif %}
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="feld-hinweis" style="margin-top:2px">—</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<style>
+    .ans-tab { flex:0 0 auto; padding:7px 14px; border-radius:999px; font-size:14px; font-weight:600;
+               text-decoration:none; color:var(--mp); border:1px solid var(--mp); background:var(--flaeche); }
+    .ans-tab.aktiv { background:var(--mp); color:var(--auf-primaer); }
+    .nav-pfeil { text-decoration:none; color:var(--mp); font-size:26px; font-weight:700; line-height:1;
+                 width:40px; height:40px; display:grid; place-items:center; border-radius:10px; background:var(--flaeche-3); }
+    .kal-kopf, .kal-woche { display:grid; grid-template-columns:repeat(7,1fr); }
+    .kal-kopf > div { text-align:center; font-size:11px; font-weight:700; color:var(--text-schwach); padding-bottom:4px; }
+    .kal-tag { aspect-ratio:1/1.05; display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+               text-decoration:none; color:var(--text); border-radius:9px; padding:4px 0; }
+    .kal-tag .nr { font-size:13px; font-weight:600; }
+    .kal-tag.aus .nr { color:var(--text-schwach); }
+    .kal-tag.heute { background:var(--akzent-zart); }
+    .kal-tag.heute .nr { color:var(--mp); font-weight:800; }
+    .kal-tag .punkte { display:flex; gap:2px; margin-top:3px; flex-wrap:wrap; justify-content:center; max-width:90%; }
+    .kal-tag .punkte i { width:6px; height:6px; border-radius:50%; display:block; }
+    .wtermin { display:block; background:var(--flaeche-2); border:1px solid var(--linie); border-radius:9px;
+               padding:8px 11px; text-decoration:none; color:inherit; }
+    .kal-chips, .kal-legende, .w-kat { display:none; }
+    .kal-chip.verborgen, .wtermin.verborgen { opacity:.5; filter:grayscale(1); }
+</style>
+<script>
+    // Terminchips in der Monatsansicht: Klick öffnet den Termin (der Tag selbst ist schon ein Link)
+    document.querySelectorAll(".kal-chip[data-href]").forEach(function (c) {
+        c.addEventListener("click", function (e) { e.preventDefault(); e.stopPropagation(); window.location.href = c.dataset.href; });
+    });
+</script>
+</div>
+{% endblock %}

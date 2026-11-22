@@ -1,0 +1,234 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Schichten{% endblock %}
+{% macro datum_kurz(d) %}{{ d|wt }}, {{ d[8:10] }}.{{ d[5:7] }}.{% endmacro %}
+{% macro zeit(s) %}
+    {%- if s.zeit_von %}🕒 {{ s.zeit_von }}{% if s.zeit_bis %}–{{ s.zeit_bis }}{% endif %} Uhr
+    {%- elif s.termin_uhrzeit %}🕒 {{ s.termin_uhrzeit }} Uhr{% endif -%}
+{% endmacro %}
+{% block inhalt %}
+{# Desktopversion: Karten fließen mehrspaltig (.mp-fluss) – mobil unverändert #}
+<div class="mp-fluss">
+
+{# Offene & zu tauschende Schichten – ganz oben #}
+<div class="mp-karte">
+    <h2 style="margin:0 0 8px;font-size:17px">🙋 {{ t("k_offene_schichten") }}</h2>
+    {% if offen_kommend == 0 %}{% set akl, atxt = 'gruen', 'Alle Schichten sind besetzt 🎉' %}
+    {% elif offen_kommend <= 3 %}{% set akl, atxt = 'gelb', offen_kommend ~ (' Schicht' if offen_kommend==1 else ' Schichten') ~ ' noch offen' %}
+    {% elif offen_kommend <= 5 %}{% set akl, atxt = 'orange', offen_kommend ~ ' Schichten offen – Hilfe gesucht' %}
+    {% else %}{% set akl, atxt = 'rot', offen_kommend ~ ' Schichten offen – dringend Hilfe gesucht!' %}{% endif %}
+    <div class="ampel {{ akl }}">{{ atxt }}</div>
+    {% if zugeordnet and not darf_uebernehmen %}
+    <p class="feld-hinweis" style="margin:8px 0 0">ℹ️ Schichten übernehmen ist deiner Gruppe aktuell nicht
+        freigeschaltet – bei Fragen melde dich gern beim Vorstand.</p>
+    {% endif %}
+    {% if rollen %}
+    <p class="feld-hinweis" style="margin:8px 0 0">Der Knopf <strong>„Rolle“</strong> zeigt dir direkt,
+        welche Aufgaben zu einer Schicht gehören – <a href="#rollen"
+        onclick="document.getElementById('rollen').open = true">alle Rollen sind unten erklärt</a>.</p>
+    {% endif %}
+
+    {% set offen_liste = (offene | rejectattr('mitglied_id', 'equalto', meine_mid) | list) if meine_mid else (offene | list) %}
+    {% if offen_liste %}
+        {% for s in offen_liste %}
+        <div style="padding:11px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}">
+            <div style="display:flex;gap:10px;align-items:center">
+                <div style="flex:1;min-width:0">
+                    <div style="font-weight:600">{{ s.titel }}{% if s.rolle_name %} <span class="feld-hinweis">· {{ s.rolle_name }}</span>{% endif %}</div>
+                    <div class="feld-hinweis">📅 {{ datum_kurz(s.datum) }}{% set z = zeit(s)|trim %}{% if z %} · {{ z }}{% endif %}{% if s.ort %} · 📍 {{ s.ort }}{% endif %}</div>
+                    {% if s.tausch_gesucht and s.mitglied_id %}<div style="margin-top:3px"><span class="tag-abgabe">🔄 Abgabe von {{ s.vorname }} {{ (s.nachname or '')[:1] }}.</span></div>{% endif %}
+                </div>
+                <div style="display:flex;gap:6px;align-items:center;flex:none;flex-wrap:wrap;justify-content:flex-end">
+                    {% if s.rolle_beschreibung %}
+                    <button type="button" class="btn-klein" aria-expanded="false"
+                            onclick="rolleZeigen(this, 'rb-{{ s.slot_id }}')">Rolle</button>
+                    {% endif %}
+                    {% if zugeordnet and darf_uebernehmen %}
+                    <form method="post" action="{{ url_for('portal.slot_eintragen', sid=s.slot_id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn-klein blau">Übernehmen</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% if s.rolle_beschreibung %}
+            <div id="rb-{{ s.slot_id }}" class="rollen-detail" hidden>
+                <strong>{{ s.rolle_name }}</strong> – das gehört dazu:
+                <div style="white-space:pre-line;margin-top:3px">{{ s.rolle_beschreibung }}</div>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <p class="feld-hinweis" style="margin:6px 0 0">{% if q or zeitraum != 'kommend' %}Keine passenden offenen Schichten.{% else %}Aktuell gibt es keine offenen Schichten.{% endif %}</p>
+    {% endif %}
+</div>
+
+{% if not zugeordnet %}
+<div class="mp-karte">
+    <h2 style="margin:0 0 4px;font-size:18px">🧑‍🤝‍🧑 {{ t("nav_schichten") }}</h2>
+    <p class="feld-hinweis">Wir konnten dich noch keinem Mitglied zuordnen. Bitte beim Vorstand melden, dann kannst du dich für Schichten eintragen.</p>
+</div>
+{% endif %}
+
+<form method="get" class="mp-karte">
+    <div style="display:flex;gap:8px">
+        <input type="search" name="q" value="{{ q }}" placeholder="Schichten durchsuchen …"
+               style="flex:1;padding:11px 12px;border:1px solid var(--linie);border-radius:10px;font-size:15px">
+        <button class="mp-btn" style="width:auto;padding:11px 16px">Suchen</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:9px;align-items:center">
+        <select name="zeitraum" onchange="this.form.submit()" style="flex:1;padding:10px;border:1px solid var(--linie);border-radius:10px;font-size:14px">
+            <option value="kommend" {{ 'selected' if zeitraum=='kommend' }}>Kommende (vergangene ausgeblendet)</option>
+            <option value="alle" {{ 'selected' if zeitraum=='alle' }}>Alle</option>
+            <option value="vergangen" {{ 'selected' if zeitraum=='vergangen' }}>Vergangene</option>
+        </select>
+        {% if q or zeitraum != 'kommend' %}<a href="{{ url_for('portal.schichten') }}" class="feld-hinweis" style="white-space:nowrap">✕ zurücksetzen</a>{% endif %}
+    </div>
+</form>
+
+{% if zugeordnet and nachbereitung %}
+<div class="mp-karte" style="border:1px solid var(--gelb);background:var(--warn-grund)">
+    <h2 style="margin:0 0 6px;font-size:17px">📝 Nachbereitung offen</h2>
+    <p class="feld-hinweis" style="margin:0 0 8px">Wie lief deine Schicht? Kurz Besucher:innen, Einnahmen und Fragen melden.</p>
+    {% for n in nachbereitung %}
+    <div style="display:flex;gap:10px;align-items:center;padding:9px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}">
+        <div style="flex:1;min-width:0">
+            <div style="font-weight:600">{{ n.titel }}</div>
+            <div class="feld-hinweis">📅 {{ datum_kurz(n.datum) }}</div>
+        </div>
+        <a class="btn-klein blau" href="{{ url_for('portal.nachbereitung', sid=n.slot_id) }}" style="text-decoration:none">Ausfüllen</a>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if zugeordnet %}
+<div class="mp-karte">
+    <h2 style="margin:0 0 6px;font-size:17px">📌 {{ t("k_meine_schichten") }}</h2>
+    {% if meine %}
+        {% for s in meine %}
+        <div style="padding:11px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}">
+            <div style="font-weight:600">{{ s.titel }}{% if s.rolle_name %} <span class="feld-hinweis">· {{ s.rolle_name }}</span>{% endif %}</div>
+            <div class="feld-hinweis">📅 {{ datum_kurz(s.datum) }}{% set z = zeit(s)|trim %}{% if z %} · {{ z }}{% endif %}{% if s.ort %} · 📍 {{ s.ort }}{% endif %}</div>
+            {% if s.tausch_gesucht %}<div style="margin-top:4px"><span class="tag-abgabe">🔄 zur Abgabe markiert</span></div>{% endif %}
+            <div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap">
+                {% if s.rolle_beschreibung %}
+                <button type="button" class="btn-klein" aria-expanded="false"
+                        onclick="rolleZeigen(this, 'mrb-{{ s.slot_id }}')">meine Rolle</button>
+                {% endif %}
+                {% if s.datum >= heute_iso %}
+                <form method="post" action="{{ url_for('portal.slot_erinnerung', sid=s.slot_id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <select name="stunden" onchange="this.form.submit()" class="erinnerung-select" title="Erinnerung vor der Schicht">
+                        <option value="0" {{ 'selected' if not s.erinnerung }}>🔕 keine Erinnerung</option>
+                        <option value="1" {{ 'selected' if s.erinnerung==1 }}>🔔 1 Std vorher</option>
+                        <option value="3" {{ 'selected' if s.erinnerung==3 }}>🔔 3 Std vorher</option>
+                        <option value="24" {{ 'selected' if s.erinnerung==24 }}>🔔 1 Tag vorher</option>
+                        <option value="48" {{ 'selected' if s.erinnerung==48 }}>🔔 2 Tage vorher</option>
+                    </select>
+                </form>
+                {% endif %}
+                {% if s.termin_id and s.termin_anmeldung and s.datum >= heute_iso %}
+                <a class="btn-klein" style="text-decoration:none" href="{{ url_for('portal.einlass', tid=s.termin_id) }}">🎫 {{ t('Einlass') }}</a>
+                {% endif %}
+                <form method="post" action="{{ url_for('portal.slot_tausch', sid=s.slot_id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn-klein {{ 'aktiv' if s.tausch_gesucht }}">{{ '↩︎ Abgabe zurückziehen' if s.tausch_gesucht else '🔄 Abgeben / tauschen' }}</button>
+                </form>
+                <form method="post" action="{{ url_for('portal.slot_austragen', sid=s.slot_id) }}" onsubmit="return confirm('Wirklich austragen?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn-klein grau">Austragen</button>
+                </form>
+            </div>
+            {% if s.rolle_beschreibung %}
+            <div id="mrb-{{ s.slot_id }}" class="rollen-detail" hidden>
+                <strong>{{ s.rolle_name }}</strong> – das gehört dazu:
+                <div style="white-space:pre-line;margin-top:3px">{{ s.rolle_beschreibung }}</div>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <p class="feld-hinweis">{% if q or zeitraum != 'kommend' %}Keine passenden Schichten gefunden.{% else %}Du hast aktuell keine kommenden Schichten. Unten kannst du dich für offene Schichten eintragen.{% endif %}</p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if rollen %}
+<details class="mp-karte" id="rollen" style="padding:0">
+    <summary style="padding:16px 18px;cursor:pointer;font-weight:700;font-size:16px;list-style:none">ℹ️ Was bedeuten die Rollen?</summary>
+    <div style="padding:0 18px 16px">
+        {% for r in rollen %}
+        <div style="padding:10px 0;{{ '' if loop.last else 'border-top:1px solid var(--linie)' }}">
+            <div style="display:flex;align-items:center;gap:8px">
+                <span style="width:12px;height:12px;border-radius:50%;background:{{ r.farbe|hexfarbe('var(--mp)') }};flex:none"></span>
+                <strong>{{ r.name }}</strong>
+            </div>
+            {% if r.beschreibung %}<div class="feld-hinweis" style="margin-top:3px;white-space:pre-line">{{ r.beschreibung }}</div>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</details>
+{% endif %}
+
+{% if zugeordnet %}
+{# Statistik ganz unten #}
+<div class="mp-karte" style="background:linear-gradient(135deg,var(--mp),var(--blau-dunkel));color:var(--auf-primaer);border:none">
+    <div style="display:flex;gap:20px">
+        <div><div style="font-size:34px;font-weight:800;line-height:1">{{ statistik }}</div>
+             <div style="opacity:.9;font-size:12px;margin-top:2px">Schichten 💪</div></div>
+        {% if stunden_gesamt %}
+        <div style="border-left:1px solid rgba(255,255,255,.3);padding-left:20px">
+            <div style="font-size:34px;font-weight:800;line-height:1">{{ stunden_gesamt|round(0)|int }}</div>
+            <div style="opacity:.9;font-size:12px;margin-top:2px">Stunden gesamt{% if stunden_jahr %} · {{ stunden_jahr|round(0)|int }} dieses Jahr{% endif %}</div></div>
+        {% endif %}
+    </div>
+    {% if abzeichen %}
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px">
+        {% for k, ic, tx in abzeichen %}<span class="abz" title="{{ tx }}">{{ ic }} {{ tx }}</span>{% endfor %}
+    </div>
+    {% for k, ic, tx in abzeichen if k == 'ek200' %}
+    <div style="margin-top:12px;background:var(--warn-grund);color:var(--warn-text);border:1px solid var(--gelb);border-radius:12px;padding:12px 14px">
+        <div style="font-weight:700">🎖️ Stark – über 200 Ehrenamts-Stunden dieses Jahr!</div>
+        <div style="font-size:13.5px;margin-top:4px;line-height:1.5">Damit kannst du die
+            <strong>Ehrenamtskarte Mecklenburg-Vorpommern</strong> beantragen – mit Vergünstigungen bei
+            vielen Partnern im Land. Der Verein bestätigt dir dein Engagement gern.</div>
+        <a href="https://www.ehrenamtskarte-mv.de/" target="_blank" rel="noopener"
+           style="display:inline-block;margin-top:8px;font-weight:600;color:var(--warn-text);text-decoration:underline">→ Jetzt informieren &amp; beantragen</a>
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+{% endif %}
+
+<style>
+    .btn-klein { border:1px solid var(--mp); background:var(--flaeche); color:var(--mp); border-radius:9px;
+                 padding:8px 12px; font-size:13px; font-weight:600; cursor:pointer; }
+    .btn-klein.blau { background:var(--mp); color:var(--auf-primaer); }
+    .btn-klein.aktiv { border-color:var(--rot); color:var(--rot); }
+    .btn-klein.grau { border-color:var(--linie-stark); color:var(--text-hell); }
+    .tag-abgabe { display:inline-block; background:var(--warn-grund); color:var(--warn-text); border:1px solid var(--gelb);
+                  border-radius:999px; padding:2px 9px; font-size:12px; font-weight:600; }
+    .erinnerung-select { border:1px solid var(--mp); color:var(--mp); background:var(--flaeche); border-radius:9px;
+                         padding:7px 9px; font-size:13px; font-weight:600; }
+    .abz { background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.3); color:var(--auf-primaer);
+           border-radius:999px; padding:3px 10px; font-size:12px; font-weight:700; }
+    .ampel { border-radius:12px; padding:11px 14px; font-weight:700; font-size:15px; margin-bottom:10px; border:1px solid; }
+    .ampel.gruen  { background:var(--gut-grund); color:var(--gut-text); border-color:var(--gut-rand); }
+    .ampel.gelb   { background:var(--warn-grund); color:var(--warn-text); border-color:var(--linie); }
+    .ampel.orange { background:var(--warn-grund); color:var(--warn-text); border-color:var(--gelb); }
+    .ampel.rot    { background:var(--fehler-grund); color:var(--fehler-text); border-color:var(--fehler-rand); }
+    details > summary::-webkit-details-marker { display:none; }
+    .rollen-detail { margin-top:9px; background:var(--grund, #f1f5f9); border:1px solid var(--linie);
+                     border-radius:10px; padding:10px 12px; font-size:13.5px; }
+</style>
+<script>
+function rolleZeigen(knopf, zielId) {
+    var ziel = document.getElementById(zielId);
+    ziel.hidden = !ziel.hidden;
+    knopf.setAttribute('aria-expanded', ziel.hidden ? 'false' : 'true');
+    knopf.classList.toggle('blau', !ziel.hidden);
+}
+</script>
+</div>
+{% endblock %}

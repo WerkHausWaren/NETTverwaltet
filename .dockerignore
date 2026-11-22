@@ -1,0 +1,28 @@
+# Nicht ins Image kopieren (Daten liegen als Volume auf dem Server)
+/data/
+.venv/
+venv/
+.git/
+.gitignore
+__pycache__/
+*.pyc
+*.pyo
+*.db
+*.db-*
+*.db.migriert
+*.sqlite
+Beispieldaten/
+herz_icon*.png
+*.log
+.DS_Store
+scratchpad/
+deploy/.env
+deploy/vereine/
+# Geheimnisse und erzeugte Server-Dateien nie ins Image (Selbst-Hosting legt .env/Caddyfile im Hauptordner an)
+.env
+*.env
+Caddyfile*
+*.bak*
+*.vorher
+logs/
+._*

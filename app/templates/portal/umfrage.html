@@ -1,0 +1,95 @@
+{% extends "portal/_layout.html" %}
+{% block title %}{{ u.titel }}{% endblock %}
+{% block inhalt %}
+<div class="mp-schmal">
+<p style="margin:14px 0 0"><a href="{{ url_for('portal.umfragen') }}" style="text-decoration:none;color:var(--mp);font-weight:600">‹ Umfragen</a></p>
+
+<div class="mp-karte">
+    <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:22px">{{ '📅' if u.typ=='termin' else '🗳️' }}</span>
+        <h2 style="margin:0;font-size:19px">{{ u.titel }}</h2>
+    </div>
+    {% if u.beschreibung %}<p style="margin:8px 0 0">{{ u.beschreibung }}</p>{% endif %}
+    <div class="feld-hinweis" style="margin-top:6px">{{ teilnehmer }} Teilnehmende{% if u.anonym %} · anonym{% endif %}{% if not u.aktiv %} · <span style="color:var(--rot);font-weight:600">geschlossen</span>{% endif %}</div>
+    {% if ist_admin %}
+    <form method="post" action="{{ url_for('portal.umfrage_schliessen', uid=u.id) }}" style="margin-top:8px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn-klein">{{ '🔓 Wieder öffnen' if not u.aktiv else '🔒 Umfrage schließen' }}</button>
+    </form>
+    {% endif %}
+</div>
+
+{# Bestes Ergebnis (meiste Ja) ermitteln #}
+{% set ns = namespace(max=0) %}
+{% for o in optionen %}{% if erg[o.id].ja > ns.max %}{% set ns.max = erg[o.id].ja %}{% endif %}{% endfor %}
+
+{% if u.aktiv and zugeordnet %}
+<form method="post" action="{{ url_for('portal.umfrage_abstimmen', uid=u.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="mp-karte">
+        <h3 style="margin:0 0 8px;font-size:16px">Deine Antwort</h3>
+        {% for o in optionen %}
+        <div style="padding:9px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}">
+            <div style="font-weight:600;margin-bottom:6px">{{ o.text }}</div>
+            {% if u.typ == 'termin' %}
+            <div style="display:flex;gap:6px">
+                {% for w,label in [('ja','✅ Ja'),('vielleicht','🤔 Vielleicht'),('nein','✖ Nein')] %}
+                <label class="wahl {{ 'an' if meine.get(o.id)==w }}">
+                    <input type="radio" name="opt_{{ o.id }}" value="{{ w }}" {{ 'checked' if meine.get(o.id)==w }} style="display:none">{{ label }}
+                </label>
+                {% endfor %}
+            </div>
+            {% else %}
+            <label class="wahl-zeile">
+                <input type="{{ 'checkbox' if u.mehrfach else 'radio' }}" name="auswahl" value="{{ o.id }}" {{ 'checked' if o.id in meine }}>
+                <span>auswählen</span>
+            </label>
+            {% endif %}
+        </div>
+        {% endfor %}
+        <button type="submit" class="mp-btn" style="margin-top:10px">Abstimmen</button>
+    </div>
+</form>
+{% elif u.aktiv and not zugeordnet %}
+<div class="mp-karte"><p class="feld-hinweis" style="margin:0">Zum Abstimmen muss dein Konto einem Mitglied zugeordnet sein (siehe „Ich").</p></div>
+{% endif %}
+
+<div class="mp-karte">
+    <h3 style="margin:0 0 8px;font-size:16px">Ergebnis</h3>
+    {% for o in optionen %}
+    {% set e = erg[o.id] %}
+    <div style="padding:9px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}">
+        <div style="display:flex;justify-content:space-between;gap:8px">
+            <span style="font-weight:600">{{ o.text }}{% if u.typ=='termin' and e.ja==ns.max and ns.max>0 %} <span class="best">Bester Termin</span>{% endif %}</span>
+            <span class="feld-hinweis" style="white-space:nowrap">
+                {% if u.typ=='termin' %}✅ {{ e.ja }} · 🤔 {{ e.vielleicht }} · ✖ {{ e.nein }}{% else %}{{ e.ja }} Stimme{{ 'n' if e.ja!=1 }}{% endif %}
+            </span>
+        </div>
+        <div class="balken"><span style="width:{{ (e.ja / teilnehmer * 100) if teilnehmer else 0 }}%"></span></div>
+        {% if not u.anonym and e.namen %}<div class="feld-hinweis" style="margin-top:4px">{{ e.namen|join(' · ') }}</div>{% endif %}
+    </div>
+    {% endfor %}
+    {% if teilnehmer == 0 %}<p class="feld-hinweis" style="margin:4px 0 0">Noch keine Stimmen.</p>{% endif %}
+</div>
+
+<style>
+    .btn-klein { border:1px solid var(--mp); background:var(--flaeche); color:var(--mp); border-radius:9px; padding:8px 12px; font-size:13px; font-weight:600; cursor:pointer; }
+    .wahl { flex:1; text-align:center; border:1px solid var(--linie); border-radius:9px; padding:8px 4px; font-size:13px; font-weight:600; color:var(--text-hell); cursor:pointer; }
+    .wahl.an { border-color:var(--mp); background:var(--mp); color:var(--auf-primaer); }
+    .wahl-zeile { display:flex; align-items:center; gap:9px; cursor:pointer; }
+    .wahl-zeile input { width:20px; height:20px; accent-color:var(--mp); }
+    .balken { height:8px; background:var(--flaeche-3); border-radius:6px; overflow:hidden; margin-top:6px; }
+    .balken span { display:block; height:100%; background:var(--mp); border-radius:6px; }
+    .best { background:var(--gut-grund); color:var(--gut-text); border:1px solid var(--gut-rand); border-radius:999px; padding:1px 8px; font-size:11px; font-weight:700; }
+</style>
+<script>
+    // Bei „Ja/Vielleicht/Nein" die Auswahl-Optik umschalten
+    document.querySelectorAll('.wahl input').forEach(function(inp){
+        inp.addEventListener('change', function(){
+            var gruppe = document.getElementsByName(inp.name);
+            gruppe.forEach(function(x){ x.closest('.wahl').classList.toggle('an', x.checked); });
+        });
+    });
+</script>
+</div>
+{% endblock %}

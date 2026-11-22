@@ -1,0 +1,89 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Über uns{% endblock %}
+{% block inhalt %}
+<div class="mp-schmal">
+
+<div class="mp-karte" style="text-align:center;padding-top:26px">
+    {% if einst.logo_dateiname %}
+    <img src="{{ url_for('portal.logo') }}" alt="{{ einst.vereinsname }}"
+         style="width:86px;height:86px;object-fit:contain;background:{{ einst.logo_kreis_farbe or '#ffffff' }};border-radius:50%;
+                box-shadow:0 3px 14px rgba(0,0,0,.12);padding:8px">
+    {% else %}<div style="font-size:56px">❤️</div>{% endif %}
+    <h1 style="font-size:22px;margin:12px 0 4px">{{ einst.vereinsname }}</h1>
+    {% if einst.ueber_text %}
+    <p style="margin:14px auto 4px;max-width:32em;font-size:17.5px;line-height:1.55;font-weight:600;
+              color:var(--mp);text-wrap:balance">„{{ einst.ueber_text }}“</p>
+    {% endif %}
+    {% if einst.portal_willkommen %}<p style="margin:10px 0 0;font-size:15px">{{ einst.portal_willkommen }}</p>{% endif %}
+    <p class="feld-hinweis" style="margin:10px 0 0">Schön, dass du reinschaust! Hier findest du unsere Termine
+        – und kannst dich zu Veranstaltungen anmelden, ganz ohne Mitgliedschaft.</p>
+</div>
+
+{% if website or instagram %}
+<div class="mp-karte">
+    <h2 style="margin:0 0 10px;font-size:17px">🌐 Mehr von uns</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+        {% if website %}
+        <a class="mp-btn" href="{{ website|sichere_url }}" target="_blank" rel="noopener" style="flex:1;min-width:140px">🌍 Unsere Website</a>
+        {% endif %}
+        {% if instagram %}
+        <a class="mp-btn" href="https://www.instagram.com/{{ instagram }}" target="_blank" rel="noopener"
+           style="flex:1;min-width:140px;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);color:#fff">📸 Instagram</a>
+        {% endif %}
+    </div>
+    {% if instagram %}<p class="feld-hinweis" style="margin:8px 0 0;text-align:center">@{{ instagram }}</p>{% endif %}
+</div>
+{% endif %}
+
+{% if einst.strasse or einst.ort or einst.email or einst.telefon %}
+{# Gäste wollen dorthin, wo etwas stattfindet – der Veranstaltungsort hat Vorrang
+   vor der Registeranschrift, wenn beide hinterlegt sind. #}
+{% set hier = einst.werkhaus_adresse or (einst.strasse ~ ', ' ~ einst.plz ~ ' ' ~ einst.ort) %}
+<div class="mp-karte">
+    <h2 style="margin:0 0 10px;font-size:17px">📫 Kontakt</h2>
+    {% if einst.strasse or einst.ort or einst.werkhaus_adresse %}
+    <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--linie)">
+        <span style="flex:none">📍</span>
+        <a href="https://www.google.com/maps/search/?api=1&query={{ hier | urlencode }}"
+           target="_blank" rel="noopener" style="color:inherit">
+            {% if einst.werkhaus_adresse %}{{ einst.werkhaus_adresse }}
+                {%- if einst.werkhaus_name %}<br><span class="feld-hinweis">{{ einst.werkhaus_name }}</span>{% endif %}
+            {% else %}{{ einst.strasse }}{% if einst.plz or einst.ort %}<br>{{ einst.plz }} {{ einst.ort }}{% endif %}{% endif %}</a>
+    </div>
+    {% endif %}
+    {% if einst.email %}
+    <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--linie)">
+        <span style="flex:none">✉️</span>
+        <a href="mailto:{{ einst.email }}" style="color:inherit">{{ einst.email }}</a>
+    </div>
+    {% endif %}
+    {% if einst.telefon %}
+    <div style="display:flex;gap:10px;padding:8px 0">
+        <span style="flex:none">📞</span>
+        <a href="tel:{{ einst.telefon | replace(' ', '') }}" style="color:inherit">{{ einst.telefon }}</a>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="mp-karte">
+    <h2 style="margin:0 0 8px;font-size:17px">🎟️ Dabei sein</h2>
+    <p class="feld-hinweis" style="margin:0 0 10px">Unsere Veranstaltungen stehen allen offen –
+        schau in die Termine und melde dich einfach an.</p>
+    <a class="mp-btn" href="{{ url_for('portal.termine') }}">📅 Zu den Terminen</a>
+    {% if design and design.freunde_registrierung and not current_user.is_authenticated %}
+    <p class="feld-hinweis" style="margin:12px 0 0">Öfter hier?
+        <a href="{{ url_for('auth.freund_registrieren') }}">Registriere dich als Freund</a> –
+        dann verpasst du nichts.</p>
+    {% endif %}
+    <p class="feld-hinweis" style="margin:10px 0 0">🤝 Lust auf mehr? Über eine <strong>Mitgliedschaft</strong>
+        freuen wir uns immer – sprich uns einfach an{% if einst.email %} oder schreib an
+        <a href="mailto:{{ einst.email }}">{{ einst.email }}</a>{% endif %}.</p>
+</div>
+<div class="mp-karte" style="text-align:center">
+    <h2 style="margin:0 0 6px;font-size:17px">🤝 Lust, Mitglied zu werden?</h2>
+    <p class="feld-hinweis" style="margin:0 0 10px">Werde Teil des Vereins – der Antrag dauert 2 Minuten.</p>
+    <a class="mp-btn" href="{{ url_for('mitglieder.antrag_public') }}">🤝 Jetzt Mitglied werden</a>
+</div>
+</div>
+{% endblock %}

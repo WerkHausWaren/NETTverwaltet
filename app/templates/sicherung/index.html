@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Datensicherung{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Datensicherung</h1><div class="sub">Deine Daten regelmäßig sichern – automatisch und manuell</div></div>
+    <form method="post" action="{{ url_for('sicherung.jetzt') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn">💾 Jetzt sichern</button>
+    </form>
+</div>
+
+<div class="hilfe-box">
+    <strong>Automatische Sicherung:</strong> Die App erstellt beim Start automatisch eine Sicherung,
+    wenn die letzte mehr als 7 Tage her ist. Für einen festen wöchentlichen Zeitplan (auch wenn die App
+    geschlossen ist) kannst du einmalig <strong>„Wöchentliches Backup einrichten.command"</strong>
+    im Projektordner per Doppelklick ausführen.
+    <div class="feld-hinweis" style="margin-top:8px">
+        Speicherort: {% if in_onedrive %}☁️ OneDrive (automatische Cloud-Sicherung){% else %}💻 Lokal{% endif %}<br>{{ ordner }}
+    </div>
+</div>
+
+<div class="karten-reihe">
+    <div class="kennzahl">
+        <div class="wert" style="font-size:18px">{{ letztes or 'noch keine' }}</div>
+        <div class="label">Letzte Sicherung</div>
+    </div>
+    <div class="kennzahl">
+        <div class="wert">{{ backups|length }}</div>
+        <div class="label">Vorhandene Sicherungen</div>
+    </div>
+</div>
+
+{% if backups %}
+<h2>Vorhandene Sicherungen</h2>
+<table>
+    <thead><tr><th>Zeitpunkt</th><th>Datei</th><th class="rechts">Größe</th><th></th></tr></thead>
+    <tbody>
+    {% for s in backups %}
+    <tr>
+        <td>{{ s.zeit }}</td>
+        <td>{{ s.name }}</td>
+        <td class="rechts">{{ s.groesse_kb }} KB</td>
+        <td class="rechts">
+            <form method="post" action="{{ url_for('sicherung.wiederherstellen') }}" style="display:inline"
+                  onsubmit="return confirm('Diese Sicherung zurückspielen? Der aktuelle Stand wird vorher automatisch gesichert, dann aber überschrieben.')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="name" value="{{ s.name }}">
+                <button class="btn btn-sekundaer btn-klein">Wiederherstellen</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+<p class="feld-hinweis">Es werden automatisch die letzten 12 Sicherungen aufbewahrt; ältere werden entfernt.</p>
+{% else %}
+<div class="karte leer"><div class="icon">💾</div><p>Noch keine Sicherung vorhanden. Klicke auf „Jetzt sichern".</p></div>
+{% endif %}
+{% endblock %}

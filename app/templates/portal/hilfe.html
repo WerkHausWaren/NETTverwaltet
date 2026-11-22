@@ -1,0 +1,127 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Hilfe{% endblock %}
+{% block inhalt %}
+
+<div class="mp-karte" style="margin-top:16px">
+    <h2 style="margin:0 0 4px;font-size:18px">❓ So funktioniert die Mitglieder-App</h2>
+    <p class="feld-hinweis" style="margin:0">Die wichtigsten Funktionen in Kürze – alles erreichst du über die Leiste unten.</p>
+</div>
+{# Desktopversion: Hilfe-Karten fließen mehrspaltig – mobil unverändert #}
+<div class="mp-fluss">
+
+<div class="mp-karte">
+    <div class="h-block"><span class="h-ic">🏠</span><div><strong>Start</strong><br>
+        Deine Übersicht: Ankündigungen, nächste Termine, Aufgaben und mehr. Mit „Anpassen" unten auf der
+        Startseite kannst du die Blöcke sortieren oder ausblenden – ganz nach deinem Geschmack.</div></div>
+    <div class="h-block"><span class="h-ic">📅</span><div><strong>Termine</strong><br>
+        Alle Vereinstermine mit Details. Sag mit einem Tipp zu oder ab (der Vorstand sieht dann, mit wie
+        vielen er rechnen kann) und trage Termine in deinen eigenen Kalender ein.</div></div>
+    {% if schichten_an %}
+    <div class="h-block"><span class="h-ic">🧑‍🤝‍🧑</span><div><strong>Schichten</strong><br>
+        Trage dich in offene Schichten ein oder gib deine Schicht zum Tausch frei. Voraussetzung ist ein
+        hinterlegtes <a href="{{ url_for('portal.profil') }}#gesundheitszeugnis">Gesundheitszeugnis</a> in deinem Profil.</div></div>
+    {% endif %}
+    <div class="h-block"><span class="h-ic">👥</span><div><strong>Mitglieder</strong><br>
+        Wer ist dabei? Tippe auf einen Namen für Details oder direkt auf ✉️ 📞 💚 💙 (E-Mail, Anruf, WhatsApp, Signal), um jemanden zu
+        kontaktieren. Sichtbar sind nur Kontaktwege von Mitgliedern, die dem zugestimmt haben – das stellst
+        du für dich selbst unter „Ich" ein.</div></div>
+    {% if nc_verein %}
+    <div class="h-block"><span class="h-ic">☁️</span><div><strong>{{ 'Cloud' if dms_an else 'Dateien' }}</strong><br>
+        Öffnet die Nextcloud deines Vereins mit allen für dich freigegebenen Ordnern.</div></div>
+    {% endif %}
+    {% if dms_an %}
+    <div class="h-block"><span class="h-ic">🗄️</span><div><strong>Dateien</strong><br>
+        Die Dateiablage des Vereins – du siehst genau die Ordner, die für dich freigegeben sind.</div></div>
+    {% endif %}
+    <div class="h-block"><span class="h-ic">👤</span><div><strong>Ich</strong><br>
+        Deine Daten: Adresse und Kontaktwege pflegen, Profilbild setzen, Einwilligungen verwalten,
+        Abwesenheit eintragen{% if schichten_an %}, Gesundheitszeugnis hochladen{% endif %} – und den
+        eigenen Beitragsstand einsehen.</div></div>
+</div>
+
+<div class="mp-karte">
+    <div class="h-block"><span class="h-ic">🔔</span><div><strong>Mitteilungen</strong><br>
+        Aktiviere Push-Benachrichtigungen auf der Startseite, dann verpasst du keine Ankündigung, Aufgabe
+        oder Erinnerung. Tipp: Auf dem iPhone zuerst die App zum Home-Bildschirm hinzufügen
+        (<a href="{{ url_for('portal.app_installieren') }}">Anleitung</a>).</div></div>
+    <div class="h-block"><span class="h-ic">📲</span><div><strong>Als App installieren</strong><br>
+        Einmal installiert, startet die Mitglieder-App wie jede andere App vom Home-Bildschirm –
+        <a href="{{ url_for('portal.app_installieren') }}">so geht's</a>.</div></div>
+</div>
+
+<div class="mp-karte">
+    <h2 style="margin:0 0 8px;font-size:17px">📚 Schulung &amp; Anleitungen</h2>
+    <p class="feld-hinweis" style="margin:0 0 10px">Zum Nachlesen, Weitergeben oder für den nächsten
+        Vereinsabend – alles rund um die Mitglieder-App:</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+        <button type="button" onclick="pdfTeilen(this, '{{ url_for('static', filename='schulung/WerkHausApp-Anleitung.pdf') }}', 'App-Anleitung.pdf')"
+           style="display:flex;align-items:center;gap:10px;padding:11px 13px;background:var(--flaeche-3);border:1px solid var(--linie);border-radius:11px;cursor:pointer;text-align:left;color:inherit;font:inherit">
+            <span style="font-size:22px">📄</span>
+            <span style="flex:1;min-width:0"><strong>Anleitung (PDF)</strong><br>
+                <span class="feld-hinweis">Schritt für Schritt: installieren &amp; benutzen – zum Lesen und Ausdrucken</span></span>
+            <span style="color:var(--text-schwach)">⬇︎</span></button>
+        <a href="{{ url_for('static', filename='schulung/WerkHausApp-Tour.gif') }}" target="_blank" rel="noopener"
+           style="display:flex;align-items:center;gap:10px;padding:11px 13px;background:var(--flaeche-3);border:1px solid var(--linie);border-radius:11px;text-decoration:none;color:inherit">
+            <span style="font-size:22px">🎬</span>
+            <span style="flex:1;min-width:0"><strong>Kurze Bilder-Tour</strong><br>
+                <span class="feld-hinweis">Läuft automatisch durch – die App in 1 Minute</span></span>
+            <span style="color:var(--text-schwach)">›</span></a>
+        <button type="button" onclick="pdfTeilen(this, '{{ url_for('static', filename='schulung/WerkHausApp-Schulung.pptx') }}', 'App-Schulung.pptx')"
+           style="display:flex;align-items:center;gap:10px;padding:11px 13px;background:var(--flaeche-3);border:1px solid var(--linie);border-radius:11px;cursor:pointer;text-align:left;color:inherit;font:inherit">
+            <span style="font-size:22px">📊</span>
+            <span style="flex:1;min-width:0"><strong>Schulungsfolien (PowerPoint)</strong><br>
+                <span class="feld-hinweis">Für alle, die die App anderen zeigen möchten</span></span>
+            <span style="color:var(--text-schwach)">⬇︎</span></button>
+    </div>
+</div>
+
+{% if unterlagen %}
+<div class="mp-karte">
+    <h2 style="margin:0 0 6px;font-size:17px">📚 Unterlagen zum Nachlesen</h2>
+    {% for u in unterlagen %}
+    <div style="display:flex;gap:12px;align-items:center;padding:9px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}">
+        {% if u.web %}
+        <a href="{{ url_for('portal.hilfe_lesen', schluessel=u.schluessel) }}"
+           style="display:flex;gap:12px;align-items:center;flex:1;min-width:0;text-decoration:none;color:inherit">
+            <span style="font-size:22px;flex:none">{{ u.symbol }}</span>
+            <div style="flex:1;min-width:0"><strong>{{ u.name }}</strong>
+                {% if u.passend %} <span style="background:var(--mp);color:var(--auf-primaer);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:700">für dich</span>{% endif %}
+                <div class="feld-hinweis">Lesen – oder als PDF teilen ({{ u.groesse }})</div></div>
+            <span style="flex:none;color:var(--text-schwach)">›</span>
+        </a>
+        <button type="button" title="PDF ansehen, drucken oder weitergeben"
+                onclick="pdfTeilen(this, '{{ url_for('portal.hilfe_unterlage', dateiname=u.datei) }}', '{{ u.datei }}')"
+                style="flex:none;background:none;cursor:pointer;border:1px solid var(--linie);border-radius:8px;padding:6px 10px;color:inherit">📄</button>
+        {% else %}
+        <button type="button" onclick="pdfTeilen(this, '{{ url_for('portal.hilfe_unterlage', dateiname=u.datei) }}', '{{ u.datei }}')"
+                style="display:flex;gap:12px;align-items:center;flex:1;min-width:0;background:none;border:none;cursor:pointer;text-align:left;padding:0;color:inherit;font:inherit">
+            <span style="font-size:22px;flex:none">{{ u.symbol }}</span>
+            <div style="flex:1;min-width:0"><strong>{{ u.name }}</strong>
+                <div class="feld-hinweis">PDF · {{ u.groesse }} – ansehen, drucken oder weitergeben</div></div>
+            <span style="flex:none;color:var(--text-schwach)">⬇︎</span>
+        </button>
+        {% endif %}
+    </div>
+    {% endfor %}
+    <p class="feld-hinweis" style="margin:8px 0 0">Tipp: Das Handbuch ist groß ({{ (unterlagen | selectattr('datei', 'equalto', 'NETTverwaltet-Handbuch.pdf') | map(attribute='groesse') | first) or 'ca. 50 MB' }}) –
+        am besten im WLAN öffnen.</p>
+</div>
+{% endif %}
+
+<div class="mp-karte">
+    <div class="h-block"><span class="h-ic">🛠️</span><div><strong>Für den Vorstand: der Adminbereich</strong><br>
+        Neben der Mitglieder-App gibt es die <strong>Verwaltung</strong> – dort pflegt der Vorstand
+        Mitglieder, Finanzen &amp; Beiträge, Veranstaltungen, Rundmails und mehr. Vorstandsmitglieder melden
+        sich einfach unter derselben Adresse an und landen automatisch in der Verwaltung.
+        {% if ist_admin %}<br><a href="/">→ Zur Verwaltung wechseln</a>{% endif %}</div></div>
+    <div class="h-block"><span class="h-ic">💬</span><div><strong>Noch Fragen?</strong><br>
+        Der Vorstand hilft gern weiter – die Kontaktwege findest du unter „Mitglieder".</div></div>
+</div>
+</div>
+
+<style>
+    .h-block { display:flex; gap:12px; padding:10px 0; border-bottom:1px solid var(--linie); font-size:14.5px; line-height:1.55; }
+    .h-block:last-child { border-bottom:none; }
+    .h-ic { font-size:22px; flex:none; }
+</style>
+{% endblock %}

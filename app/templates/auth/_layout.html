@@ -1,0 +1,37 @@
+<!doctype html>
+{# Vor der Anmeldung gibt es keinen Nutzerwunsch – die Seite folgt dem Gerät. #}
+<html lang="de" data-modus="auto">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Anmeldung{% endblock %} · {{ verein_name or 'Vereinsverwaltung' }}</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+    <link rel="apple-touch-icon" href="/app-icon-180.png">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>{{ aussehen_css | safe }}</style>
+    <style>
+        body { background: var(--grund); }
+        .auth-wrap { max-width: 430px; margin: 7vh auto 4vh; padding: 0 16px; }
+        .auth-karte { background: var(--flaeche); border: 1px solid var(--linie); border-radius: 16px;
+                      padding: 30px; box-shadow: 0 10px 34px rgba(0,0,0,.07); }
+        .auth-logo { text-align: center; font-size: 44px; line-height: 1; }
+        .auth-titel { text-align: center; margin: 8px 0 20px; }
+        .auth-karte .btn { display: block; width: 100%; text-align: center; box-sizing: border-box; }
+        .auth-karte hr { border: none; border-top: 1px solid var(--linie); margin: 18px 0; }
+    </style>
+</head>
+<body>
+<div class="auth-wrap">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for kat, msg in messages %}
+        <div class="flash flash-{{ 'fehler' if kat == 'fehler' else ('erfolg' if kat == 'erfolg' else 'info') }}">{{ msg }}</div>
+        {% endfor %}
+    {% endwith %}
+    <div class="auth-karte">{% block inhalt %}{% endblock %}</div>
+    <div style="text-align:center;font-size:11.5px;color:var(--text-schwach);line-height:1.6;margin-top:16px">
+        <a href="{{ PROJEKT_URL }}" target="_blank" rel="noopener" style="color:var(--text-schwach)">NETTverwaltet</a>
+        – ehrenamtlich entwickelt
+    </div>
+</div>
+</body>
+</html>

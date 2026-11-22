@@ -1,0 +1,469 @@
+{% extends "base.html" %}
+{% block title %}Einstellungen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Einstellungen</h1><div class="sub">Vereinsdaten · Design · Module · E-Mail · Nextcloud · Bank · Rechtliches · Mitglieder-App</div></div>
+    <a href="{{ url_for('einstellungen.abzeichen') }}" class="btn btn-sekundaer">🏅 Abzeichen verwalten</a>
+</div>
+
+<form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <fieldset>
+        <legend>Vereinsdaten</legend>
+        <div class="feld"><label>Vereinsname</label><input type="text" name="vereinsname" value="{{ e.vereinsname }}"></div>
+        <div class="feld"><label>Straße <span class="feld-hinweis">(Registeranschrift – steht auf Rechnungen, Bescheinigungen und Serienbriefen)</span></label>
+            <input type="text" name="strasse" value="{{ e.strasse }}"></div>
+        <div class="feld-reihe">
+            <div class="feld"><label>PLZ</label><input type="text" name="plz" value="{{ e.plz }}"></div>
+            <div class="feld"><label>Ort</label><input type="text" name="ort" value="{{ e.ort }}"></div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>E-Mail</label><input type="email" name="email" value="{{ e.email }}"></div>
+            <div class="feld"><label>Telefon</label><input type="text" name="telefon" value="{{ e.telefon }}"></div>
+            <div class="feld"><label>Website</label><input type="text" name="website" value="{{ e.website }}"></div>
+            <div class="feld"><label>Instagram (Nutzername)</label><input type="text" name="instagram" value="{{ e.instagram or '' }}" placeholder="deinverein">
+                <div class="feld-hinweis">Erscheint auf der Kennenlern-Seite der App für Gäste.</div></div>
+            <div class="feld"><label>WhatsApp-Kanal (Link)</label><input type="text" name="whatsapp_kanal" value="{{ e.whatsapp_kanal or '' }}" placeholder="https://whatsapp.com/channel/…">
+                <div class="feld-hinweis">Wird z. B. auf der öffentlichen Adventskalender-Seite verlinkt.</div></div>
+            <div class="feld"><label>Unsere Vision (Kennenlern-Seite)</label>
+                <textarea name="ueber_text" rows="3" placeholder="Wofür steht euer Verein? Ein, zwei begeisternde Sätze …">{{ e.ueber_text or '' }}</textarea>
+                <div class="feld-hinweis">Steht groß am Anfang der „Über uns"-Seite, die Gäste und Freunde in der App sehen.</div></div>
+            <div class="feld"><label>📱 Adresse der Mitglieder-App</label>
+                <input type="text" name="app_url" value="{{ e.app_url or '' }}" placeholder="z. B. https://verwaltung.verein.example">
+                <div class="feld-hinweis">Wird für den QR-Code auf dem Mitgliederausweis genutzt, damit dieser die App genau dieses Vereins öffnet. Leer lassen = automatisch die aktuelle Adresse.</div></div>
+            <div class="feld"><label>📥 Veranstaltungs-Import (Quelle)</label>
+                <input type="text" name="event_import_url" value="{{ e.event_import_url or '' }}" placeholder="z. B. https://www.auf-nach-mv.de/volltextsuche?form=search&q=…">
+                <div class="feld-hinweis">Such-Link von auf-nach-mv.de. Der Kalender-Button „Von auf-nach-mv importieren" holt daraus fehlende Termine (inkl. Bild). Leer lassen = kein Button.</div></div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Registergericht</label><input type="text" name="registergericht" value="{{ e.registergericht }}"></div>
+            <div class="feld"><label>Registernummer (VR)</label><input type="text" name="registernummer" value="{{ e.registernummer }}"></div>
+            <div class="feld"><label>Steuernummer</label><input type="text" name="steuernummer" value="{{ e.steuernummer }}"></div>
+        </div>
+        <div class="feld"><label>Vorstand (für Serienbriefe)</label><input type="text" name="vorstand" value="{{ e.vorstand }}"></div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Finanzamt (für Spendenbescheinigungen)</label><input type="text" name="finanzamt" value="{{ e.finanzamt or '' }}" placeholder="z. B. Waren (Müritz)"></div>
+            <div class="feld"><label>Wirtschaftsjahr beginnt am <span class="feld-hinweis">(TT.MM. – leer = 01.01., also Kalenderjahr)</span></label>
+                <input type="text" name="wj_beginn" value="{{ e.wj_beginn or '' }}" placeholder="01.01." style="max-width:120px">
+                <div class="feld-hinweis">Bei abweichendem Stichtag (z. B. 01.08.) rechnen Kassenbuch, Kassenbericht und
+                    Steuer-Auswertung in Wirtschaftsjahren, etwa „2026/27" = 01.08.2026 bis 31.07.2027.</div></div>
+            <div class="feld" style="max-width:190px"><label>Freistellungsbescheid vom</label><input type="text" name="freistellung_datum" value="{{ e.freistellung_datum or '' }}" placeholder="TT.MM.JJJJ"></div>
+            <div class="feld" style="max-width:220px"><label>Letzter Veranlagungszeitraum</label><input type="text" name="freistellung_zeitraum" value="{{ e.freistellung_zeitraum or '' }}" placeholder="z. B. 2023 bis 2025"></div>
+        </div>
+        <div class="feld"><label>Begünstigte Zwecke laut Freistellungsbescheid/Satzung</label>
+            <input type="text" name="foerderzwecke" value="{{ e.foerderzwecke or '' }}" placeholder="z. B. Förderung von Kunst und Kultur, der Jugendhilfe">
+            <div class="feld-hinweis">Diese Angaben erscheinen auf der amtlichen Zuwendungsbestätigung (Spendenbescheinigung).</div></div>
+    </fieldset>
+    <fieldset>
+        <legend>🤝 Beitrittsformular (öffentliche Seite „Mitglied werden")</legend>
+        <div class="feld-hinweis" style="margin-bottom:10px">Diese Angaben stehen auf der öffentlichen
+            Seite, über die Interessierte online beitreten. Wer nichts einträgt, dessen Formular zeigt
+            den jeweiligen Abschnitt einfach nicht.</div>
+        <div class="feld-reihe">
+            <div class="feld" style="max-width:160px"><label>Normaler Beitrag (€)</label>
+                <input type="text" name="beitrag_normal" value="{{ e.beitrag_normal or '' }}" placeholder="60"></div>
+            <div class="feld" style="max-width:160px"><label>Ermäßigter Beitrag (€)</label>
+                <input type="text" name="beitrag_ermaessigt" value="{{ e.beitrag_ermaessigt or '' }}" placeholder="30">
+                <div class="feld-hinweis">leer = „nach Absprache"</div></div>
+            <div class="feld" style="max-width:170px"><label>Zeitraum</label>
+                <select name="beitrag_intervall">
+                    {% for i in ['jährlich', 'monatlich', 'vierteljährlich', 'halbjährlich'] %}
+                    <option {{ 'selected' if (e.beitrag_intervall or 'jährlich') == i }}>{{ i }}</option>
+                    {% endfor %}
+                </select></div>
+            <div class="feld" style="max-width:190px"><label>Rückmeldung innerhalb (Stunden)</label>
+                <input type="text" name="antwort_stunden" value="{{ e.antwort_stunden or '48' }}" placeholder="48">
+                <div class="feld-hinweis">wird auf dem Formular und in der Bestätigungsmail zugesagt</div></div>
+        </div>
+        <div class="feld"><label>Hinweis zum Beitrag</label>
+            <input type="text" name="beitrag_hinweis" value="{{ e.beitrag_hinweis or '' }}"
+                   placeholder="z. B. Der Beitrag wird zum Eintritt und danach zum 1. Januar eingezogen.">
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Link zur Satzung</label>
+                <input type="url" name="satzung_url" value="{{ e.satzung_url or '' }}" placeholder="https://…/satzung.pdf"></div>
+            <div class="feld"><label>Link zur Beitragsordnung</label>
+                <input type="url" name="beitragsordnung_url" value="{{ e.beitragsordnung_url or '' }}" placeholder="https://…/beitragsordnung.pdf"></div>
+        </div>
+        <div class="feld"><label>Was bei euch stattfindet <span class="feld-hinweis">(mit Komma trennen)</span></label>
+            <input type="text" name="angebote" value="{{ e.angebote or '' }}"
+                   placeholder="Kino, SprachCafé, ReparaturCafé, LeseZeit, SpieleZeit">
+            <div class="feld-hinweis">Erscheint als Stichwortwolke unten auf dem Beitrittsformular.</div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Name eures Kinos <span class="feld-hinweis">(falls ihr Filme zeigt)</span></label>
+                <input type="text" name="kino_name" maxlength="40" value="{{ e.kino_name or '' }}" placeholder="Kino-Programm"></div>
+            <div class="feld"><label>Kleine Feier beim Abhaken einer Aufgabe</label>
+                <select name="feier_symbol">
+                    <option value="" {{ 'selected' if not e.feier_symbol }}>automatisch</option>
+                    <option value="funkeln" {{ 'selected' if e.feier_symbol == 'funkeln' }}>✨ Funkeln</option>
+                    <option value="stern" {{ 'selected' if e.feier_symbol == 'stern' }}>⭐ Stern</option>
+                    <option value="biene" {{ 'selected' if e.feier_symbol == 'biene' }}>🐝 Biene</option>
+                </select></div>
+        </div>
+    </fieldset>
+    <fieldset>
+        <legend>Design (Logo, Schrift, Farben)</legend>
+        <script>
+        function ausweisVorschau() {
+            var art = document.getElementById('ausweis-art');
+            var feld = document.getElementById('ausweis-symbol-feld');
+            if (art && feld) { feld.style.display = art.value === 'symbol' ? 'flex' : 'none'; }
+        }
+        document.addEventListener('DOMContentLoaded', ausweisVorschau);
+        </script>
+        <div class="feld-reihe">
+            <div class="feld">
+                <label>Vereinslogo</label>
+                {% if e.logo_dateiname %}
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+                    <img src="{{ url_for('einstellungen.logo', verein_id=e.id) }}?v={{ e.logo_dateiname }}"
+                         alt="Logo" style="height:44px;border:1px solid var(--grau-linie);border-radius:6px;padding:2px;background:var(--flaeche)">
+                    <button type="submit" formaction="{{ url_for('einstellungen.logo_entfernen') }}"
+                            class="btn btn-sekundaer btn-klein">Entfernen</button>
+                </div>
+                {% endif %}
+                <input type="file" name="logo" accept="image/*">
+                <div class="feld-hinweis">Erscheint oben in der Seitenleiste und auf Serienbriefen.</div>
+                {% if e.logo_dateiname %}
+                <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+                    <a href="{{ url_for('einstellungen.logo_kreis') }}" class="btn btn-sekundaer btn-klein">🔵 Logo im Kreis anpassen</a>
+                    <a href="{{ url_for('einstellungen.design_vorschlag') }}" class="btn btn-sekundaer btn-klein">🎨 Farben aus Logo → Design vorschlagen</a>
+                </div>
+                {% endif %}
+            </div>
+            <div class="feld"><label>Schriftart</label>
+                <select name="schriftart">
+                    {% for s in schriftarten %}<option value="{{ s }}" {{ 'selected' if e.schriftart==s }}>{{ s }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="feld">
+                <label>💳 Mitgliedsausweis ohne Foto</label>
+                <select name="ausweis_platzhalter" onchange="ausweisVorschau()" id="ausweis-art">
+                    <option value="initialen" {{ 'selected' if (e.ausweis_platzhalter or 'initialen') == 'initialen' }}>Initialen (z. B. AM)</option>
+                    <option value="symbol" {{ 'selected' if e.ausweis_platzhalter == 'symbol' }}>Eigenes Bild / Symbol</option>
+                    <option value="logo" {{ 'selected' if e.ausweis_platzhalter == 'logo' }}>Vereinslogo</option>
+                </select>
+                <div class="feld-hinweis">Hat ein Mitglied ein Foto hinterlegt, wird immer das Foto
+                    gezeigt. Diese Wahl gilt nur, wenn keins da ist.</div>
+                <div id="ausweis-symbol-feld" style="margin-top:8px;display:flex;gap:10px;align-items:center">
+                    <input type="text" name="ausweis_symbol" maxlength="8" style="width:80px;font-size:20px;text-align:center"
+                           value="{{ e.ausweis_symbol or '' }}" placeholder="🐝" oninput="ausweisVorschau()" id="ausweis-symbol">
+                    <span class="feld-hinweis">Ein Emoji, z. B. 🐝 🌳 ⚽ 🎭 🎵</span>
+                </div>
+            </div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Hauptfarbe (Buttons, Akzente)</label>
+                <input type="color" name="farbe_primaer" value="{{ e.farbe_primaer or '#2563eb' }}" style="height:42px">
+            </div>
+            <div class="feld"><label>Seitenleisten-Farbe</label>
+                <input type="color" name="farbe_sidebar" value="{{ e.farbe_sidebar or '#0f172a' }}" style="height:42px">
+            </div>
+        </div>
+    </fieldset>
+    <fieldset>
+        <legend>Dashboard-Module</legend>
+        <div class="feld-hinweis" style="margin-bottom:12px">Lege fest, welche Kacheln auf der Startseite erscheinen.</div>
+        <div class="tag-auswahl">
+            <label><input type="checkbox" name="modul_aktuelles" {{ 'checked' if e.modul_aktuelles }}> 📰 Aktuelles (letzte Aktivitäten)</label>
+            <label><input type="checkbox" name="modul_geburtstage" {{ 'checked' if e.modul_geburtstage }}> 🎂 Geburtstagsliste</label>
+            <label><input type="checkbox" name="modul_jubilaeen" {{ 'checked' if e.modul_jubilaeen }}> 🏆 Jubiläen</label>
+            <label><input type="checkbox" name="modul_spenden" {{ 'checked' if e.modul_spenden }}> 🧾 Spendenbescheinigungen</label>
+            <label><input type="checkbox" name="modul_rechnungen" {{ 'checked' if e.modul_rechnungen }}> 💌 Beitragsrechnungen per E-Mail</label>
+            <label><input type="checkbox" name="modul_veranstaltungen" {{ 'checked' if e.modul_veranstaltungen }}> 🎟️ Veranstaltungen & Anmeldungen</label>
+            <label><input type="checkbox" name="modul_werkhaus" {{ 'checked' if e.modul_werkhaus }}> 🏭 Vereinsraum-Bereich (Dashboard: Tür, Schichten, Besucher:innen …)
+                <input type="text" name="werkhaus_name" value="{{ e.werkhaus_name or '' }}" placeholder="Name, z. B. Vereinsraum" style="margin-left:8px;max-width:180px;padding:4px 8px"></label>
+            <div class="feld" style="margin:2px 0 8px 26px;max-width:520px">
+                <label style="font-weight:400">📍 Anschrift des Veranstaltungsorts
+                    <span class="feld-hinweis">(falls sie von der Registeranschrift abweicht)</span></label>
+                <input type="text" name="werkhaus_adresse" value="{{ e.werkhaus_adresse or '' }}"
+                       placeholder="z. B. Hauptstraße 1, 12345 Musterstadt">
+                <div class="feld-hinweis">Erscheint dort, wo Gäste hinfinden sollen – auf dem Beitrittsformular
+                    und der Kennenlern-Seite. Rechnungen und Bescheinigungen nutzen weiterhin die Registeranschrift.</div>
+            </div>
+            <label><input type="checkbox" name="modul_schluessel" {{ 'checked' if e.modul_schluessel }}> 🔑 Schlüsselbuch</label>
+            <label><input type="checkbox" name="modul_dms" {{ 'checked' if e.modul_dms }}> 🗄️ Dateiablage (DMS)</label>
+            <label><input type="checkbox" name="modul_schichten" {{ 'checked' if e.modul_schichten }}> 🧑‍🤝‍🧑 Schichten (Mitglieder-App)</label>
+            <label><input type="checkbox" name="modul_kinder" {{ 'checked' if e.modul_kinder }}> 👨‍👩‍👧 Kinder / Angehörige je Mitglied (z. B. Kita: Kind + Austrittsdatum mit Erinnerung)</label>
+            <label><input type="checkbox" name="modul_adventskalender" {{ 'checked' if e.modul_adventskalender }}> 🎄 Lebendiger Adventskalender (öffentliche Türchen-Seite + Verwaltung mit Archiv)</label>
+            <label><input type="checkbox" name="modul_contenthub" {{ 'checked' if e.modul_contenthub }}> 🚀 Content-Hub (Veranstaltungen automatisch für Instagram, Facebook, App und Signal aufbereiten – Freigabe im ÖA-Cockpit)</label>
+            <label><input type="checkbox" name="modul_verteilen" {{ 'checked' if e.modul_verteilen }}> 🗺️ Verteilaktionen (Flyer, Programmhefte, Postkarten in Briefkästen verteilen und Plakate aufhängen, persönliche Zustellungen an Kontakte – mit Karte, Routen und Plakat-Runde in der Mitglieder-App)</label>
+            <label><input type="checkbox" name="modul_signage" {{ 'checked' if e.modul_signage }}> 📺 Signage (Bildschirme und iPads im Haus zeigen automatisch Termine, Aufsteller je Raum – Einrichtung unter Öffentlichkeit → Signage)</label>
+        </div>
+        <div class="feld-reihe" style="margin-top:12px">
+            <div class="feld"><label>🗄️ Dateiablage: Speicherlimit (MB)</label>
+                <input type="number" name="dms_quota_mb" min="0" step="50" value="{{ e.dms_quota_mb if e.dms_quota_mb is not none else 500 }}">
+                <div class="feld-hinweis">Maximaler Gesamtspeicher der Dateiablage. 0 = unbegrenzt.</div>
+            </div>
+        </div>
+        <div class="feld-reihe" style="margin-top:16px">
+            <div class="feld"><label>🎂 Geburtstage: Vorlauf (Tage)</label>
+                <input type="number" name="dash_geburtstage_tage" min="1" max="366" value="{{ e.dash_geburtstage_tage or 30 }}">
+                <div class="feld-hinweis">Wie viele Tage im Voraus Geburtstage angezeigt werden.</div>
+            </div>
+            <div class="feld"><label>🏆 Jubiläen: Vorlauf (Tage)</label>
+                <input type="number" name="dash_jubilaeen_tage" min="1" max="1830" value="{{ e.dash_jubilaeen_tage or 365 }}">
+                <div class="feld-hinweis">z.B. 365 = 1 Jahr, 730 = 2 Jahre.</div>
+            </div>
+        </div>
+    </fieldset>
+    <fieldset>
+        <legend>Gruppen & Zählung</legend>
+        <div class="feld-hinweis" style="margin-bottom:12px">Saubere Trennung deiner
+            <a href="{{ url_for('gruppen.liste') }}">Gruppen</a> (z. B. Vorstand, Mitglieder, Fördermitglieder,
+            Freunde, Externe): Wer zählt als Mitglied, wer darf Schichten übernehmen?
+            Nichts angehakt = alle (wie bisher).</div>
+        {% if gruppen %}
+        <div class="feld">
+            <label>🧮 Diese Gruppen zählen als Mitglieder</label>
+            <div class="tag-auswahl">
+                {% for g in gruppen %}
+                <label><input type="checkbox" name="mitglied_gruppen" value="{{ g.id }}"
+                    {{ 'checked' if g.id in mitglied_gruppen }}> {{ g.name }}</label>
+                {% endfor %}
+            </div>
+            <div class="feld-hinweis">Wirkt auf Mitglieder-Zahlen (Dashboard, Mitgliederliste, Auswertungen).
+                Freunde und Externe bleiben sichtbar, werden aber nicht mitgezählt.</div>
+        </div>
+        <div class="feld" style="margin-top:12px">
+            <label>🧑‍🤝‍🧑 Diese Gruppen können Schichten übernehmen</label>
+            <div class="tag-auswahl">
+                {% for g in gruppen %}
+                <label><input type="checkbox" name="schicht_gruppen" value="{{ g.id }}"
+                    {{ 'checked' if g.id in schicht_gruppen }}> {{ g.name }}</label>
+                {% endfor %}
+            </div>
+            <div class="feld-hinweis">Wirkt in der Mitglieder-App (Schicht übernehmen) und auf die
+                Mitglieder-Auswahl beim Zuordnen in der Verwaltung.</div>
+        </div>
+        {% else %}
+        <p class="feld-hinweis">Noch keine Gruppen angelegt –
+            <a href="{{ url_for('gruppen.liste') }}">zuerst Gruppen anlegen</a>.</p>
+        {% endif %}
+    </fieldset>
+    <fieldset>
+        <legend>E-Mail-Versand (SMTP)</legend>
+        <div class="hilfe-box" style="margin-bottom:16px">
+            Trage hier die Zugangsdaten deines E-Mail-Anbieters ein. Beispiele:<br>
+            <strong>GMX:</strong> mail.gmx.net · Port 587 · STARTTLS &nbsp;|&nbsp;
+            <strong>Web.de:</strong> smtp.web.de · Port 587 · STARTTLS<br>
+            <strong>Gmail:</strong> smtp.gmail.com · Port 587 · STARTTLS (App-Passwort nötig) &nbsp;|&nbsp;
+            <strong>IONOS:</strong> smtp.ionos.de · Port 587 · STARTTLS
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>SMTP-Server</label><input type="text" name="smtp_host" value="{{ e.smtp_host }}" placeholder="mail.gmx.net"></div>
+            <div class="feld"><label>Port</label><input type="number" name="smtp_port" value="{{ e.smtp_port }}"></div>
+            <div class="feld"><label>Verschlüsselung</label>
+                <select name="smtp_security">
+                    <option value="starttls" {{ 'selected' if e.smtp_security=='starttls' }}>STARTTLS (Port 587)</option>
+                    <option value="ssl" {{ 'selected' if e.smtp_security=='ssl' }}>SSL/TLS (Port 465)</option>
+                    <option value="none" {{ 'selected' if e.smtp_security=='none' }}>Keine</option>
+                </select>
+            </div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Benutzername</label><input type="text" name="smtp_user" value="{{ e.smtp_user }}" placeholder="deine@adresse.de"></div>
+            <div class="feld"><label>Passwort</label><input type="password" name="smtp_passwort" value=""
+                   placeholder="{{ 'gespeichert – leer lassen zum Behalten' if e.smtp_passwort else '••••••••' }}"></div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Absender-Name</label><input type="text" name="smtp_absender_name" value="{{ e.smtp_absender_name }}" placeholder="{{ e.vereinsname or 'Mein Verein e.V.' }}"></div>
+            <div class="feld"><label>Absender-Adresse</label><input type="email" name="smtp_absender_email" value="{{ e.smtp_absender_email }}" placeholder="info@meinverein.de"></div>
+        </div>
+        <div class="feld"><label>Kopie bei Pressemitteilungen an (optional)</label>
+            <input type="email" name="presse_kopie_email" value="{{ e.presse_kopie_email or '' }}" placeholder="z.B. vorstand@meinverein.de">
+            <span class="feld-hinweis">Jeder Presseversand geht zusätzlich als Kopie an diese Adresse –
+                so habt ihr den Nachweis, was rausgegangen ist. Leer lassen = keine Kopie.</span>
+        </div>
+        <div class="feld-reihe" style="align-items:flex-end">
+            <div class="feld"><label>📧 Test-E-Mail an</label>
+                <input type="email" name="test_empfaenger" value="{{ (current_user.email if current_user.is_authenticated else '') or e.smtp_absender_email or '' }}" placeholder="empfaenger@adresse.de"></div>
+            <div class="feld" style="flex:0 0 auto">
+                <button type="submit" name="aktion" value="test_mail" class="btn btn-sekundaer">📧 Test-E-Mail senden</button></div>
+        </div>
+        <div class="feld-hinweis">„Test-E-Mail senden" verschickt sofort eine echte Nachricht an die angegebene Adresse – so siehst du, ob der Versand wirklich klappt. „Verbindung testen" (unten) prüft nur den Login. Beides speichert vorher die Einstellungen.</div>
+        <div class="feld-hinweis">Das Passwort wird lokal in der Datenbank {{ 'auf diesem Server' if config.PRODUKTION else 'auf deinem Mac' }} gespeichert.</div>
+    </fieldset>
+    <fieldset>
+        <legend>E-Mail-Signatur & Schrift</legend>
+        <div class="feld"><label>Standard-Schriftart der E-Mails</label>
+            <select name="mail_schriftart">
+                {% for s in ['Arial','Helvetica','Verdana','Tahoma','Georgia','Times New Roman','Courier New','Calibri'] %}
+                <option value="{{ s }}" {{ 'selected' if e.mail_schriftart==s }}>{{ s }}</option>{% endfor %}
+            </select>
+        </div>
+        <label style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" name="signatur_aktiv" {{ 'checked' if e.signatur_aktiv }} style="width:auto"> <strong>Signatur automatisch an E-Mails anhängen</strong></label>
+        <div class="feld-hinweis">Die Signatur enthält automatisch: <strong>Name des angemeldeten Absenders</strong>, Vereinslogo, Vereinsname, Adresse, E-Mail und Website. Unten kannst du einen rechtlichen Hinweis / Zusatz ergänzen (z. B. Vertretungsberechtigte, Registernummer, Haftungsausschluss).</div>
+        <div class="feld"><label>Rechtlicher Hinweis / Zusatz (erscheint klein unter der Signatur)</label>
+            <textarea name="signatur_text" style="min-height:80px" placeholder="z. B. {{ e.vereinsname }} · Vereinsregister … · Vorstand: …">{{ e.signatur_text or '' }}</textarea>
+            <div class="feld-hinweis">Diese Signatur ist für alle gleich. Persönliche Zusätze
+                (Name, Funktion, Durchwahl) pflegt jede Person selbst unter
+                „✉️ Mein Absender“ – sie erscheinen nur beim Versand mit der eigenen Adresse.</div></div>
+    </fieldset>
+    <fieldset id="nextcloud">
+        <legend>Nextcloud-Anbindung</legend>
+        <div class="hilfe-box" style="margin-bottom:16px">
+            Die Nextcloud-Adresse steuert die gesamte Anbindung dieses Vereins: den
+            <strong>„Mit Nextcloud anmelden"</strong>-Login, den <strong>Dateien</strong>-Tab der
+            Mitglieder-App und den <strong>Kalender-Abgleich</strong> (neue Veranstaltungen erscheinen
+            automatisch im Nextcloud-Kalender). Für den Kalender brauchst du zusätzlich Benutzername und
+            <strong>App-Passwort</strong> (Nextcloud → Einstellungen → Sicherheit → „App-Passwort erstellen");
+            den konkreten Kalender wählst du danach unter <em>Kalender → ☁️ Nextcloud</em> aus.
+        </div>
+        <div class="feld"><label>Nextcloud-Adresse (Server)</label>
+            <input type="text" name="ncc_server" value="{{ e.ncc_server or '' }}"
+                   placeholder="https://cloud.verein.example"></div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Benutzername (für Kalender-Abgleich)</label><input type="text" name="ncc_user" value="{{ e.ncc_user or '' }}" placeholder="z.B. anna.beispiel"></div>
+            <div class="feld"><label>App-Passwort</label><input type="password" name="ncc_pass" value=""
+                   placeholder="{{ 'gespeichert – leer lassen zum Behalten' if e.ncc_pass else '••••••' }}"></div>
+        </div>
+        {% if e.ncc_url %}<div class="feld-hinweis">Aktiver Ziel-Kalender: <code>{{ e.ncc_url }}</code></div>{% endif %}
+
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--linie)">
+            <div style="font-weight:700;margin-bottom:6px">Anmeldung: Nextcloud-Gruppen → Rollen</div>
+            <div class="feld-hinweis" style="margin-bottom:10px">Wer sich per Nextcloud anmeldet, bekommt seine Rolle
+                über die Gruppen-Mitgliedschaft. Leer lassen = Server-Vorgabe (aktuell:
+                Admin „{{ config.NC_GRUPPE_ADMIN }}", Mitglied „{{ config.NC_GRUPPE_MITGLIED }}", Freund „{{ config.NC_GRUPPE_EXTERN }}").</div>
+            <div class="feld-reihe">
+                <div class="feld"><label>Gruppe → Vorstand/Admin</label>
+                    <input type="text" name="nc_gruppe_admin" value="{{ e.nc_gruppe_admin or '' }}" placeholder="{{ config.NC_GRUPPE_ADMIN }}"></div>
+                <div class="feld"><label>Gruppe → Mitglied</label>
+                    <input type="text" name="nc_gruppe_mitglied" value="{{ e.nc_gruppe_mitglied or '' }}" placeholder="{{ config.NC_GRUPPE_MITGLIED }}"></div>
+                <div class="feld"><label>Gruppe → Freund (Gast)</label>
+                    <input type="text" name="nc_gruppe_extern" value="{{ e.nc_gruppe_extern or '' }}" placeholder="{{ config.NC_GRUPPE_EXTERN }}"></div>
+            </div>
+            <div class="feld-hinweis" style="margin:10px 0 6px">Sonderrollen sind freiwillig: Leer lassen und die Rolle
+                stattdessen unter <em>Zugänge</em> von Hand vergeben – sie bleibt dann auch nach der
+                nächsten Nextcloud-Anmeldung erhalten. Wer eine Gruppe einträgt, steuert die Rolle über Nextcloud.</div>
+            <div class="feld-reihe">
+                <div class="feld"><label>Gruppe → Schatzmeister:in</label>
+                    <input type="text" name="nc_gruppe_schatz" value="{{ e.nc_gruppe_schatz or '' }}" placeholder="z.B. Kasse"></div>
+                <div class="feld"><label>Gruppe → Öffentlichkeitsarbeit</label>
+                    <input type="text" name="nc_gruppe_oeffentlichkeit" value="{{ e.nc_gruppe_oeffentlichkeit or '' }}" placeholder="z.B. Presse"></div>
+            </div>
+            <label style="display:inline-flex;align-items:center;gap:6px">
+                <input type="checkbox" name="nc_externe_erlaubt" {{ 'checked' if e.nc_externe_erlaubt }}>
+                Freunde (Gäste) dürfen sich in der Mitglieder-App anmelden</label>
+        </div>
+        <div style="margin-top:12px">
+            <button type="submit" name="aktion" value="nextcloud_test" class="btn btn-sekundaer">🔌 Speichern & Verbindung testen</button>
+        </div>
+    </fieldset>
+    <fieldset>
+        <legend>📌 Schwarzes Brett (Mitglieder-App)</legend>
+        <div class="feld-hinweis" style="margin-bottom:12px">Beides ist optional: Ohne Kategorien
+            sieht das Schwarze Brett aus wie bisher; ohne E-Mail-Adresse gibt es weiterhin nur die
+            Push-Benachrichtigung in der App.</div>
+        <div class="feld"><label>Kategorien (kommagetrennt)</label>
+            <input type="text" name="pinnwand_kategorien" value="{{ e.pinnwand_kategorien or '' }}"
+                   placeholder="z.B. Wohnen, Sprache, Begleitung, Möbel &amp; Sachspenden, Kinder, Sonstiges">
+            <div class="feld-hinweis">Erscheinen als Auswahl beim Posten und als Filter über der Liste.</div></div>
+        <div class="feld"><label>Neue Einträge zusätzlich per E-Mail an</label>
+            <input type="text" name="pinnwand_mail_an" value="{{ e.pinnwand_mail_an or '' }}"
+                   placeholder="helferkreis@beispiel.de, buero@beispiel.de">
+            <div class="feld-hinweis">Kommagetrennt; braucht eingerichteten SMTP-Versand (siehe E-Mail-Bereich).</div></div>
+        <label style="display:inline-flex;align-items:center;gap:6px">
+            <input type="checkbox" name="pinnwand_gast" {{ 'checked' if e.pinnwand_gast }}>
+            Öffentliches Formular für Gäste (ohne Konto) unter <code>/portal/brett</code></label>
+        <div class="feld-hinweis">Gäste müssen Name, Kontakt und Sprachen angeben; ihre Einträge
+            erscheinen erst nach Freigabe unter Kommunikation → Schwarzes Brett.</div>
+        <label style="display:inline-flex;align-items:center;gap:6px;margin-top:10px">
+            <input type="checkbox" name="pinnwand_pruefung" {{ 'checked' if e.pinnwand_pruefung }}>
+            ⏳ Automatische Aktualitäts-Prüfung</label>
+        <div class="feld-hinweis">Ersteller:innen von Gesuchen/Angeboten, die 30 Tage unbestätigt
+            online sind, bekommen eine E-Mail mit Bestätigungs-Link („Noch aktuell?"). Ohne Klick
+            innerhalb von 48 Stunden wird der Eintrag automatisch archiviert (bleibt unter
+            „Erledigt / vermittelt" sichtbar). Braucht eingerichteten SMTP-Versand; ohne E-Mail-Adresse
+            der Ersteller:in bleibt der Eintrag unangetastet.</div>
+    </fieldset>
+    <fieldset>
+        <legend>🌐 Mehrsprachigkeit</legend>
+        <label style="display:inline-flex;align-items:center;gap:6px">
+            <input type="checkbox" name="portal_sprachen" {{ 'checked' if e.portal_sprachen }}>
+            Mehrsprachige Mitglieder-App (Deutsch, Englisch, Spanisch, Ukrainisch,
+            Russisch, Arabisch, Französisch, Vietnamesisch)</label>
+        <div class="feld-hinweis">Zeigt einen Sprachumschalter in der App; übersetzt sind Navigation,
+            Schwarzes Brett und das Gast-Formular. Inhalte der Mitglieder bleiben in ihrer Sprache.</div>
+        <label style="display:inline-flex;align-items:center;gap:6px;margin-top:10px">
+            <input type="checkbox" name="sprachen_labels" {{ 'checked' if e.sprachen_labels }}>
+            Gesprochene Sprachen der Mitglieder als Kürzel anzeigen</label>
+        <div class="feld-hinweis">Die im Mitglieder-Formular erfassten Sprachen erscheinen als kurze
+            Labels (z.B. <span class="badge badge-gruppe">DE</span>
+            <span class="badge badge-gruppe">UA</span>
+            <span class="badge badge-gruppe">AR</span>) in der Mitgliederliste und auf der
+            Detailseite — praktisch, um schnell jemanden zu finden, der übersetzen kann.
+            Erfassen lassen sich die Sprachen auch ohne dieses Häkchen.</div>
+    </fieldset>
+    <fieldset>
+        <legend>Bankverbindung des Vereins</legend>
+        <div class="feld-hinweis" style="margin-bottom:12px">Wird für SEPA-Lastschriften und Rechnungen verwendet.</div>
+        <div class="feld"><label>Kontoinhaber</label><input type="text" name="bank_kontoinhaber" value="{{ e.bank_kontoinhaber }}"></div>
+        <div class="feld-reihe">
+            <div class="feld"><label>IBAN</label><input type="text" name="bank_iban" value="{{ e.bank_iban }}"><div class="feld-hinweis">Nur die IBAN eintragen und speichern – Bankleitzahl, BIC, Bankname und die FinTS-Adresse für den Umsatzabruf trägt die Verwaltung selbst nach.</div></div>
+            <div class="feld"><label>BIC</label><input type="text" name="bank_bic" value="{{ e.bank_bic }}"></div>
+        </div>
+        <div class="feld"><label>SEPA-Gläubiger-Identifikationsnummer</label>
+            <input type="text" name="glaeubiger_id" value="{{ e.glaeubiger_id }}" placeholder="DE98ZZZ09999999999">
+            <div class="feld-hinweis">Erhältst du kostenlos bei der Deutschen Bundesbank – nötig für SEPA-Lastschriften.</div>
+        </div>
+        <div class="feld"><label>💳 PayPal.me-Adresse (Bezahllink für Anmeldungen)</label>
+            <input type="text" name="paypal_me" value="{{ e.paypal_me or '' }}" placeholder="paypal.me/deinverein">
+            <div class="feld-hinweis">Wenn ausgefüllt, erhalten Gäste in Anmeldebestätigung, Zahlungserinnerung,
+                auf der Danke-Seite und in der App einen Bezahllink mit vorbefülltem Betrag
+                (Platzhalter <code>{bezahl_link}</code> / <code>{bezahl_teil}</code> in den Mail-Vorlagen).
+                Leer = nur Überweisung.</div>
+        </div>
+    </fieldset>
+    <fieldset id="bank">
+        <legend>Bankzugang (FinTS / Online-Banking)</legend>
+        <div class="hilfe-box" style="margin-bottom:16px">
+            Für den Abruf der Kontoumsätze (Sparkasse). Diese Daten werden nur lokal {{ 'auf diesem Server' if config.PRODUKTION else 'auf deinem Mac' }} gespeichert.
+            Die <strong>FinTS-Adresse</strong> deiner Sparkasse findest du im Online-Banking unter den HBCI-/FinTS-Zugangsdaten.
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Bankleitzahl (BLZ)</label><input type="text" name="fints_blz" value="{{ e.fints_blz or '' }}"></div>
+            <div class="feld"><label>FinTS-Adresse (URL)</label><input type="text" name="fints_url" value="{{ e.fints_url or '' }}" placeholder="wird aus der IBAN ermittelt"><div class="feld-hinweis">Leer lassen – die Adresse kommt automatisch aus der IBAN. Nur ausfüllen, wenn deine Bank nicht im Verzeichnis steht.</div></div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Kontobezeichnung (optional)</label><input type="text" name="konto_bezeichnung" value="{{ e.konto_bezeichnung or '' }}" placeholder="Vereinskonto"></div>
+        </div>
+        <div class="feld-hinweis" style="margin-top:6px">🔑 <strong>Anmeldename und PIN stehen hier nicht mehr.</strong>
+            Jede Person im Vorstand meldet sich mit ihren eigenen Zugangsdaten bei der Bank an –
+            zu finden unter <a href="{{ url_for('einstellungen.bankzugang') }}">💳 Mein Bankzugang</a>.</div>
+    </fieldset>
+    <fieldset>
+        <legend>Impressum & Datenschutz</legend>
+        <div class="feld-hinweis">Der Menüpunkt „🔒 Impressum & Datenschutz" zeigt eine automatisch aus deinen Vereinsdaten erzeugte, rechtlich strukturierte Seite (Impressum nach § 5 DDG + Datenschutzerklärung nach DSGVO). <a href="{{ url_for('einstellungen.rechtliches') }}" target="_blank">Seite ansehen ↗</a><br><strong>Wichtig:</strong> bitte Angaben (Vorstand, Registernummer, Steuernummer, Adresse) oben vollständig pflegen und die Seite vor Veröffentlichung prüfen.</div>
+        <div class="feld"><label>Externer Datenschutz-Link (optional)</label>
+            <input type="text" name="datenschutz_url" value="{{ e.datenschutz_url or '' }}" placeholder="z. B. https://www.meinverein.de/datenschutz">
+            <div class="feld-hinweis">Wenn gesetzt, verweist das Menü auf diese eigene Seite. Leer lassen = die integrierte Seite wird verwendet.</div></div>
+        <div class="feld"><label>Verantwortlich für den Datenschutz (Name & Kontakt)</label>
+            <input type="text" name="datenschutz_verantwortlich" value="{{ e.datenschutz_verantwortlich or '' }}" placeholder="z. B. Vorstand, {{ e.email }}">
+            <div class="feld-hinweis">Leer lassen = es wird der Vorstand / die Vereinsdaten verwendet.</div></div>
+        <div class="feld"><label>Zusätzliche rechtliche Angaben (optional, erscheinen auf der Seite)</label>
+            <textarea name="rechtliches_zusatz" style="min-height:80px" placeholder="z. B. Aufsichtsbehörde, besondere Datenverarbeitungen, Cookie-Hinweise, Auftragsverarbeiter (Nextcloud/Hoster) …">{{ e.rechtliches_zusatz or '' }}</textarea></div>
+    </fieldset>
+
+    <div class="aktionen">
+        <button type="submit" name="aktion" value="speichern" class="btn">💾 Speichern</button>
+        <button type="submit" name="aktion" value="testen" class="btn btn-sekundaer">🔌 Speichern & Verbindung testen</button>
+    </div>
+</form>
+
+<div class="karte" style="margin-top:24px">
+    <h2 style="margin-top:0">📱 Mitglieder-App</h2>
+    <p class="feld-hinweis" style="margin-top:-6px">
+        Alles zur App steht jetzt auf einer eigenen Seite: Startseiten-Blöcke, Willkommenstext,
+        Türöffnung, Dateien-Quelle, Freunde-Zugang – und das Aussehen, das der Verein für die App vorgibt.
+    </p>
+    <div class="aktionen">
+        <a href="{{ url_for('einstellungen.mitglieder_app') }}" class="btn">📱 Mitglieder-App einrichten →</a>
+        <a href="{{ url_for('einstellungen.aussehen') }}" class="btn btn-sekundaer">🎨 Mein Aussehen</a>
+        {% if e.nuki_smartlock_id %}
+        <span class="badge badge-aktiv">Türöffnung aktiv: {{ e.nuki_smartlock_name or 'Tür gewählt' }}</span>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

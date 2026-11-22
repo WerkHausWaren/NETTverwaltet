@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Empfänger:innen – {{ a.titel }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>📬 Empfänger:innen hinzufügen</h1>
+        <div class="sub">{{ a.titel }}{% if a.zustellung_was %} · {{ a.zustellung_was }}{% endif %}</div>
+    </div>
+    <div class="aktionen">
+        <a href="{{ url_for('verteilen.detail', aid=a.id) }}#zustellungen" class="btn btn-sekundaer">‹ Zurück zur Aktion</a>
+        <a href="{{ url_for('kontakte.import_start') }}" class="btn btn-sekundaer">⬆️ Anschriften importieren</a>
+    </div>
+</div>
+
+{% if ohne_anschrift %}
+<div class="hilfe-box">{{ ohne_anschrift }} Kontakt{{ 'e haben' if ohne_anschrift != 1 else ' hat' }} noch keine Straße.
+    Ohne Anschrift ist keine Zustellung möglich – ergänze sie im Kontakt oder gesammelt über
+    <a href="{{ url_for('kontakte.import_start') }}">Kontakte importieren</a> (Spalten Straße, PLZ, Ort).</div>
+{% endif %}
+
+<div class="karte">
+    <form method="get" style="display:flex;gap:8px 14px;flex-wrap:wrap;align-items:flex-end">
+        <div class="feld" style="margin:0"><label for="z-q">Suche</label>
+            <input type="search" id="z-q" name="q" value="{{ q }}" placeholder="Name, Straße, Ort …"></div>
+        <div class="feld" style="margin:0"><label for="z-kat">Kategorie</label>
+            <select id="z-kat" name="kategorie"><option value="">alle</option>
+                {% for k in kategorien %}<option value="{{ k }}" {{ 'selected' if k == kat }}>{{ k }}</option>{% endfor %}</select></div>
+        <label style="font-weight:400"><input type="checkbox" name="nur_anschrift" value="1" {{ 'checked' if nur_anschrift }}> nur mit Anschrift</label>
+        <label style="font-weight:400"><input type="checkbox" name="nur_ohne_mail" value="1" {{ 'checked' if nur_ohne_mail }}> nur ohne E-Mail</label>
+        <input type="hidden" name="nur_anschrift" value="0">
+        <button class="btn btn-sekundaer">Filtern</button>
+    </form>
+</div>
+
+<form method="post" action="{{ url_for('verteilen.zustellungen_hinzufuegen', aid=a.id) }}" class="karte">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if liste %}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <button type="button" class="btn btn-sekundaer btn-klein"
+                onclick="document.querySelectorAll('input[name=kontakt]:not(:disabled)').forEach(c => c.checked = true)">Alle wählbaren anhaken</button>
+        <button type="button" class="btn btn-sekundaer btn-klein"
+                onclick="document.querySelectorAll('input[name=kontakt]').forEach(c => c.checked = false)">Keine</button>
+        <span class="feld-hinweis">{{ liste|length }} Kontakt{{ 'e' if liste|length != 1 }}</span>
+    </div>
+    <div class="tabellen-scroll">
+    <table>
+        <thead><tr><th></th><th>Kontakt</th><th>Kategorie</th><th>Anschrift</th><th>E-Mail</th></tr></thead>
+        <tbody>{% for k in liste %}
+        <tr {{ 'style=opacity:.55' if not k.hat_anschrift or k.dabei }}>
+            <td><input type="checkbox" name="kontakt" value="{{ k.id }}" aria-label="{{ k.name }} auswählen"
+                       {{ 'disabled' if not k.hat_anschrift or k.dabei }}></td>
+            <td><strong>{{ k.name }}</strong>{% if k.ansprechpartner %}<br><span class="feld-hinweis">{{ k.ansprechpartner }}</span>{% endif %}</td>
+            <td>{{ k.kategorie }}</td>
+            <td>{% if k.hat_anschrift %}{{ k.anschrift }}{% else %}<a href="{{ url_for('kontakte.detail', kid=k.id) }}">Anschrift ergänzen</a>{% endif %}
+                {% if k.dabei %}<br><span class="feld-hinweis">✓ schon dabei</span>{% endif %}</td>
+            <td>{{ '✉️' if k.email else '–' }}</td>
+        </tr>{% endfor %}</tbody>
+    </table>
+    </div>
+    <p class="feld-hinweis">Zur hausgenauen Karte schickt der Server nur die Anschrift (ohne Namen) an OpenStreetMap (Nominatim).</p>
+    <button class="btn">📬 Ausgewählte hinzufügen</button>
+    {% else %}
+    <p class="feld-hinweis">Keine Kontakte für diesen Filter.</p>
+    {% endif %}
+</form>
+{% endblock %}

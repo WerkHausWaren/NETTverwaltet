@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}{{ v.titel }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🗳️ {{ v.titel }}</h1>
+        <div class="sub">{{ arten.get(v.art, v.art) }} · {{ v.datum | datum_de if v.datum else 'Datum offen' }}{% if v.uhrzeit %}, {{ v.uhrzeit }} Uhr{% endif %}{% if v.ort %} · {{ v.ort }}{% endif %}</div></div>
+    <div class="aktionen">
+        <a href="{{ url_for('versammlung.bearbeiten', vsid=v.id) }}" class="btn btn-sekundaer">✏️ Bearbeiten</a>
+        <a href="{{ url_for('versammlung.index') }}" class="btn btn-sekundaer">← Übersicht</a>
+    </div>
+</div>
+
+{# ---------------- 1. Einladung ---------------- #}
+<div class="karte">
+    <h2 style="margin-top:0">1 · Einladung</h2>
+    {% if frist_ok is none %}
+        <p class="feld-hinweis" style="margin:0 0 10px">⏳ {{ frist_text }}</p>
+    {% elif frist_ok %}
+        <p style="margin:0 0 10px;color:var(--gruen);font-weight:600">✅ Einladungsfrist eingehalten. <span class="feld-hinweis" style="font-weight:400">{{ frist_text }}</span></p>
+    {% else %}
+        <p style="margin:0 0 10px;color:var(--rot);font-weight:600">⚠️ Einladungsfrist NICHT eingehalten! <span class="feld-hinweis" style="font-weight:400">{{ frist_text }} Beschlüsse können anfechtbar sein.</span></p>
+    {% endif %}
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <form method="post" action="{{ url_for('versammlung.einladen', vsid=v.id) }}" style="display:inline"
+              onsubmit="return confirm('Einladung jetzt per E-Mail an alle aktiven Mitglieder senden?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            {% if mein_profil %}
+            <label style="display:inline-flex;align-items:center;gap:6px;font-weight:500;margin-right:8px">
+                <input type="checkbox" name="absender_selbst" value="1" style="width:auto"
+                       {{ 'checked' if meine_wahl == 'selbst' }}>
+                als {{ mein_profil.email }}
+            </label>
+            {% endif %}
+            <button class="btn">✉️ {{ 'Einladung erneut senden' if v.einladung_am else 'Einladung an alle senden' }}</button>
+        </form>
+        <a href="{{ url_for('versammlung.druck', vsid=v.id, was='einladung') }}" target="_blank" class="btn btn-sekundaer">🖨️ Einladung als Brief</a>
+        <a href="{{ url_for('dokumente.serienbrief', vorlage='ohne_mail',
+                    betreff='Einladung: ' ~ v.titel,
+                    text='{anrede} {titel} {nachname},\n\nhiermit laden wir Sie herzlich zur ' ~ v.titel ~ ' ein:\n\n'
+                         ~ (v.datum | datum_de) ~ (', ' ~ v.uhrzeit ~ ' Uhr' if v.uhrzeit else '') ~ '\n'
+                         ~ (v.ort or '') ~ '\n\nTagesordnung:\n' ~ (v.tagesordnung or '')
+                         ~ '\n\nWir freuen uns auf Ihr Kommen.\n\nMit freundlichen Grüßen\n{vereinsname}') }}"
+           class="btn btn-sekundaer">📮 Mitglieder ohne E-Mail per Post einladen</a>
+    </div>
+    <p class="feld-hinweis" style="margin:8px 0 0">Der Post-Knopf öffnet den Serienbrief mit fertigem Text –
+        die Mitglieder ohne E-Mail sind dort schon ausgewählt.</p>
+</div>
+
+{# ---------------- 2. Anwesenheit ---------------- #}
+<div class="karte" id="anwesenheit" style="scroll-margin-top:16px">
+    <h2 style="margin-top:0">2 · Anwesenheit &amp; Beschlussfähigkeit</h2>
+    <div class="karten-reihe" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:12px">
+        <div><div class="feld-hinweis">Stimmberechtigt</div><div style="font-size:22px;font-weight:800">{{ berechtigt }}</div></div>
+        <div><div class="feld-hinweis">Anwesend (mit Stimme)</div><div style="font-size:22px;font-weight:800">{{ stimmen }}</div></div>
+        <div><div class="feld-hinweis">davon Vollmachten</div><div style="font-size:22px;font-weight:800">{{ vollmachten }}</div></div>
+        <div><div class="feld-hinweis">Anwesenheit</div>
+            <div style="font-size:22px;font-weight:800;color:{{ 'var(--gruen)' if quote >= 50 else 'var(--gelb)' }}">{{ quote }} %</div></div>
+    </div>
+    <p class="feld-hinweis" style="margin-top:-4px">Ob ihr beschlussfähig seid, steht in eurer Satzung –
+        häufig ist jede ordnungsgemäß einberufene Versammlung beschlussfähig, manchmal braucht es eine
+        Mindestzahl. Diese Zahlen helfen euch, es im Protokoll korrekt festzuhalten.</p>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:12px">
+        <form method="post" action="{{ url_for('versammlung.anwesenheit', vsid=v.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label>Mitglied als anwesend eintragen</label>
+            <div style="display:flex;gap:6px">
+                <select name="mitglied_id" style="flex:1">
+                    {% for m in mitglieder %}<option value="{{ m.id }}">{{ m.nachname }}, {{ m.vorname }}</option>{% endfor %}
+                </select>
+                <button class="btn btn-sekundaer btn-klein">✓ da</button>
+            </div>
+        </form>
+        <form method="post" action="{{ url_for('versammlung.anwesenheit', vsid=v.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="aktion" value="gast">
+            <label>Gast (ohne Stimmrecht)</label>
+            <div style="display:flex;gap:6px">
+                <input type="text" name="name" placeholder="Name" style="flex:1">
+                <button class="btn btn-sekundaer btn-klein">＋</button>
+            </div>
+        </form>
+    </div>
+
+    {% if anwesend %}
+    <table class="tabelle no-sort" style="margin-top:12px">
+        <thead><tr><th>Name</th><th>Art</th><th class="rechts"></th></tr></thead>
+        <tbody>
+        {% for a in anwesend %}
+        <tr>
+            <td>{{ (a.vorname ~ ' ' ~ a.nachname) | trim if a.mitglied_id else a.name }}</td>
+            <td>{% if a.gast %}<span class="badge badge-inaktiv">Gast</span>
+                {% elif a.vollmacht_von %}<span class="badge badge-aktiv">mit Vollmacht</span>
+                {% else %}<span class="badge badge-gruppe">Mitglied</span>{% endif %}</td>
+            <td class="rechts">
+                <form method="post" action="{{ url_for('versammlung.anwesenheit', vsid=v.id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="aktion" value="entfernen">
+                    <input type="hidden" name="id" value="{{ a.id }}">
+                    <button class="btn btn-sekundaer btn-klein">✕</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="feld-hinweis" style="margin-top:10px">Noch niemand eingetragen.
+        <a href="{{ url_for('versammlung.druck', vsid=v.id, was='liste') }}" target="_blank">🖨️ Leere Anwesenheitsliste zum Ausdrucken</a></p>
+    {% endif %}
+</div>
+
+{# ---------------- 3. Beschlüsse ---------------- #}
+<div class="karte" id="beschluesse" style="scroll-margin-top:16px">
+    <h2 style="margin-top:0">3 · Beschlüsse &amp; Wahlen</h2>
+    {% if beschluesse %}
+    <div class="tabellen-scroll">
+    <table class="tabelle no-sort">
+        <thead><tr><th>Nr.</th><th>Beschluss</th><th class="rechts">Ja</th><th class="rechts">Nein</th>
+            <th class="rechts">Enth.</th><th>Ergebnis</th><th class="rechts"></th></tr></thead>
+        <tbody>
+        {% for b in beschluesse %}
+        <tr>
+            <td>{{ b.nummer }}</td>
+            <td><strong>{{ b.titel }}</strong>{% if b.text %}<br><span class="feld-hinweis">{{ b.text }}</span>{% endif %}
+                <br><span class="badge badge-gruppe" style="font-size:10px">{{ {'beschluss':'Beschluss','wahl':'Wahl','satzung':'Satzungsänderung'}[b.art] }}</span></td>
+            <td class="rechts">{{ b.ja }}</td><td class="rechts">{{ b.nein }}</td><td class="rechts">{{ b.enthaltung }}</td>
+            <td>{% if b.ergebnis == 'angenommen' %}<span class="badge badge-bezahlt">angenommen</span>
+                {% elif b.ergebnis == 'abgelehnt' %}<span class="badge" style="background:var(--fehler-grund);color:var(--fehler-text)">abgelehnt</span>
+                {% else %}<span class="badge badge-offen">{{ b.ergebnis }}</span>{% endif %}</td>
+            <td class="rechts">
+                <form method="post" action="{{ url_for('versammlung.beschluss', vsid=v.id) }}" style="display:inline"
+                      onsubmit="return confirm('Diesen Beschluss löschen?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="aktion" value="loeschen">
+                    <input type="hidden" name="id" value="{{ b.id }}">
+                    <button class="btn btn-sekundaer btn-klein">✕</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% endif %}
+    <form method="post" action="{{ url_for('versammlung.beschluss', vsid=v.id) }}" style="margin-top:12px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld-reihe">
+            <div class="feld"><label>Worüber wurde abgestimmt? *</label>
+                <input type="text" name="titel" required placeholder="z. B. Entlastung des Vorstands"></div>
+            <div class="feld" style="max-width:190px"><label>Art</label>
+                <select name="art">{% for k, n in beschluss_arten %}<option value="{{ k }}">{{ n }}</option>{% endfor %}</select></div>
+        </div>
+        <div class="feld"><label>Wortlaut / Erläuterung</label>
+            <input type="text" name="text" placeholder="z. B. Der Vorstand wird für das Jahr 2025 einstimmig entlastet."></div>
+        <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+            <div class="feld" style="margin:0"><label>Ja</label><input type="number" name="ja" value="{{ stimmen }}" min="0" style="width:90px"></div>
+            <div class="feld" style="margin:0"><label>Nein</label><input type="number" name="nein" value="0" min="0" style="width:90px"></div>
+            <div class="feld" style="margin:0"><label>Enthaltung</label><input type="number" name="enthaltung" value="0" min="0" style="width:90px"></div>
+            <button class="btn">＋ Beschluss festhalten</button>
+        </div>
+        <div class="feld-hinweis" style="margin-top:6px">„Ja" ist mit der Zahl der Anwesenden vorbelegt – einfach anpassen.</div>
+    </form>
+</div>
+
+{# ---------------- 4. Protokoll ---------------- #}
+<div class="karte" id="protokoll" style="scroll-margin-top:16px">
+    <h2 style="margin-top:0">4 · Protokoll</h2>
+    <form method="post" action="{{ url_for('versammlung.protokoll', vsid=v.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld"><label>Protokolltext</label>
+            <textarea name="protokoll" rows="12" style="font-family:inherit"
+                placeholder="Verlauf der Versammlung, Wortmeldungen, Ergebnisse …">{{ v.protokoll }}</textarea>
+            <div class="feld-hinweis">Anwesenheit und Beschlüsse werden beim Ausdruck automatisch angehängt –
+                hier reicht der Verlauf.</div></div>
+        <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+            <div class="feld" style="margin:0;max-width:220px"><label>Status</label>
+                <select name="status">
+                    <option value="geplant" {{ 'selected' if v.status == 'geplant' }}>in Arbeit</option>
+                    <option value="abgeschlossen" {{ 'selected' if v.status == 'abgeschlossen' }}>abgeschlossen</option>
+                </select></div>
+            <button class="btn">💾 Protokoll speichern</button>
+            <a href="{{ url_for('versammlung.druck', vsid=v.id, was='protokoll') }}" target="_blank" class="btn btn-sekundaer">🖨️ Protokoll drucken / als PDF</a>
+        </div>
+    </form>
+</div>
+
+<form method="post" action="{{ url_for('versammlung.loeschen', vsid=v.id) }}" style="margin-top:10px"
+      onsubmit="return confirm('Diese Versammlung mit allen Anwesenheiten und Beschlüssen löschen?')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn btn-sekundaer btn-klein">🗑 Versammlung löschen</button>
+</form>
+{% endblock %}

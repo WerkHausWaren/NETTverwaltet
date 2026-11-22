@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Nextcloud-Kontakte abgleichen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>☁️ Nextcloud-Kontakte abgleichen</h1>
+        <div class="sub">Aktive Mitglieder mit einem Nextcloud-Adressbuch abgleichen – aktuell: <strong>{{ aktuell }}</strong></div></div>
+    <a href="{{ url_for('mitglieder.liste') }}" class="btn btn-sekundaer">Zurück</a>
+</div>
+
+{% if not konfiguriert %}
+<div class="karte">
+    <p>Für den Abgleich fehlt der <strong>Nextcloud-Zugang</strong>. Bitte zuerst unter
+        <a href="{{ url_for('einstellungen.index') }}">Einstellungen → Nextcloud</a> Server, Benutzer und App-Passwort hinterlegen.</p>
+</div>
+{% else %}
+
+<div class="hilfe-box">
+    <strong>So funktioniert's:</strong> Zuerst <em>Vorschau anzeigen</em> – du siehst genau, was passieren würde.
+    Erst mit <em>Jetzt abgleichen</em> wird geschrieben. Es werden nur <strong>aktive Mitglieder</strong> nach Nextcloud
+    übertragen, und es wird nichts automatisch gelöscht. Beim ersten Mal legt die App das Adressbuch selbst an.
+</div>
+
+<div class="karte">
+    <form method="post" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% if buecher %}
+        <label style="flex-basis:100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:600;font-size:15px">
+            📚 Adressbuch:
+            <select name="adressbuch" onchange="document.getElementById('btn-vorschau').click()"
+                    style="padding:8px 10px;border:1px solid var(--linie-stark);border-radius:8px;min-width:260px;font-weight:400">
+                {% for b in buecher %}
+                <option value="{{ b.name }}" {{ 'selected' if b.name == aktuell }}>{{ b.anzeigename }} – {{ b.anzahl }} Kontakt{{ '' if b.anzahl == 1 else 'e' }}{{ ' · nur Import' if not b.schreibbar }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <p class="feld-hinweis" style="flex-basis:100%;margin:0 0 4px">Das <strong>„Konten"</strong>-Buch enthält <strong>alle Nextcloud-Nutzer</strong> – daraus lassen sich fehlende Personen als Mitglieder importieren. Systembücher sind schreibgeschützt (nur lesen, kein Zurückschreiben).</p>
+        {% endif %}
+        {% if plan and plan.nur_import and not plan.fehler %}
+        <label style="flex-basis:100%;display:flex;align-items:center;gap:8px;font-size:14px;margin:2px 0">
+            <input type="checkbox" name="app_zugang" value="1" checked>
+            Auch <strong>App-Zugang</strong> anlegen (Rolle Mitglied – Login später per Nextcloud)
+        </label>
+        {% endif %}
+        <button id="btn-vorschau" name="aktion" value="vorschau" class="btn btn-sekundaer">🔍 Vorschau aktualisieren</button>
+        {% if plan and not plan.fehler %}
+        {% if plan.nur_import %}
+        <button name="aktion" value="anwenden" class="btn" onclick="return confirm('Fehlende Personen jetzt als Mitglieder importieren? Vorhandene Mitglieder werden nicht verändert.')">⬇️ Import übernehmen ({{ plan.neu_app }})</button>
+        {% else %}
+        <button name="aktion" value="anwenden" class="btn" onclick="return confirm('Abgleich jetzt durchführen? Änderungen werden in Nextcloud und in der Vereinsverwaltung gespeichert.')">✅ Jetzt abgleichen</button>
+        {% endif %}
+        {% endif %}
+    </form>
+</div>
+
+{% if plan and not plan.fehler %}
+<div class="karte">
+    <h2 style="margin-top:0">{{ 'Ergebnis des Abgleichs' if plan.anwenden else 'Vorschau' }}</h2>
+    {% if plan.nur_import %}<p class="feld-hinweis" style="margin-top:-6px">📥 Nur-Import aus <strong>{{ plan.adressbuch }}</strong> – es werden ausschließlich <strong>fehlende</strong> Personen neu angelegt{% if plan.neu_konto %}, inkl. <strong>{{ plan.neu_konto }}</strong> App-Zugängen (Rolle Mitglied){% endif %}.</p>{% endif %}
+    <div class="statistik-reihe" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px">
+        <div><strong style="font-size:22px">{{ plan.neu_nc }}</strong><br><span class="feld-hinweis">neu → Nextcloud</span></div>
+        <div><strong style="font-size:22px">{{ plan.update_nc }}</strong><br><span class="feld-hinweis">aktualisiert → Nextcloud</span></div>
+        <div><strong style="font-size:22px">{{ plan.neu_app }}</strong><br><span class="feld-hinweis">neu → Verwaltung</span></div>
+        <div><strong style="font-size:22px">{{ plan.update_app }}</strong><br><span class="feld-hinweis">aktualisiert → Verwaltung</span></div>
+        {% if plan.neu_konto %}<div><strong style="font-size:22px;color:var(--blau)">{{ plan.neu_konto }}</strong><br><span class="feld-hinweis">App-Zugänge</span></div>{% endif %}
+        {% if plan.konflikt %}<div><strong style="font-size:22px;color:var(--rot)">{{ plan.konflikt }}</strong><br><span class="feld-hinweis">Konflikte</span></div>{% endif %}
+    </div>
+    {% if plan.details %}
+    <ul style="margin:0;padding-left:18px;line-height:1.7">
+        {% for d in plan.details %}<li>{{ d }}</li>{% endfor %}
+    </ul>
+    {% else %}
+    <p class="feld-hinweis">Alles ist bereits synchron – nichts zu tun. 🎉</p>
+    {% endif %}
+    {% if not plan.anwenden and plan.details %}
+    <p class="feld-hinweis" style="margin-top:12px">Das ist nur eine Vorschau. Zum Übernehmen oben auf <strong>„{{ 'Import übernehmen' if plan.nur_import else 'Jetzt abgleichen' }}"</strong> klicken.</p>
+    {% endif %}
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

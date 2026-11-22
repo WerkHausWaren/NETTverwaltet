@@ -1,0 +1,17 @@
+# Eure Daten und Geheimnisse gehören NIE ins Repository
+data/
+data_backup_*/
+.env
+*.env
+Caddyfile
+*.db
+*.db-*
+*.sqlite
+*.key
+*.pem
+# Technik-Reste
+.venv/
+venv/
+__pycache__/
+*.pyc
+.DS_Store

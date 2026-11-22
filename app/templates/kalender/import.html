@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Termine importieren{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Termine importieren (ICS)</h1><div class="sub">Bestehende Termine aus einer .ics-Datei als eigene Veranstaltungen übernehmen</div></div>
+    <a href="{{ url_for('kalender.index') }}" class="btn btn-sekundaer">← Zum Kalender</a>
+</div>
+
+<div class="hilfe-box">
+    Importierte Termine werden zu <strong>eigenen, bearbeitbaren Veranstaltungen</strong>. Anders als ein
+    Kalender-Abo (nur Ansehen) kannst du sie danach ändern, kategorisieren und veröffentlichen.
+</div>
+
+<div class="karte">
+    <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld"><label>ICS-Datei</label><input type="file" name="datei" accept=".ics,text/calendar" required></div>
+        <div class="feld"><label>Status der importierten Termine</label>
+            <select name="status">
+                <option value="aktiv">Aktiv (veröffentlicht)</option>
+                <option value="entwurf">Entwurf (erst intern, nicht in Nextcloud)</option>
+            </select>
+            <div class="feld-hinweis">Tipp: „Entwurf" wählen, wenn du sie erst prüfen möchtest, bevor sie in Nextcloud erscheinen.</div>
+        </div>
+        <button type="submit" class="btn">⬆️ Importieren</button>
+    </form>
+</div>
+{% endblock %}

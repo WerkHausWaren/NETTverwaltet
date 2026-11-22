@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voucher – {{ a.titel }}</title>
+<style>
+    :root {
+        --akz: {{ einst.farbe_primaer or '#174290' }};
+        --auf-akz: {{ (einst.farbe_primaer or '#174290') | kontrast }};
+        --grund: #eef1f6;
+        --tinte: #17233a;
+        --blass: #64748b;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; color: var(--tinte); margin: 0;
+           background: var(--grund); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .leiste { text-align: center; padding: 16px 14px 4px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+    .btn { display: inline-block; background: var(--akz); color: var(--auf-akz); padding: 10px 18px; border: none;
+           border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 700; text-decoration: none; }
+    .btn.gruen { background: #16a34a; color: #fff; }
+
+    .ticket { max-width: 440px; margin: 14px auto 34px; filter: drop-shadow(0 10px 26px rgba(23,35,58,.18)); }
+
+    /* Hauptteil */
+    .haupt { background: #fff; border-radius: 18px 18px 0 0; overflow: hidden; }
+    .kopf { background: var(--akz);
+            background: linear-gradient(135deg, var(--akz), color-mix(in srgb, var(--akz) 72%, #000));
+            color: var(--auf-akz); padding: 16px 20px; display: flex; align-items: center; gap: 12px; }
+    .kopf img { height: 40px; width: 40px; object-fit: contain; background: #fff; border-radius: 50%; padding: 4px; }
+    .kopf .vn { font-weight: 800; font-size: 15.5px; line-height: 1.25; }
+    .kopf .typ { margin-left: auto; font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+                 border: 1.5px solid currentColor; border-radius: 999px; padding: 4px 11px; opacity: .95; white-space: nowrap; }
+    .bild { width: 100%; height: 150px; object-fit: cover; display: block; }
+
+    .body { padding: 20px; }
+    .kopfzeile { display: flex; gap: 14px; align-items: flex-start; }
+    .datum { flex: none; width: 64px; border: 2px solid var(--akz); border-radius: 12px; overflow: hidden; text-align: center; }
+    .datum .mon { background: var(--akz); color: var(--auf-akz); font-size: 11px; font-weight: 800;
+                  letter-spacing: 1.5px; text-transform: uppercase; padding: 3px 0; }
+    .datum .tag { font-size: 26px; font-weight: 800; padding: 4px 0 1px; }
+    .datum .jahr { font-size: 11px; color: var(--blass); padding-bottom: 5px; }
+    .titel { font-size: 21px; font-weight: 800; line-height: 1.2; margin: 2px 0 6px; }
+    .meta { color: var(--blass); font-size: 14px; line-height: 1.65; }
+
+    .reihe { display: flex; gap: 12px; margin-top: 16px; }
+    .feld { flex: 1; background: #f5f7fb; border-radius: 12px; padding: 11px 13px; min-width: 0; }
+    .lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--blass); margin-bottom: 3px; }
+    .wert { font-weight: 700; font-size: 14.5px; overflow-wrap: anywhere; }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
+    .chip { background: #fff; border: 1px solid #dbe2ec; border-radius: 999px; padding: 4px 12px;
+            font-size: 13px; font-weight: 600; }
+
+    .status { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 5px 13px;
+              font-size: 13px; font-weight: 800; }
+    .status.bezahlt  { background: #e7f6ec; color: #157347; border: 1px solid #bfe5cd; }
+    .status.offen    { background: #fdf3e3; color: #9a6d17; border: 1px solid #f2ddb2; }
+    .status.erlassen { background: #eef2f7; color: #475569; border: 1px solid #d8e0ea; }
+    .warte { background: #fff4e5; border: 1px solid #ffd8a8; border-radius: 12px; padding: 11px 13px;
+             margin-top: 14px; font-size: 14px; }
+    .storno { background: #fdeaea; border: 1px solid #f3c0c0; border-radius: 12px; padding: 11px 13px;
+              margin-top: 14px; font-size: 14px; color: #c0392b; font-weight: 700; text-align: center; }
+
+    /* Perforation zwischen Hauptteil und Abriss */
+    .perfo { position: relative; background: #fff; height: 26px; }
+    .perfo::before { content: ""; position: absolute; left: 26px; right: 26px; top: 50%;
+                     border-top: 2.5px dashed #ccd5e1; }
+    .perfo .loch { position: absolute; top: 50%; width: 26px; height: 26px; background: var(--grund);
+                   border-radius: 50%; transform: translateY(-50%); }
+    .perfo .loch.l { left: -13px; } .perfo .loch.r { right: -13px; }
+
+    /* Abriss (QR-Teil) */
+    .abriss { background: #fff; border-radius: 0 0 18px 18px; padding: 16px 20px 20px; text-align: center; }
+    .abriss .qrbox { display: inline-block; background: #fff; border: 2px solid var(--akz); border-radius: 14px; padding: 10px; }
+    .abriss img.qr { width: 128px; height: 128px; display: block; }
+    .code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; letter-spacing: 2px;
+            color: var(--blass); margin-top: 8px; }
+    .hinweis { font-size: 12.5px; color: var(--blass); margin-top: 10px; line-height: 1.5; }
+    .sponsor { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12.5px;
+               color: var(--blass); margin-top: 14px; padding-top: 12px; border-top: 1px solid #eef1f5; }
+    .sponsor img { max-height: 46px; max-width: 150px; object-fit: contain; }
+
+    @media print {
+        body { background: #fff; }
+        .leiste { display: none; }
+        .ticket { filter: none; margin: 0 auto; }
+        .perfo .loch { border: 1px solid #ccd5e1; background: #fff; }
+    }
+</style>
+</head>
+<body>
+{% set monate = ['', 'Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'] %}
+<div class="leiste">
+    <a class="btn" style="background:#eef2f7;color:#33404d" href="{{ url_for('portal.home') }}">{{ ue('‹ Zur Startseite') }}</a>
+    <button class="btn" onclick="window.print()">🖨️ Drucken / Als PDF sichern</button>
+    {% if wallet_da and not a.storniert %}<a class="btn" style="background:#000"
+        href="{{ url_for('veranstaltungen.wallet_pass', token=a.token) }}"> Zu Apple Wallet</a>{% endif %}
+    {% if zahl_link %}<a class="btn gruen" href="{{ zahl_link }}" target="_blank" rel="noopener">💳 Jetzt bezahlen ({{ '%.2f'|format(a.betrag)|replace('.', ',') }} €)</a>{% endif %}
+    {% if not a.storniert %}<a class="btn" style="background:#eef2f7;color:#33404d"
+        href="{{ url_for('veranstaltungen.kalender_ics', token=a.token) }}">📅 Zum Kalender hinzufügen</a>{% endif %}
+</div>
+
+{% with meldungen = get_flashed_messages(with_categories=true) %}
+{% for kat, m in meldungen %}
+<div style="max-width:520px;margin:0 auto 10px;padding:11px 14px;border-radius:11px;font-weight:600;
+            background:{{ '#fdeaea' if kat == 'fehler' else '#e8f6ec' }};
+            color:{{ '#8a2b2b' if kat == 'fehler' else '#1d6b34' }};
+            border:1px solid {{ '#f3c0c0' if kat == 'fehler' else '#bfe3c8' }}">{{ m }}</div>
+{% endfor %}
+{% endwith %}
+<div class="ticket">
+    <div class="haupt">
+        <div class="kopf">
+            {% if einst.logo_dateiname %}<img src="{{ url_for('einstellungen.logo', verein_id=einst.id) }}" alt="">{% endif %}
+            <span class="vn">{{ einst.vereinsname }}</span>
+            <span class="typ">🎟 Voucher</span>
+        </div>
+        {% if a.bild %}<img class="bild" src="{{ url_for('termine.bild', tid=a.termin_id, token=a.token, v=a.bild) }}" alt="">{% endif %}
+        <div class="body">
+            <div class="kopfzeile">
+                <div class="datum">
+                    <div class="mon">{{ monate[a.datum[5:7]|int] }}</div>
+                    <div class="tag">{{ a.datum[8:10]|int }}</div>
+                    <div class="jahr">{{ a.datum[:4] }}</div>
+                </div>
+                <div style="min-width:0">
+                    <div class="titel">{{ a.titel }}</div>
+                    <div class="meta">
+                        {% if a.uhrzeit %}🕒 {{ a.uhrzeit }}{% if a.uhrzeit_bis %} – {{ a.uhrzeit_bis }}{% endif %} Uhr<br>{% endif %}
+                        {% if a.veranstaltungsort %}📍 <a href="https://maps.apple.com/?q={{ a.veranstaltungsort | urlencode }}" style="color:inherit">{{ a.veranstaltungsort }}</a>{% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="reihe">
+                <div class="feld">
+                    <div class="lbl">Angemeldet von</div>
+                    <div class="wert">{{ a.anmelder_name }}</div>
+                </div>
+                {% if a.betrag %}
+                <div class="feld">
+                    <div class="lbl">Beitrag</div>
+                    <div class="wert" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                        {{ '%.2f'|format(a.betrag)|replace('.', ',') }} €
+                        <span class="status {{ a.bezahlstatus }}">{{ '✓ bezahlt' if a.bezahlstatus == 'bezahlt'
+                            else ('offen' if a.bezahlstatus == 'offen' else 'frei') }}</span>
+                    </div>
+                    {% if a.spende %}<div style="font-size:12px;color:#b45309;margin-top:3px">💛 inkl. {{ '%.2f'|format(a.spende)|replace('.', ',') }} € Spende</div>{% endif %}
+                    {% if a.bezahlstatus == 'offen' and a.zahlcode %}<div style="font-size:11.5px;color:var(--blass);margin-top:3px">Verwendungszweck: <strong style="font-family:ui-monospace,Menlo,monospace">{{ a.zahlcode }}</strong></div>{% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            {% if a.ort_hinweise %}
+            <div class="feld" style="margin-top:12px">
+                <div class="lbl">Hinweise des Veranstalters</div>
+                <div style="font-size:13.5px;line-height:1.5">ℹ️ {{ a.ort_hinweise }}</div>
+            </div>
+            {% endif %}
+
+            <div class="feld" style="margin-top:12px">
+                <div class="lbl">Teilnehmende ({{ teilnehmer|length }})</div>
+                <div class="chips">
+                    {% for tn in teilnehmer %}<span class="chip">{{ tn.name }}</span>{% endfor %}
+                </div>
+            </div>
+
+            {% if a.storniert %}<div class="storno">✖ Diese Reservierung wurde storniert.</div>
+            {% elif a.warteliste and angebot_frist %}<div class="warte">🎟️ <strong>Ein Platz ist für
+                dich reserviert!</strong> Bitte bestätige bis {{ angebot_frist }}:
+                <a href="{{ url_for('veranstaltungen.nachrueck_bestaetigen', token=a.token) }}">Platz bestätigen</a></div>
+            {% elif a.warteliste %}<div class="warte">⏳ <strong>Warteliste – du bist auf
+                Platz {{ platz }}</strong>. Wir melden uns, sobald ein Platz frei wird.</div>{% endif %}
+
+            {% if aenderbar and not a.warteliste %}
+            <details class="feld" style="margin-top:12px">
+                <summary style="cursor:pointer;font-weight:700;font-size:13.5px">✏️ Personen ändern
+                    <span style="font-weight:400;color:#64748b">(nachmelden oder austragen)</span></summary>
+                <div style="margin-top:8px">
+                    {% for tn in teilnehmer %}
+                    <form method="post" action="{{ url_for('veranstaltungen.voucher_personen', token=a.token) }}"
+                          style="display:flex;align-items:center;gap:8px;margin-top:4px">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="aktion" value="raus">
+                        <input type="hidden" name="tn_id" value="{{ tn.id }}">
+                        <span style="flex:1">{{ tn.name }}</span>
+                        {% if teilnehmer|length > 1 %}
+                        <button style="border:1px solid #f3c0c0;background:#fdeaea;border-radius:8px;padding:4px 10px;cursor:pointer"
+                                onclick="return confirm('Diese Person wirklich austragen?')">✕ austragen</button>
+                        {% endif %}
+                    </form>
+                    {% endfor %}
+                    <form method="post" action="{{ url_for('veranstaltungen.voucher_personen', token=a.token) }}"
+                          style="display:flex;gap:8px;margin-top:8px">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="aktion" value="dazu">
+                        <input type="text" name="name" required placeholder="Name der weiteren Person"
+                               style="flex:1;padding:8px;border:1px solid #d7dde5;border-radius:8px">
+                        <button style="border:0;background:#16a34a;color:#fff;border-radius:8px;padding:8px 14px;cursor:pointer">＋ nachmelden</button>
+                    </form>
+                    <div style="font-size:12px;color:#64748b;margin-top:6px">Der Betrag passt sich an;
+                        bei einer Nachmeldung nach Bezahlung wird der Restbetrag wieder fällig.</div>
+                </div>
+            </details>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="perfo"><span class="loch l"></span><span class="loch r"></span></div>
+
+    <div class="abriss">
+        {% if qr %}
+        <div class="qrbox"><img class="qr" src="{{ qr }}" alt="QR-Code"></div>
+        {% endif %}
+        <div class="code">{{ a.token }}</div>
+        <div class="hinweis">{{ einst.voucher_einlass_text or 'Beim Einlass vorzeigen – ausgedruckt oder auf dem Handy.' }}</div>
+        {% if einst.voucher_fusszeile %}<div class="hinweis" style="margin-top:6px;white-space:pre-wrap">{{ einst.voucher_fusszeile }}</div>{% endif %}
+        {% if a.sponsor_name or a.sponsor_logo %}
+        <div class="sponsor">Mit freundlicher Unterstützung von
+            {% if a.sponsor_logo %}<img src="{{ url_for('termine.sponsor_logo', tid=a.termin_id, token=a.token) }}" alt="">{% endif %}
+            {% if a.sponsor_name %}<strong>{{ a.sponsor_name }}</strong>{% endif %}</div>
+        {% endif %}
+    </div>
+</div>
+</body>
+</html>

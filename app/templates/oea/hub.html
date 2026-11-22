@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}Content-Hub{% endblock %}
+{% block content %}
+{% set kanalname = {'instagram': 'Instagram', 'facebook': 'Facebook', 'fediverse': 'Fediverse', 'app': 'App', 'website': 'Website', 'signal': 'Signal', 'newsletter': 'Newsletter'} %}
+<div class="page-header">
+    <div><h1>🚀 Content-Hub</h1><div class="sub">Freigaben, Planung und Kanäle – was der Hub aus euren Veranstaltungen macht</div></div>
+    <div class="aktionen">
+        <a href="{{ url_for('oea.hub_oeffnen') }}" class="btn" target="_blank" rel="noopener">🧭 Im Hub-Cockpit öffnen</a>
+    </div>
+</div>
+
+{% if hinweis %}
+<div class="karte" style="margin-bottom:14px;border-left:4px solid var(--gelb);border-radius:6px">⚠️ {{ hinweis }}</div>
+{% endif %}
+
+{% set ges = stand.get('gesundheit') or {} %}
+<div class="karte" style="margin-bottom:14px;display:flex;gap:18px;flex-wrap:wrap;align-items:center">
+    <span><strong>Letzter Abruf durch den Hub:</strong>
+        {% if letzte_sichtung %}{{ letzte_sichtung | datum_de }} {{ letzte_sichtung[11:16] }}{% else %}<span style="color:var(--fehler-text)">noch nie</span>{% endif %}</span>
+    <span class="feld-hinweis">Der Hub schaut stündlich (zur Viertelstunde) nach neuen Veranstaltungen.</span>
+    {% if ges.get('warnung') %}<span style="color:var(--fehler-text);font-weight:700">⚠️ {{ ges.get('warnung') }}</span>{% endif %}
+    {% for a in stand.get('abwesend', []) %}<span class="feld-hinweis">🌴 {{ a.get('name', '') }} abwesend bis {{ a.get('bis', '') | datum_de }}{% if a.get('vertretung') %} – Vertretung: {{ a.get('vertretung') }}{% endif %}</span>{% endfor %}
+</div>
+
+<div class="karte" id="freigaben" style="margin-bottom:14px">
+    <h2 style="margin-top:0">✅ Warten auf Freigabe</h2>
+    <p class="feld-hinweis" style="margin-top:-6px">Vier Augen: Wer einen Beitrag angestoßen hat, gibt ihn nicht selbst frei. Eine Person aus Vorstand oder Öffentlichkeitsarbeit genügt.</p>
+    {% for f in stand.get('freigaben', []) %}
+    {% set meine = f.get('meine') or {} %}
+    <div style="border-top:1px solid var(--linie);padding:12px 0">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:baseline">
+            <strong style="font-size:16px">{{ f.get('titel', '') }}</strong>
+            <span class="feld-hinweis">seit {{ (f.get('erstellt') or '') | datum_de }}{% if f.get('ersteller') %} · angestoßen von {{ f.get('ersteller') }}{% endif %}</span>
+        </div>
+        {% for b in f.get('beitraege', []) %}
+        <details style="margin:8px 0" {{ 'open' if loop.first }}>
+            <summary><strong>{{ b.get('typ', '') }}</strong> → {{ (b.get('kanaele') or []) | map('string') | join(', ') }}{% if b.get('wunschtermin') %} · geplant {{ b.get('wunschtermin') }}{% endif %}</summary>
+            {% if b.get('bilder') %}
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">
+                {% for i in range(b.get('bilder') if b.get('bilder') is number else 0) %}
+                <img src="{{ url_for('oea.hub_bild', beitrag_id=b.get('beitrag_id'), nr=i) }}" alt="Grafik {{ i + 1 }}" loading="lazy" style="width:150px;height:150px;object-fit:cover;border-radius:8px;border:1px solid var(--linie)">
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% for k, text in (b.get('texte') or {}).items() %}
+            <div style="margin:6px 0"><div class="feld-hinweis">{{ kanalname.get(k, k) }}</div>
+                <div style="white-space:pre-wrap;background:var(--grund, #F7F7F5);border-radius:8px;padding:8px 10px">{{ text }}</div></div>
+            {% endfor %}
+        </details>
+        {% endfor %}
+        {% if f.get('fehlt') %}<div class="feld-hinweis">Es fehlt noch: {{ f.get('fehlt') | join(', ') }}</div>{% endif %}
+        {% if meine.get('darf') %}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <form method="post" action="{{ url_for('oea.hub_stimme') }}" onsubmit="return confirm('Freigeben? Die Beiträge werden dann zur Veröffentlichung eingeplant.')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="freigabe_id" value="{{ f.get('freigabe_id') }}">
+                <button class="btn" name="entscheidung" value="freigeben">✓ Freigeben</button></form>
+            <form method="post" action="{{ url_for('oea.hub_stimme') }}" onsubmit="return confirm('Ablehnen? Das Paket wird nicht veröffentlicht.')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="freigabe_id" value="{{ f.get('freigabe_id') }}">
+                <button class="btn btn-sekundaer" name="entscheidung" value="ablehnen">✕ Ablehnen</button></form>
+        </div>
+        <form method="post" action="{{ url_for('oea.hub_stimme') }}" style="margin-top:8px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="freigabe_id" value="{{ f.get('freigabe_id') }}">
+            <details><summary>✎ Änderung wünschen</summary>
+                <textarea name="notiz" rows="3" style="width:100%;margin-top:6px" placeholder="Was soll anders werden? Der Hub baut die Beiträge neu und legt sie wieder vor."></textarea>
+                <button class="btn btn-sekundaer btn-klein" name="entscheidung" value="aendern">Änderung schicken</button>
+            </details>
+        </form>
+        {% elif meine.get('entscheidung') %}
+        <div class="feld-hinweis">Deine Entscheidung: <strong>{{ meine.get('entscheidung') }}</strong></div>
+        {% else %}
+        <div class="feld-hinweis">{{ meine.get('grund') or 'Du kannst hier nicht abstimmen.' }}</div>
+        {% endif %}
+    </div>
+    {% else %}
+    <p class="feld-hinweis">Gerade wartet nichts auf eine Freigabe. 🎉</p>
+    {% endfor %}
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:14px">
+    <div class="karte" id="geplant">
+        <h2 style="margin-top:0">🗓️ Geplant</h2>
+        {% for p in stand.get('geplant', []) %}
+        <div style="padding:5px 0;border-top:1px solid var(--linie)"><strong>{{ kanalname.get(p.get('kanal'), p.get('kanal')) }}</strong> · {{ p.get('wann', '') }}<br><span class="feld-hinweis">{{ p.get('titel', '') }}</span></div>
+        {% else %}<p class="feld-hinweis">Nichts eingeplant.</p>{% endfor %}
+    </div>
+    <div class="karte" id="veroeffentlicht">
+        <h2 style="margin-top:0">📣 Veröffentlicht</h2>
+        {% for p in stand.get('veroeffentlicht', []) %}
+        <div style="padding:5px 0;border-top:1px solid var(--linie)"><strong>{{ kanalname.get(p.get('kanal'), p.get('kanal')) }}</strong> · {{ p.get('wann', '') }}
+            {% if p.get('url', '').startswith('https://') %}<a href="{{ p.get('url') }}" target="_blank" rel="noopener">ansehen ›</a>{% endif %}
+            <br><span class="feld-hinweis">{{ p.get('titel', '') }}{% if p.get('zahlen') %} · ❤️ {{ p.get('zahlen', {}).get('likes', '–') }} · 💬 {{ p.get('zahlen', {}).get('kommentare', '–') }}{% endif %}</span></div>
+        {% else %}<p class="feld-hinweis">Noch nichts.</p>{% endfor %}
+    </div>
+</div>
+
+{% if stand.get('probelauf') %}
+<div class="karte" style="margin-bottom:14px;border-left:4px solid var(--linie)">
+    <h2 style="margin-top:0">🧪 Probelauf (nicht wirklich gepostet)</h2>
+    {% for p in stand.get('probelauf', []) %}<div class="feld-hinweis">{{ kanalname.get(p.get('kanal'), p.get('kanal')) }} · {{ p.get('wann', '') }} · {{ p.get('titel', '') }}</div>{% endfor %}
+</div>
+{% endif %}
+
+{% if stand.get('fehler') %}
+<div class="karte" style="margin-bottom:14px;border-left:4px solid var(--fehler-rand);border-radius:6px">
+    <h2 style="margin-top:0">⚠️ Hat nicht geklappt</h2>
+    {% for p in stand.get('fehler', []) %}<div style="padding:5px 0;border-top:1px solid var(--linie)"><strong>{{ kanalname.get(p.get('kanal'), p.get('kanal')) }}</strong> · {{ p.get('titel', '') }}<br><span class="feld-hinweis">{{ p.get('fehler', '') }}</span></div>{% endfor %}
+</div>
+{% endif %}
+
+<div class="karte" id="teilen" style="margin-bottom:14px">
+    <h2 style="margin-top:0">📲 Zum Teilen: WhatsApp-Kanal und Facebook-Gruppen</h2>
+    <p class="feld-hinweis" style="margin-top:-6px">Für diese Ziele gibt es keine Schnittstelle zum automatischen Posten. Text kopieren, Bild speichern, im Kanal bzw. in der Gruppe einfügen – danach „geteilt“ tippen.
+        <br>📷 WhatsApp-Kanal: Fotos mit erkennbaren Personen nur, wenn deren Einwilligung ab dem 04.11.2026 gegeben wurde (ältere decken WhatsApp nicht ab).</p>
+    {% for t in stand.get('teilen', []) %}
+    <div style="border-top:1px solid var(--linie);padding:10px 0">
+        <strong>{{ 'WhatsApp-Kanal' if t.get('ziel') == 'whatsapp' else 'Facebook-Gruppen' }}</strong> · {{ t.get('titel', '') }}
+        <textarea readonly rows="4" style="width:100%;margin-top:6px" id="teilen-{{ loop.index }}">{{ t.get('text', '') }}</textarea>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px">
+            <button type="button" class="btn btn-sekundaer btn-klein" onclick="navigator.clipboard.writeText(document.getElementById('teilen-{{ loop.index }}').value);this.textContent='✓ kopiert'">📋 Text kopieren</button>
+            {% for i in range(t.get('bilder') if t.get('bilder') is number else 0) %}
+            <a class="btn btn-sekundaer btn-klein" href="{{ url_for('oea.hub_bild', beitrag_id=t.get('beitrag_id'), nr=i) }}" download>🖼️ Bild {{ i + 1 }}</a>
+            {% endfor %}
+            {% if t.get('ziel') == 'whatsapp' and einst.hub_whatsapp_kanal %}<a class="btn btn-sekundaer btn-klein" href="{{ einst.hub_whatsapp_kanal|sichere_url }}" target="_blank" rel="noopener">WhatsApp-Kanal öffnen ›</a>{% endif %}
+            {% if t.get('ziel') == 'facebook_gruppe' %}{% for g in fb_gruppen %}{% if g.link %}<a class="btn btn-sekundaer btn-klein" href="{{ g.link|sichere_url }}" target="_blank" rel="noopener">{{ g.name }} ›</a>{% else %}<span class="feld-hinweis">{{ g.name }}</span>{% endif %}{% endfor %}{% endif %}
+            {% if t.get('geteilt_von') %}<span class="feld-hinweis">✓ geteilt von {{ t.get('geteilt_von') }}</span>{% else %}
+            <form method="post" action="{{ url_for('oea.hub_aktion') }}" style="display:inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="aktion" value="geteilt">
+                <input type="hidden" name="beitrag_id" value="{{ t.get('beitrag_id') }}"><input type="hidden" name="ziel" value="{{ t.get('ziel') }}">
+                <button class="btn btn-klein" type="submit">✓ geteilt</button></form>{% endif %}
+        </div>
+    </div>
+    {% else %}<p class="feld-hinweis">Gerade nichts zum Teilen.</p>{% endfor %}
+</div>
+
+<div class="karte" id="kanaele" style="margin-bottom:14px">
+    <h2 style="margin-top:0">📡 Kanäle</h2>
+    <p class="feld-hinweis" style="margin-top:-6px">„Probelauf“ heißt: Der Hub tut so, als würde er posten – es geht aber nichts raus. Umschalten kann nur der Vorstand.</p>
+    {% for k in stand.get('kanaele', []) %}
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--linie)">
+        <strong style="min-width:100px">{{ kanalname.get(k.get('kanal'), k.get('kanal')) }}</strong>
+        <span>{{ '🟢 aktiv' if k.get('status') == 'aktiv' else ('🧪 Probelauf' if k.get('status') == 'trockenlauf' else '🔴 ' ~ k.get('status', '')) }}</span>
+        {% if k.get('abgeglichen') %}<span class="feld-hinweis">abgeglichen {{ k.get('abgeglichen') }}</span>{% endif %}
+        {% if k.get('hinweis') %}<span class="feld-hinweis">· {{ k.get('hinweis') }}</span>{% endif %}
+        {% if ist_admin and k.get('status') in ['aktiv', 'trockenlauf'] %}
+        <form method="post" action="{{ url_for('oea.hub_kanal') }}" style="margin-left:auto"
+              onsubmit="return confirm('{{ 'Auf Probelauf stellen? Dann geht auf diesem Kanal nichts mehr raus.' if k.get('status') == 'aktiv' else 'Kanal aktiv schalten? Freigegebene Beiträge werden dann wirklich veröffentlicht.' }}')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="kanal" value="{{ k.get('kanal') }}">
+            <button class="btn btn-sekundaer btn-klein" name="status" value="{{ 'trockenlauf' if k.get('status') == 'aktiv' else 'aktiv' }}">{{ 'Auf Probelauf' if k.get('status') == 'aktiv' else 'Aktiv schalten' }}</button></form>
+        {% endif %}
+    </div>
+    {% else %}<p class="feld-hinweis">Keine Kanäle gemeldet.</p>{% endfor %}
+</div>
+
+<div class="karte" id="wochenblick" style="margin-bottom:14px">
+    <h2 style="margin-top:0">📊 Wochenblick</h2>
+    {% if wochenblick %}
+    <div class="feld-hinweis">Woche ab {{ (wochenblick.get('woche') or '') | datum_de }}{% if wochenblick.get('zeitraum') %} · {{ wochenblick.get('zeitraum') }}{% endif %}</div>
+    {% if wochenblick.get('kennzahlen') %}<div style="display:flex;gap:16px;flex-wrap:wrap;margin:8px 0">{% for k, v in (wochenblick.get('kennzahlen') or {}).items() %}<div><div class="feld-hinweis">{{ k }}</div><strong style="font-size:20px">{{ v }}</strong></div>{% endfor %}</div>{% endif %}
+    {% if wochenblick.get('einschaetzung') %}<p style="white-space:pre-wrap">{{ wochenblick.get('einschaetzung') }}</p>{% endif %}
+    {% for v in wochenblick.get('vorschlaege') or [] %}
+    <div style="border-top:1px solid var(--linie);padding:8px 0">💡 {{ v.get('text', '') }}
+        {% if ist_admin and v.get('id') and not v.get('entschieden') %}
+        <form method="post" action="{{ url_for('oea.hub_aktion') }}" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="aktion" value="lernen">
+            <input type="hidden" name="learning_id" value="{{ v.get('id') }}">
+            <input type="text" name="text" value="{{ v.get('text', '') }}" style="flex:1;min-width:200px">
+            <button class="btn btn-klein" name="ok" value="1">Übernehmen</button>
+            <button class="btn btn-sekundaer btn-klein" name="ok" value="0">Verwerfen</button></form>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% else %}<p class="feld-hinweis">Der erste Wochenblick kommt am Montag nach dem Einschalten.</p>{% endif %}
+    {% if wochen | length > 1 %}<div class="feld-hinweis" style="margin-top:8px">Frühere Wochen: {% for w in wochen %}<a href="{{ url_for('oea.hub', woche=w) }}#wochenblick">{{ w | datum_de }}</a>{{ ' · ' if not loop.last }}{% endfor %}</div>{% endif %}
+</div>
+
+<div class="karte" id="abwesenheit" style="margin-bottom:14px">
+    <h2 style="margin-top:0">🌴 Urlaub und Vertretung</h2>
+    <p class="feld-hinweis" style="margin-top:-6px">Während deiner Abwesenheit bekommst du keine Freigabe-Anfragen und keinen Wochenblick; Hinweise gehen an deine Vertretung.</p>
+    <form method="post" action="{{ url_for('oea.hub_abwesenheit') }}" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld"><label>Abwesend bis</label><input type="date" name="abwesend_bis" min="{{ heute }}" value="{{ ich.abwesend_bis if ich and (ich.abwesend_bis or '') >= heute else '' }}"></div>
+        <div class="feld"><label>Vertretung</label><select name="vertretung_id"><option value="">– keine –</option>
+            {% for k in kollegium %}<option value="{{ k.id }}" {{ 'selected' if ich and ich.vertretung_id == k.id }}>{{ k.anzeigename or k.email }}</option>{% endfor %}</select></div>
+        <button class="btn btn-sekundaer" type="submit">Speichern</button>
+    </form>
+</div>
+
+{% if rueck %}
+<div class="karte" style="margin-bottom:14px">
+    <h2 style="margin-top:0">🧾 Rückmeldungen des Hubs</h2>
+    {% for r in rueck %}<div class="feld-hinweis" style="padding:3px 0">{{ (r.aktualisiert or '') | datum_de }} {{ (r.aktualisiert or '')[11:16] }} · {{ kanalname.get(r.kanal, r.kanal) }} · {{ r.status }} · {{ r.titel }}{% if r.url %} · <a href="{{ r.url|sichere_url }}" target="_blank" rel="noopener">Link</a>{% endif %}{% if r.fehler %} · {{ r.fehler }}{% endif %}</div>{% endfor %}
+</div>
+{% endif %}
+
+{% if ist_admin %}
+<div class="karte" id="einstellungen" style="margin-bottom:14px">
+    <h2 style="margin-top:0">⚙️ Einstellungen (Vorstand)</h2>
+    <form method="post" action="{{ url_for('oea.hub_einstellungen') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label style="display:block;margin-bottom:10px"><input type="checkbox" name="hub_instagram" {{ 'checked' if einst.hub_instagram }}
+            onchange="if(this.checked && !confirm('Instagram über den Hub? Das direkte Posten aus der App wird dann abgeschaltet{{ ' und ' ~ offen_auto ~ ' geplante Beiträge angehalten' if offen_auto }}.')) this.checked=false">
+            📸 Instagram läuft über den Content-Hub (das direkte Posten aus der App wird abgeschaltet – keine Dubletten)</label>
+        <div class="feld"><label>Facebook-Gruppen für den Teilen-Helfer</label>
+            <textarea name="hub_fb_gruppen" rows="3" placeholder="Name | https://www.facebook.com/groups/…">{{ einst.hub_fb_gruppen or '' }}</textarea>
+            <div class="feld-hinweis">Eine Gruppe je Zeile: „Name | Link“.</div></div>
+        <div class="feld"><label>Link zum WhatsApp-Kanal</label>
+            <input type="url" name="hub_whatsapp_kanal" value="{{ einst.hub_whatsapp_kanal or '' }}" placeholder="https://whatsapp.com/channel/…"></div>
+        <button class="btn" type="submit">Speichern</button>
+    </form>
+</div>
+{% endif %}
+{% endblock %}

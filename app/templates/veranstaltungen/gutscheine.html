@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Gutscheine{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🎟️ Gutscheine & Freikarten</h1><div class="sub">Codes für Presse, Sponsoren und Helfer:innen – einlösbar im Anmeldeformular</div></div>
+    <a href="{{ url_for('veranstaltungen.index') }}" class="btn btn-sekundaer">← Anmeldungen</a>
+</div>
+
+<div class="karte" style="margin-bottom:14px">
+    <h2 style="margin-top:0">➕ Neuen Code anlegen</h2>
+    <form method="post" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld"><label>Code <span class="feld-hinweis">(leer = automatisch)</span></label>
+            <input type="text" name="code" placeholder="z. B. PRESSE26"></div>
+        <div class="feld"><label>Art</label>
+            <select name="art" onchange="document.getElementById('g-wert').style.display=this.value=='frei'?'none':'block'">
+                <option value="frei">🆓 Freikarte (0 €)</option>
+                <option value="betrag">− Betrag (€)</option>
+                <option value="prozent">− Prozent</option>
+            </select></div>
+        <div class="feld" id="g-wert" style="display:none"><label>Wert</label>
+            <input type="text" name="wert" placeholder="z. B. 5 oder 50"></div>
+        <div class="feld"><label>Gilt für</label>
+            <select name="termin_id">
+                <option value="">alle Veranstaltungen</option>
+                {% for t in termine %}<option value="{{ t.id }}">{{ t.titel }} ({{ t.datum | datum_de }})</option>{% endfor %}
+            </select></div>
+        <div class="feld"><label>Max. Einlösungen <span class="feld-hinweis">(0 = unbegrenzt)</span></label>
+            <input type="number" name="max_nutzung" min="0" value="0"></div>
+        <button class="btn">＋ Anlegen</button>
+    </form>
+</div>
+
+{% if liste %}
+<div class="tabellen-scroll">
+<table>
+    <thead><tr><th>Code</th><th>Rabatt</th><th>Gilt für</th><th>Eingelöst</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for g in liste %}
+    <tr {{ 'style=opacity:.55' if not g.aktiv }}>
+        <td><code style="font-size:15px;font-weight:700">{{ g.code }}</code></td>
+        <td>{% if g.art == 'frei' %}🆓 Freikarte{% elif g.art == 'prozent' %}−{{ g.wert | int }} %{% else %}−{{ '%.2f'|format(g.wert)|replace('.', ',') }} €{% endif %}</td>
+        <td>{{ g.termin_titel or 'alle Veranstaltungen' }}</td>
+        <td>{{ g.genutzt }}{% if g.max_nutzung %} / {{ g.max_nutzung }}{% endif %}</td>
+        <td>{% if g.aktiv %}<span class="badge badge-gut">aktiv</span>{% else %}<span class="badge badge-inaktiv">aus</span>{% endif %}</td>
+        <td class="rechts" style="white-space:nowrap">
+            <form method="post" style="display:inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="aktion" value="umschalten"><input type="hidden" name="gid" value="{{ g.id }}">
+                <button class="btn btn-sekundaer btn-klein">{{ '⏸ aus' if g.aktiv else '▶️ an' }}</button>
+            </form>
+            <form method="post" style="display:inline" onsubmit="return confirm('Code „{{ g.code }}“ löschen?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="aktion" value="loeschen"><input type="hidden" name="gid" value="{{ g.id }}">
+                <button class="btn btn-sekundaer btn-klein">✕</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<div class="karte leer"><div class="icon">🎟️</div><p>Noch keine Gutscheine. Der erste Code ist schnell angelegt –
+    zum Beispiel eine Freikarte für die Presse.</p></div>
+{% endif %}
+{% endblock %}

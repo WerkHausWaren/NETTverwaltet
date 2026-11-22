@@ -1,0 +1,58 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Mitteilungen{% endblock %}
+{% block inhalt %}
+<div class="mp-schmal">
+<p style="margin:14px 0 0"><a href="{{ url_for('portal.profil') }}" style="text-decoration:none;color:var(--mp);font-weight:600">‹ Ich</a></p>
+
+<div class="mp-karte">
+    <h2 style="margin:0 0 4px;font-size:18px">🔔 Meine Mitteilungen</h2>
+    <p class="feld-hinweis" style="margin:0">Hier wählst du, worüber dich die App benachrichtigt.
+        Standard ist: <strong>alles an</strong>. Was du abwählst, kommt auf keinem deiner
+        Geräte mehr an – E-Mails sind davon nicht betroffen.</p>
+    <div id="pushHinweis" style="display:none;margin-top:10px">
+        <button type="button" class="mp-btn" style="background:var(--mp)" onclick="pushAktivieren(this)">🔔 Benachrichtigungen aktivieren</button>
+        <p class="feld-hinweis" style="margin:8px 0 0">Auf diesem Gerät sind Mitteilungen noch
+            nicht eingeschaltet – erst nach dem Aktivieren kommt hier etwas an.</p>
+    </div>
+</div>
+
+<form method="post" action="{{ url_for('portal.mitteilungen') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="mp-karte">
+        {% for schluessel, name, beschreibung, nur_verwaltung in themen if not nur_verwaltung %}
+        <label class="einw-zeile" style="display:flex;gap:12px;align-items:flex-start;padding:9px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}">
+            <input type="checkbox" name="thema_{{ schluessel }}" style="margin-top:3px"
+                   {{ 'checked' if schluessel not in aus }}>
+            <span><strong>{{ name }}</strong><br>
+                <span class="feld-hinweis">{{ beschreibung }}</span></span>
+        </label>
+        {% endfor %}
+    </div>
+    {% if verwaltung %}
+    <div class="mp-karte">
+        <h2 style="margin:0 0 6px;font-size:16px">🛠️ Vorstands- und Verwaltungsthemen</h2>
+        {% for schluessel, name, beschreibung, nur_verwaltung in themen if nur_verwaltung %}
+        <label class="einw-zeile" style="display:flex;gap:12px;align-items:flex-start;padding:9px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}">
+            <input type="checkbox" name="thema_{{ schluessel }}" style="margin-top:3px"
+                   {{ 'checked' if schluessel not in aus }}>
+            <span><strong>{{ name }}</strong><br>
+                <span class="feld-hinweis">{{ beschreibung }}</span></span>
+        </label>
+        {% endfor %}
+    </div>
+    {% endif %}
+    <button type="submit" class="mp-btn">💾 Speichern</button>
+</form>
+
+<script>
+    (function(){
+        try {
+            if (("serviceWorker" in navigator) && ("PushManager" in window) &&
+                (typeof Notification !== "undefined") && Notification.permission !== "granted") {
+                var k = document.getElementById("pushHinweis"); if (k) k.style.display = "block";
+            }
+        } catch(e){}
+    })();
+</script>
+</div>
+{% endblock %}

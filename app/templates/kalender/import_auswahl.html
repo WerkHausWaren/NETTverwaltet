@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Import-Auswahl{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>📥 Veranstaltungen importieren</h1>
+        <div class="sub">Wähle aus, was übernommen werden soll – erst dann wird importiert</div></div>
+    <a href="{{ url_for('kalender.index') }}" class="btn btn-sekundaer">✕ Abbrechen</a>
+</div>
+
+<div class="karte" style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">
+    <span>🆕 <strong>{{ anz.neu }}</strong> neu</span>
+    <span>✏️ <strong>{{ anz.ergaenzen }}</strong> mit fehlenden Angaben (werden ergänzt)</span>
+    <span>✔️ <strong>{{ anz.aktuell }}</strong> bereits vollständig</span>
+    <span style="margin-left:auto;display:flex;gap:6px">
+        <button type="button" class="btn btn-klein btn-sekundaer" onclick="alleImp(true)">Alle</button>
+        <button type="button" class="btn btn-klein btn-sekundaer" onclick="alleImp(false)">Keine</button>
+    </span>
+</div>
+
+<form method="post" action="{{ url_for('kalender.import_ausfuehren') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="karte">
+        <table>
+            <thead><tr><th>✓</th><th>Datum</th><th>Veranstaltung</th><th>Ort</th><th>Status</th></tr></thead>
+            <tbody>
+            {% for e in liste %}
+            <tr style="{{ 'opacity:.55' if e.status == 'aktuell' }}">
+                <td>
+                    {% if e.status == 'aktuell' %}✔️
+                    {% else %}<input type="checkbox" name="uebernehmen" value="{{ loop.index0 }}" checked
+                                     class="imp" style="width:auto" onchange="impZaehlen()">{% endif %}
+                </td>
+                <td style="white-space:nowrap">{{ e.datum | datum_de }}{% if e.uhrzeit %}<br>
+                    <span class="feld-hinweis">{{ e.uhrzeit }}{{ '–' + e.uhrzeit_bis if e.uhrzeit_bis }} Uhr</span>{% endif %}</td>
+                <td><strong>{{ e.titel }}</strong>
+                    {% if e.beschreibung %}<div class="feld-hinweis" style="max-width:480px">{{ e.beschreibung[:140] }}{{ '…' if e.beschreibung|length > 140 }}</div>{% endif %}</td>
+                <td>{{ e.ort or '–' }}</td>
+                <td style="white-space:nowrap">
+                    {% if e.status == 'neu' %}<span class="badge badge-gruppe">🆕 neu</span>
+                    {% elif e.status == 'ergaenzen' %}<span class="badge" style="background:var(--warn-grund);color:var(--warn-text)"
+                        title="{{ e.felder | join(', ') }}">✏️ ergänzt: {{ e.felder | join(', ') }}</span>
+                    {% else %}<span class="feld-hinweis">vollständig</span>{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <button type="submit" class="btn" id="imp-knopf">📥 Ausgewählte importieren</button>
+</form>
+
+<script>
+    function impZaehlen() {
+        var n = document.querySelectorAll('.imp:checked').length;
+        document.getElementById('imp-knopf').textContent = '📥 ' + n + ' Veranstaltung(en) importieren';
+    }
+    function alleImp(zustand) {
+        document.querySelectorAll('.imp').forEach(function (c) { c.checked = zustand; });
+        impZaehlen();
+    }
+    impZaehlen();
+</script>
+{% endblock %}

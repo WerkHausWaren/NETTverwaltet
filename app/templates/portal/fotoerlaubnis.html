@@ -1,0 +1,41 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Meine Fotoerlaubnisse{% endblock %}
+{% block inhalt %}
+<div class="mp-schmal">
+<p style="margin:14px 0 0"><a href="{{ url_for('portal.profil') }}" style="text-decoration:none;color:var(--mp);font-weight:600">‹ Ich</a></p>
+
+<div class="mp-karte">
+    <h2 style="margin:0 0 4px;font-size:18px">📷 Meine Fotoerlaubnisse</h2>
+    <p class="feld-hinweis" style="margin:0">Für jede Veranstaltung, zu der du angemeldet bist,
+        entscheidest du selbst, ob wir Fotos von dir zeigen dürfen – getrennt für die
+        Vereinsarbeit und für Social Media (Facebook/Instagram/WhatsApp). Du kannst jede Antwort jederzeit ändern
+        oder <strong>widerrufen</strong>, auch nach der Veranstaltung.</p>
+    {% if offen %}
+    <div style="margin-top:10px;background:var(--warn-grund);border:1px solid var(--gelb);color:var(--warn-text);border-radius:10px;padding:10px 12px;font-weight:700">
+        {{ offen }} Antwort{{ 'en fehlen' if offen != 1 else ' fehlt' }} noch</div>
+    {% endif %}
+</div>
+
+{% if rows %}
+<div class="mp-karte">
+    {% for r in rows %}
+    <div style="display:flex;align-items:center;gap:11px;padding:9px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}">
+        <a href="{{ url_for('portal.termin', tid=r.termin_id) }}" style="flex:1;min-width:0;color:inherit;text-decoration:none">
+            <div style="font-weight:600">{{ r.titel }}</div>
+            <div class="feld-hinweis">📅 {{ r.datum[8:10] }}.{{ r.datum[5:7] }}.{{ r.datum[0:4] }}{% if r.uhrzeit %} · 🕒 {{ r.uhrzeit }} Uhr{% endif %}
+                {%- if r.foto_status == 'ja' %} · 📷 Ja{{ ' + 📱 Social Media' if r.foto_social == 'ja' }}
+                {%- elif r.foto_status == 'nein' %} · 🚫 Nein
+                {%- else %} · <span style="color:var(--warn-text);font-weight:600">noch offen</span>{% endif %}</div>
+        </a>
+        <a href="{{ url_for('veranstaltungen.foto_public', token=r.token) }}"
+           style="flex:none;text-decoration:none;border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600;{{ 'background:var(--warn-grund);color:var(--warn-text);border:1px solid var(--gelb)' if not r.foto_status else 'border:1px solid var(--linie);color:inherit' }}">
+            {{ '📷 Beantworten' if not r.foto_status else 'Ändern' }}</a>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="mp-karte"><p class="feld-hinweis" style="margin:0">Du bist aktuell zu keiner
+    Veranstaltung angemeldet. Sobald du dich anmeldest, taucht deine Fotoerlaubnis hier auf.</p></div>
+{% endif %}
+</div>
+{% endblock %}

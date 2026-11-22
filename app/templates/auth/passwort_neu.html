@@ -1,0 +1,14 @@
+{% extends "auth/_layout.html" %}
+{% block title %}Neues Passwort{% endblock %}
+{% block inhalt %}
+<div class="auth-logo">🔑</div>
+<h2 class="auth-titel">Neues Passwort setzen</h2>
+<form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="feld"><label>Neues Passwort (mind. 8 Zeichen)</label><input type="password" name="passwort" required></div>
+    <div class="feld"><label>Passwort wiederholen</label><input type="password" name="passwort2" required></div>
+    <button type="submit" class="btn">Passwort speichern</button>
+</form>
+<p style="text-align:center;margin:12px 0 0">
+    <a class="feld-hinweis" href="{{ url_for('auth.login') }}">‹ Zurück zur Anmeldung</a></p>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Infos & FAQ{% endblock %}
+{% block inhalt %}
+<div class="mp-schmal">
+<p style="margin:14px 0 0"><a href="{{ url_for('portal.home') }}" style="text-decoration:none;color:var(--mp);font-weight:600">‹ Start</a></p>
+
+<div class="mp-karte">
+    <h2 style="margin:0 0 4px;font-size:18px">❓ {{ t("k_infos") }}</h2>
+    {% if ist_admin %}
+    <details style="margin-top:6px">
+        <summary style="cursor:pointer;color:var(--mp);font-weight:600;list-style:none">＋ Neuer Eintrag</summary>
+        <form method="post" style="margin-top:8px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="feld"><label>Frage / Titel</label><input type="text" name="frage" required placeholder="z. B. Wie öffne ich die Tür?"></div>
+            <div class="feld"><label>Antwort</label><textarea name="antwort" rows="3"></textarea></div>
+            <button class="mp-btn">Hinzufügen</button>
+        </form>
+    </details>
+    {% endif %}
+</div>
+
+{% for f in liste %}
+<details class="mp-karte" style="padding:0">
+    <summary style="padding:15px 18px;cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:8px">
+        <span>{{ f.frage }}</span><span style="color:var(--text-schwach)">▾</span>
+    </summary>
+    <div style="padding:0 18px 16px">
+        {% if f.antwort %}<div style="white-space:pre-line">{{ f.antwort }}</div>{% endif %}
+        {% if ist_admin %}
+        <form method="post" style="margin-top:10px" onsubmit="return confirm('Eintrag löschen?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="loeschen" value="{{ f.id }}">
+            <button class="feld-hinweis" style="background:none;border:none;cursor:pointer">✕ löschen</button>
+        </form>
+        {% endif %}
+    </div>
+</details>
+{% else %}
+<div class="mp-karte"><p class="feld-hinweis" style="margin:0">Noch keine Infos hinterlegt.{% if ist_admin %} Lege oben den ersten Eintrag an.{% endif %}</p></div>
+{% endfor %}
+
+<style>details > summary::-webkit-details-marker { display:none; }</style>
+</div>
+{% endblock %}

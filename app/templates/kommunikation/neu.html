@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+{% block title %}Serien-E-Mail{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Serien-E-Mail</h1><div class="sub">Nachricht an ausgewählte Mitglieder oder ganze Gruppen senden</div></div>
+    <div class="aktionen">
+        <a href="{{ url_for('kommunikation.vorlagen') }}" class="btn btn-sekundaer">📝 Vorlagen</a>
+        <a href="{{ url_for('kommunikation.verlauf') }}" class="btn btn-sekundaer">🕘 Verlauf</a>
+    </div>
+</div>
+
+{% if not smtp_ok %}
+<div class="flash flash-fehler">
+    Es sind noch keine E-Mail-Zugangsdaten hinterlegt. Bitte zuerst unter
+    <a href="{{ url_for('einstellungen.index') }}">⚙️ Einstellungen</a> die SMTP-Daten eintragen.
+</div>
+{% endif %}
+
+<form method="post" id="mailform" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="inhalt_html" id="inhalt_html">
+<div class="haupt-neben" style="--neben:320px">
+    <div>
+        <div class="karte">
+            {% if vorlagen %}
+            <div class="feld">
+                <label>Vorlage laden</label>
+                <select id="vorlage-auswahl" onchange="vorlageLaden()">
+                    <option value="">– keine –</option>
+                    {% for gruppe, gv in vorlagen | groupby('art') %}
+                    {% for kat, kv in gv | groupby('kategorie') %}
+                    <optgroup label="{{ '🏠 Intern' if gruppe == 'intern' else ('🌍 Extern' if gruppe == 'extern' else 'Ohne Einordnung') }}{{ ' · ' + kat if kat }}">
+                        {% for v in kv %}
+                        <option value="{{ v.id }}" data-betreff="{{ v.betreff|e }}" data-inhalt="{{ v.inhalt|html_saeubern|e }}">{{ v.name }}</option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endfor %}
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            {% if current_user.is_authenticated %}
+            <div class="feld">
+                <label>Absender</label>
+                <div class="tag-auswahl" style="gap:10px">
+                    <label style="display:inline-flex;align-items:center;gap:8px;margin:0">
+                        <input type="radio" name="absender_wahl" value="verein" style="width:auto"
+                               {{ 'checked' if meine_wahl != 'selbst' }}>
+                        🏛️ Verein{% if verein_adresse %} <span class="feld-hinweis" style="margin:0">({{ verein_adresse }})</span>{% endif %}
+                    </label>
+                    {% if mein_profil %}
+                    <label style="display:inline-flex;align-items:center;gap:8px;margin:0">
+                        <input type="radio" name="absender_wahl" value="selbst" style="width:auto"
+                               {{ 'checked' if meine_wahl == 'selbst' }}>
+                        👤 Meine Adresse <span class="feld-hinweis" style="margin:0">({{ mein_profil.email }}{{ '' if mein_profil.eigen_smtp else ' – Versand über den Verein, Antworten an dich' }})</span>
+                    </label>
+                    {% else %}
+                    <span class="feld-hinweis" style="margin:0;align-self:center">
+                        Mit eigener Adresse senden? Erst unter
+                        <a href="{{ url_for('einstellungen.absender') }}">Mein Absender</a> eintragen.
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            <div class="feld" id="an-zeile"><label>An
+                <span class="feld-hinweis">(aus den Listen rechts wählen, tippen zum Suchen –
+                eine Adresse mit @ + Eingabetaste fügt sie direkt hinzu)</span>
+                <a href="#" onclick="ccZeigen(event)" id="ccbcc-schalter"
+                   style="float:right;font-weight:400;font-size:13px">CC/BCC einblenden</a></label>
+                <div id="emp-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px"></div>
+                <input type="search" id="emp-suche" placeholder="🔍 Name, Kontakt – oder neue@adresse.de ⏎"
+                       oninput="empSuche(this.value)" onkeydown="anEingabe(event, this)" autocomplete="off">
+            </div>
+            <div id="ccbcc-felder" style="display:none">
+                <div class="feld"><label>CC <span class="feld-hinweis">(sichtbar in Kopie – erhält jede Einzelmail)</span></label>
+                    <input type="text" name="cc" placeholder="adresse@beispiel.de, weitere@beispiel.de"></div>
+                <div class="feld"><label>BCC <span class="feld-hinweis">(unsichtbar in Kopie – erhält jede Einzelmail)</span></label>
+                    <input type="text" name="bcc" placeholder="adresse@beispiel.de"></div>
+                <div class="feld-hinweis" style="margin:-4px 0 8px">Der Versand geht als persönliche
+                    Einzelmail an jede:n Empfänger:in – CC/BCC-Adressen bekommen entsprechend
+                    jede dieser Mails in Kopie. Gedacht für ein Archiv- oder Vorstandspostfach.</div>
+            </div>
+            <div class="feld"><label>Betreff</label>
+                <input type="text" name="betreff" id="betreff" required placeholder="Betreff der E-Mail"></div>
+            <div class="feld"><label>Nachricht</label>
+                <div style="display:flex;gap:3px;flex-wrap:wrap;border:1px solid var(--grau-linie);border-bottom:none;border-radius:8px 8px 0 0;padding:5px;background:var(--flaeche-2)">
+                    <button type="button" class="btn btn-sekundaer btn-klein" onmousedown="event.preventDefault()" onclick="fmt('bold')" title="Fett"><b>F</b></button>
+                    <button type="button" class="btn btn-sekundaer btn-klein" onmousedown="event.preventDefault()" onclick="fmt('italic')" title="Kursiv"><i>K</i></button>
+                    <button type="button" class="btn btn-sekundaer btn-klein" onmousedown="event.preventDefault()" onclick="fmt('underline')" title="Unterstrichen"><u>U</u></button>
+                    <button type="button" class="btn btn-sekundaer btn-klein" onmousedown="event.preventDefault()" onclick="fmt('insertUnorderedList')" title="Aufzählung">• Liste</button>
+                    <button type="button" class="btn btn-sekundaer btn-klein" onmousedown="event.preventDefault()" onclick="fmt('insertOrderedList')" title="Nummerierung">1. Liste</button>
+                    <button type="button" class="btn btn-sekundaer btn-klein" onmousedown="event.preventDefault()" onclick="linkEinfuegen()" title="Link einfügen">🔗</button>
+                    <button type="button" class="btn btn-sekundaer btn-klein" onmousedown="event.preventDefault()" onclick="fmt('removeFormat')" title="Formatierung entfernen">✖</button>
+                </div>
+                <div id="editor" contenteditable="true" style="min-height:280px;border:1px solid var(--grau-linie);border-radius:0 0 8px 8px;padding:12px;font-family:{{ schrift }},Arial,sans-serif;background:var(--flaeche);overflow:auto"></div>
+                <textarea name="inhalt" id="inhalt" style="display:none"></textarea>
+                <div class="feld-hinweis">
+                    Platzhalter (werden pro Empfänger:in ersetzt):
+                    {% for p in platzhalter %}<code onclick="einfuegen('{'+'{{ p }}'+'}')" style="cursor:pointer;margin-right:4px">{{ '{' }}{{ p }}{{ '}' }}</code>{% endfor %}
+                </div>
+                {% if signatur_aktiv %}<div class="feld-hinweis">✍️ Die zentrale Signatur (Absender-Name, Logo, Adresse, Website) wird automatisch angehängt – einstellbar unter <a href="{{ url_for('einstellungen.index') }}">Einstellungen</a>.</div>{% endif %}
+            </div>
+            <div class="feld">
+                <label><input type="checkbox" name="als_vorlage" style="width:auto"> Diese Nachricht als Vorlage speichern</label>
+                <input type="text" name="vorlage_name" placeholder="Name der Vorlage" style="margin-top:6px">
+                <select name="vorlage_einordnung" style="margin-top:6px" title="Einordnung der Vorlage">
+                    <option value="">– ohne Einordnung –</option>
+                    <optgroup label="🏠 Vereinsintern">
+                        {% for k in kategorien.intern %}<option value="intern|{{ k }}">{{ k }}</option>{% endfor %}
+                    </optgroup>
+                    <optgroup label="🌍 Extern">
+                        {% for k in kategorien.extern %}<option value="extern|{{ k }}">{{ k }}</option>{% endfor %}
+                    </optgroup>
+                </select>
+                <div class="feld-hinweis">Die Kategorien pflegst du unter
+                    <a href="{{ url_for('kommunikation.vorlagen') }}">Vorlagen</a>.</div>
+            </div>
+        </div>
+        <div class="karte">
+            <h2 style="margin-top:0">📎 Anhänge</h2>
+            <div class="feld"><label>Dateien hochladen</label><input type="file" name="anhang_upload" multiple></div>
+            {% if dokumente %}
+            <details style="margin-top:6px"><summary style="cursor:pointer;font-weight:600">📁 Aus Vereinsdokumenten ({{ dokumente|length }})</summary>
+                <div style="max-height:180px;overflow:auto;padding:6px 2px">
+                {% for d in dokumente %}<label style="display:flex;gap:8px;align-items:center;font-weight:400;padding:3px 0"><input type="checkbox" name="anhang_dok" value="{{ d.id }}" style="width:auto"> {{ d.titel or d.original_name }}</label>{% endfor %}
+                </div>
+            </details>{% endif %}
+            {% if dms_dateien %}
+            <details style="margin-top:6px"><summary style="cursor:pointer;font-weight:600">🗄️ Aus der Dateiablage ({{ dms_dateien|length }})</summary>
+                <div style="max-height:180px;overflow:auto;padding:6px 2px">
+                {% for d in dms_dateien %}<label style="display:flex;gap:8px;align-items:center;font-weight:400;padding:3px 0"><input type="checkbox" name="anhang_dms" value="{{ d.pfad }}" style="width:auto"> {{ dms_icon(d.name) }} {{ d.name }} <span class="feld-hinweis">· {{ d.ordner }}</span></label>{% endfor %}
+                </div>
+            </details>{% endif %}
+        </div>
+        <button type="submit" class="btn" {{ 'disabled' if not smtp_ok }}
+                onclick="return pruefen()">✉️ Jetzt senden</button>
+    </div>
+
+    <div class="karte">
+        <h2 style="margin-top:0">Empfänger:innen <span id="anzahl" style="color:var(--blau)"></span></h2>
+        <div class="feld">
+            <button type="button" class="btn btn-sekundaer btn-klein" onclick="alleWaehlen(true)">Alle</button>
+            <button type="button" class="btn btn-sekundaer btn-klein" onclick="alleWaehlen(false)">Keine</button>
+            <button type="button" class="btn btn-sekundaer btn-klein" onclick="nurAktive()">Nur aktive</button>
+        </div>
+        {% if gruppen or kontakt_kategorien %}
+        <div class="feld">
+            <label>Schnellauswahl <span class="feld-hinweis">(ergänzt die Auswahl)</span></label>
+            <select onchange="gruppeWaehlen(this.value); this.value=''">
+                <option value="">– Gruppe oder Kontakte wählen –</option>
+                {% if gruppen %}
+                <optgroup label="👥 Mitglieder-Gruppen">
+                    {% for g in gruppen %}<option value="{{ g.id }}">{{ g.name }} ({{ g.anzahl }})</option>{% endfor %}
+                </optgroup>
+                {% endif %}
+                {% if kontakt_kategorien %}
+                <optgroup label="📇 Kontakte">
+                    <option value="k:*">Alle Kontakte ({{ kontakte|length }})</option>
+                    {% for kat, n in kontakt_kategorien.items() | sort %}
+                    <option value="k:{{ kat }}">{{ kat }} ({{ n }})</option>
+                    {% endfor %}
+                </optgroup>
+                {% endif %}
+            </select>
+        </div>
+        {% endif %}
+        <div style="max-height:420px;overflow-y:auto;border:1px solid var(--grau-linie);border-radius:8px;padding:8px">
+            {% for m in mitglieder %}
+            <label style="display:flex;gap:8px;align-items:center;padding:4px 2px;font-weight:400">
+                <input type="checkbox" name="empfaenger" value="{{ m.id }}" data-status="{{ m.status }}"
+                       class="emp" style="width:auto" onchange="zaehlen()"
+                       {{ 'checked' if vorausgewaehlt == m.id }} {{ 'disabled' if not m.email }}>
+                <span>{{ m.vorname }} {{ m.nachname }}
+                    {% if not m.email %}<span class="feld-hinweis">(keine E-Mail)</span>{% endif %}
+                </span>
+            </label>
+            {% endfor %}
+            {% if kontakte %}
+            <div style="border-top:1px solid var(--grau-linie);margin:8px 0 4px;padding-top:6px;font-weight:700;font-size:13.5px">📇 Kontakte</div>
+            {% for k in kontakte %}
+            <label style="display:flex;gap:8px;align-items:center;padding:4px 2px;font-weight:400">
+                <input type="checkbox" name="empfaenger_kontakte" value="{{ k.id }}"
+                       data-kat="{{ k.kategorie or 'ohne Kategorie' }}" class="empk" style="width:auto" onchange="zaehlen()">
+                <span>{{ k.name }}{% if k.ansprechpartner %} <span class="feld-hinweis">· {{ k.ansprechpartner }}</span>{% endif %}
+                    {% if k.kategorie %}<span class="badge badge-gruppe" style="font-size:10.5px">{{ k.kategorie }}</span>{% endif %}</span>
+            </label>
+            {% endfor %}
+            {% endif %}
+        </div>
+        <details style="margin-top:10px">
+            <summary style="cursor:pointer;font-weight:600">✍️ Weitere Adressen eintragen</summary>
+            <div class="feld" style="margin-top:8px">
+                <textarea name="empfaenger_frei" id="empfaenger_frei" style="min-height:70px" oninput="zaehlen()"
+                          placeholder="eine Adresse pro Zeile – auch „Anna Beispiel <anna@beispiel.de>“"></textarea>
+                <label style="display:flex;gap:8px;align-items:center;margin-top:6px;font-weight:400">
+                    <input type="checkbox" name="frei_als_kontakt" style="width:auto">
+                    <span>als Kontakt speichern, Kategorie:</span>
+                </label>
+                <input type="text" name="frei_kategorie" list="frei-kat-liste" placeholder="z. B. Presse" style="margin-top:4px">
+                <datalist id="frei-kat-liste">
+                    {% for kat in kontakt_kategorien %}<option value="{{ kat }}">{% endfor %}
+                </datalist>
+            </div>
+        </details>
+    </div>
+</div>
+</form>
+
+<script>
+var gruppenMap = {{ gruppen_map|safe }};
+function freieZeilen() {
+    var f = document.getElementById('empfaenger_frei');
+    return f ? f.value.split('\n').filter(function(z){ return z.trim(); }).length : 0;
+}
+function ccZeigen(ev) {
+    ev.preventDefault();
+    var f = document.getElementById('ccbcc-felder');
+    var offen = f.style.display !== 'none';
+    f.style.display = offen ? 'none' : 'block';
+    document.getElementById('ccbcc-schalter').textContent = offen ? 'CC/BCC einblenden' : 'CC/BCC ausblenden';
+}
+function anEingabe(ev, feld) {
+    if (ev.key !== 'Enter') return;
+    ev.preventDefault();
+    var wert = feld.value.trim();
+    if (wert.indexOf('@') > 0 && wert.indexOf(' ') < 0) {
+        // Neue freie Adresse übernehmen (landet in der Liste rechts unter ✍️)
+        var f = document.getElementById('empfaenger_frei');
+        var zeilen = f.value.split('\n').filter(function(z){ return z.trim(); });
+        if (zeilen.map(function(z){ return z.toLowerCase(); }).indexOf(wert.toLowerCase()) < 0) {
+            zeilen.push(wert);
+            f.value = zeilen.join('\n');
+        }
+        feld.value = '';
+        empSuche('');
+        zaehlen();
+    }
+}
+function zaehlen() {
+    var n = document.querySelectorAll('.emp:checked, .empk:checked').length + freieZeilen();
+    document.getElementById('anzahl').textContent = n ? '· ' + n + ' gewählt' : '';
+    chipsZeichnen();
+}
+function chipsZeichnen() {
+    var ziel = document.getElementById('emp-chips');
+    if (!ziel) return;
+    ziel.innerHTML = '';
+    function chipBauen(text, entfernen) {
+        var chip = document.createElement('button');
+        chip.type = 'button';
+        chip.textContent = text + ' ✕';
+        chip.style.cssText = 'border:1px solid var(--grau-linie);border-radius:999px;padding:2px 9px;' +
+                             'font-size:12px;background:var(--flaeche);cursor:pointer';
+        chip.title = 'Entfernen';
+        chip.onclick = entfernen;
+        ziel.appendChild(chip);
+    }
+    document.querySelectorAll('.emp:checked, .empk:checked').forEach(function(c){
+        var name = c.parentElement.querySelector('span').textContent.trim().split('·')[0].trim();
+        chipBauen((c.classList.contains('empk') ? '📇 ' : '') + name,
+                  function(){ c.checked = false; zaehlen(); });
+    });
+    var frei = document.getElementById('empfaenger_frei');
+    if (frei) {
+        frei.value.split('\n').map(function(z){ return z.trim(); })
+            .filter(function(z){ return z; })
+            .forEach(function(zeile){
+                chipBauen('✍️ ' + zeile, function(){
+                    frei.value = frei.value.split('\n')
+                        .filter(function(z){ return z.trim() && z.trim() !== zeile; }).join('\n');
+                    zaehlen();
+                });
+            });
+    }
+}
+function empSuche(q) {
+    q = (q || '').toLowerCase();
+    document.querySelectorAll('.emp, .empk').forEach(function(c){
+        var zeile = c.parentElement;
+        zeile.style.display = (!q || zeile.textContent.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+    });
+}
+function alleWaehlen(zustand) {
+    document.querySelectorAll('.emp, .empk').forEach(function(c){ if(!c.disabled) c.checked = zustand; });
+    zaehlen();
+}
+function nurAktive() {
+    document.querySelectorAll('.empk').forEach(function(c){ c.checked = false; });
+    document.querySelectorAll('.emp').forEach(function(c){
+        c.checked = (!c.disabled && c.dataset.status === 'aktiv'); });
+    zaehlen();
+}
+function gruppeWaehlen(wert) {
+    if (!wert) return;
+    wert = String(wert);
+    // ERGÄNZT die bisherige Auswahl (nimmt niemanden heraus).
+    if (wert.indexOf('k:') === 0) {
+        var kat = wert.slice(2);
+        document.querySelectorAll('.empk').forEach(function(c){
+            if (kat === '*' || c.dataset.kat === kat) c.checked = true; });
+    } else {
+        var ids = gruppenMap[wert] || [];
+        document.querySelectorAll('.emp').forEach(function(c){
+            if (ids.indexOf(parseInt(c.value)) !== -1 && !c.disabled) c.checked = true; });
+    }
+    zaehlen();
+}
+var editor = document.getElementById('editor');
+function fmt(cmd){ editor.focus(); document.execCommand(cmd, false, null); }
+function linkEinfuegen(){ var u = prompt('Link-Adresse (URL):', 'https://'); if(u){ editor.focus(); document.execCommand('createLink', false, u); } }
+function vorlageLaden() {
+    var opt = document.getElementById('vorlage-auswahl').selectedOptions[0];
+    if (!opt || !opt.value) return;
+    document.getElementById('betreff').value = opt.dataset.betreff;
+    editor.innerHTML = opt.dataset.inhalt || '';
+}
+function einfuegen(text) {
+    editor.focus();
+    document.execCommand('insertText', false, text);
+}
+document.getElementById('mailform').addEventListener('submit', function(){
+    document.getElementById('inhalt_html').value = editor.innerHTML;
+    document.getElementById('inhalt').value = editor.innerText;
+});
+function pruefen() {
+    var n = document.querySelectorAll('.emp:checked, .empk:checked').length + freieZeilen();
+    if (n === 0) { alert('Bitte mindestens eine:n Empfänger:in auswählen oder eintragen.'); return false; }
+    return confirm('E-Mail jetzt an ' + n + ' Empfänger:innen senden?');
+}
+{% if gruppe_vor %}gruppeWaehlen({{ gruppe_vor }});{% endif %}
+{% if vorlage_vor %}
+(function () {  // Vorlage aus der Vorlagen-Seite vorladen (?vorlage=<id>)
+    var s = document.getElementById('vorlage-auswahl');
+    if (s) { s.value = '{{ vorlage_vor }}'; vorlageLaden(); }
+})();
+{% endif %}
+zaehlen();
+</script>
+{% endblock %}

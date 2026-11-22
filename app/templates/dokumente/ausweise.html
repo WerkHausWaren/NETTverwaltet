@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Mitgliederausweis{{ 'e' if mitglieder|length != 1 }}</title>
+<style>
+    :root { --akzent: {{ einst.farbe_primaer or '#174290' }}; --akzent-text: {{ (einst.farbe_primaer or '#174290') | kontrast }}; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; color: #1e293b; margin: 0; background: #f3f5f8; }
+    .drucken { padding: 16px 20px; }
+    .btn { background: var(--akzent); color: var(--akzent-text); padding: 9px 16px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; }
+    .hinweis { color: #64748b; font-size: 13px; margin-left: 8px; }
+
+    .blatt { display: flex; flex-wrap: wrap; gap: 6mm; padding: 12mm; }
+
+    .card {
+        width: 85.6mm; height: 54mm; background: #fff; border-radius: 3.2mm; overflow: hidden;
+        border: 0.2mm solid #cbd5e1; position: relative; display: flex; flex-direction: column;
+        box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    }
+    .card .band { background: var(--akzent); color: var(--akzent-text); height: 15mm; display: flex;
+                  align-items: center; gap: 3mm; padding: 0 4mm; }
+    .card .band .logo { height: 10.5mm; max-width: 24mm; object-fit: contain; background: #fff;
+                        border-radius: 1.4mm; padding: 0.8mm; }
+    .card .band .vn { font-weight: 800; font-size: 3.5mm; line-height: 1.08; letter-spacing: -0.02mm; }
+    .card .band .typ { margin-left: auto; font-size: 2.3mm; letter-spacing: 0.25mm; text-transform: uppercase; opacity: .92; text-align: right; }
+    .card .body { flex: 1; padding: 3.2mm 4mm; display: flex; gap: 3mm; align-items: center; }
+    .card .foto { width: 15mm; height: 15mm; border-radius: 50%; flex: none; object-fit: cover;
+                  border: 0.4mm solid var(--akzent); background: #fff; }
+    .card .foto.symbol { display: flex; align-items: center; justify-content: center; font-size: 8mm;
+                      line-height: 1; background: #fff; }
+    .card .foto.initialen { display: flex; align-items: center; justify-content: center;
+                      font-size: 5.4mm; font-weight: 800; line-height: 1; letter-spacing: 0.2mm;
+                      color: var(--akzent); background: #fff; }
+    .card .links { min-width: 0; flex: 1; }
+    .card .rolle { font-size: 2.4mm; text-transform: uppercase; letter-spacing: 0.2mm; color: var(--akzent); font-weight: 700; }
+    .card .name { font-size: 4.7mm; font-weight: 800; line-height: 1.1; margin: 0.6mm 0 1.4mm; overflow-wrap: anywhere; }
+    .card .meta { font-size: 2.8mm; color: #475569; line-height: 1.55; }
+    .card .meta b { color: #1e293b; font-variant-numeric: tabular-nums; }
+    .card .qrbox { flex: none; text-align: center; }
+    .card .qr { width: 16mm; height: 16mm; display: block; }
+    .card .qrcap { font-size: 2mm; color: #64748b; margin-top: 0.6mm; white-space: nowrap; }
+
+    @media print {
+        body { background: #fff; }
+        .drucken { display: none; }
+        .blatt { padding: 8mm; gap: 5mm; }
+        .card { box-shadow: none; border: 0.2mm solid #b6bfca; }
+        @page { size: A4; margin: 0; }
+    }
+</style>
+</head>
+<body>
+<div class="drucken">
+    <button class="btn" onclick="window.print()">🖨️ Ausweis{{ 'e' if mitglieder|length != 1 }} drucken / als PDF sichern</button>
+    <span class="hinweis">Format 85,6 × 54 mm (Chipkarte/Scheckkarte). Am besten auf festes Papier/Karton drucken und ausschneiden.</span>
+</div>
+
+{% if not mitglieder %}
+<div class="drucken"><em>Keine Mitglieder ausgewählt.</em></div>
+{% endif %}
+
+<div class="blatt">
+    {% for m in mitglieder %}
+    <div class="card">
+        <div class="band">
+            {% if einst.logo_dateiname %}<img class="logo" src="{{ url_for('einstellungen.logo', verein_id=einst.id) }}" alt="">{% endif %}
+            <div class="vn">{{ einst.vereinsname }}</div>
+            <div class="typ">Mitglieds&shy;ausweis</div>
+        </div>
+        <div class="body">
+            {% if foto.get(m.id) %}<img class="foto" src="{{ foto[m.id] }}" alt="">
+            {% elif platzhalter == 'logo' and einst.logo_dateiname %}
+                <img class="foto" src="{{ url_for('einstellungen.logo', verein_id=einst.id) }}" alt="">
+            {% elif platzhalter == 'symbol' and symbol %}
+                <div class="foto symbol" title="Kein Foto hinterlegt">{{ symbol }}</div>
+            {% else %}<div class="foto initialen" title="Kein Foto hinterlegt">{{
+                (m.vorname or '')[:1] ~ (m.nachname or '')[:1] }}</div>{% endif %}
+            <div class="links">
+                {% if m.status and m.status != 'aktiv' %}<div class="rolle">{{ m.status }}</div>{% endif %}
+                <div class="name">{{ m.vorname }} {{ m.nachname }}</div>
+                <div class="meta">
+                    {% if m.mitgliedsnummer %}Mitglieds-Nr. <b>{{ m.mitgliedsnummer }}</b><br>{% endif %}
+                    {% if m.eintrittsdatum %}Mitglied seit <b>{{ m.eintrittsdatum | datum_de }}</b>{% endif %}
+                </div>
+            </div>
+            {% if qr.get(m.id) %}<div class="qrbox"><img class="qr" src="{{ qr[m.id] }}" alt="QR zur Mitglieder-App"><div class="qrcap">📱 Mitglieder-App</div></div>{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+</body>
+</html>

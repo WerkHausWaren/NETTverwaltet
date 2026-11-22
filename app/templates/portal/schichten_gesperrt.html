@@ -1,0 +1,18 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Schichten{% endblock %}
+{% block inhalt %}
+<div class="mp-schmal">
+<div class="mp-karte" style="margin-top:16px;text-align:center">
+    <div style="font-size:40px">🩺</div>
+    <h2 style="margin:8px 0 6px">Gesundheitszeugnis benötigt</h2>
+    <p class="feld-hinweis" style="margin:0 0 16px">
+        Für die Übernahme von Schichten brauchen wir ein hinterlegtes Gesundheitszeugnis
+        (Belehrung nach § 43 Infektionsschutzgesetz). Lade es einmal in deinem Profil hoch –
+        danach kannst du dich sofort für Schichten eintragen.
+    </p>
+    <a class="mp-btn" href="{{ url_for('portal.profil') }}#gesundheitszeugnis" style="background:var(--mp)">
+        📄 Gesundheitszeugnis hochladen</a>
+    <p class="feld-hinweis" style="margin:14px 0 0">Fragen dazu? Der Vorstand hilft gern weiter.</p>
+</div>
+</div>
+{% endblock %}

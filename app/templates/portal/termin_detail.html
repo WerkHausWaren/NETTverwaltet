@@ -1,0 +1,553 @@
+{% extends "portal/_layout.html" %}
+{% block title %}{{ termin.titel }}{% if not termin.verborgen and termin.datum %} – {{ termin.datum | datum_wt }}{% endif %}{% endblock %}
+{% block head %}
+{# Suchmaschinen (app/seo.py): Kurzbeschreibung, eine kanonische (sprechende) Adresse
+   und – nur für öffentliche Termine – strukturierte Daten für die Veranstaltungs-Suche. #}
+{% if seo_beschreibung %}<meta name="description" content="{{ seo_beschreibung }}">{% endif %}
+{% if seo_kanonisch %}<link rel="canonical" href="{{ seo_kanonisch }}">{% endif %}
+<meta property="og:locale" content="de_DE">
+{% if seo_ld %}<script type="application/ld+json">{{ seo_ld | tojson }}</script>{% endif %}
+{# Link-Vorschau beim Teilen (WhatsApp/Signal & Co. rufen die Seite als Gast ab –
+   die Daten kommen hier also schon maskiert an: verborgene Termine haben nur
+   „Veranstaltung" als Titel und KEIN Bild). #}
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="{{ (design.vereinsname if design else '') or 'Verein' }}">
+<meta property="og:title" content="{{ termin.titel }}">
+<meta property="og:description" content="{{ termin.datum[8:10] }}.{{ termin.datum[5:7] }}.{{ termin.datum[0:4] }}{% if termin.uhrzeit %}, {{ termin.uhrzeit }} Uhr{% endif %}{% if termin.ort %} · {{ termin.ort }}{% endif %}{% if termin.beschreibung %} – {{ termin.beschreibung | truncate(140) }}{% endif %}">
+<meta property="og:url" content="{{ seo_kanonisch or url_for('portal.termin', tid=termin.id, _external=True) }}">
+{% set og_bild = termin_bild_url(termin) %}
+{% if og_bild %}
+<meta property="og:image" content="{{ og_bild }}">
+<meta name="twitter:card" content="summary_large_image">
+{% endif %}
+{% endblock %}
+{% block inhalt %}
+<p style="margin:14px 0 0"><a href="{{ url_for('portal.termine') }}" style="text-decoration:none;color:var(--mp);font-weight:600">‹ Alle Termine</a></p>
+
+{# Faktenkasten (19.11.2026): alles Wichtige auf einen Blick – mobil unter dem Titel, am Computer rechts oben.
+   Maskierte Termine zeigen nur Wann/Wo (wie bisher), keine Hinweise, Preise oder Zielgruppen. #}
+{% macro fakten(extra) %}
+<dl class="td-fakten{{ extra }}">
+    <div class="td-f"><dt>Wann</dt>
+        <dd><strong>{{ termin.datum | datum_wt }}</strong>{% if relativ and relativ != 'vorbei' %} <span class="td-rel">{{ relativ }}</span>{% endif %}
+            {% if termin.uhrzeit %}<br>{{ termin.uhrzeit }}{% if termin.uhrzeit_bis %} – {{ termin.uhrzeit_bis }}{% endif %} Uhr{% endif %}
+            {% if termin.einlass_ab and not termin.verborgen %}<br><span class="td-klein">Einlass ab {{ termin.einlass_ab }} Uhr</span>{% endif %}</dd></div>
+    {% if wetter_termin %}<div class="td-f"><dt>Wetter</dt>
+        <dd>{{ wetter_termin.emoji }} {{ wetter_termin.temp }} °C{% if wetter_termin.regen is not none %} · Regen {{ wetter_termin.regen }} %{% endif %}
+            <br><span class="td-klein">Vorhersage für {{ wetter_termin.ort }}, {{ wetter_termin.uhr }}</span></dd></div>{% endif %}
+    {% if termin.ort %}<div class="td-f"><dt>Wo</dt>
+        <dd>{{ termin.ort }} · <a href="https://www.google.com/maps/search/?api=1&query={{ termin.ort | urlencode }}"
+              target="_blank" rel="noopener" title="Weg dorthin – öffnet die Karte in einem neuen Tab">Route</a>
+            {% if termin.ort_hinweise and not termin.verborgen %}<br><span class="td-klein">{{ termin.ort_hinweise }}</span>{% endif %}</dd></div>{% endif %}
+    {% if not termin.verborgen %}
+    {% if (termin.preis or 0) > 0 %}<div class="td-f"><dt>Eintritt</dt>
+        <dd>{{ termin.preis | euro }}{% if termin.preis_mitglied is not none and termin.preis_mitglied != termin.preis %} · Mitglieder {{ termin.preis_mitglied | euro }}{% endif %}</dd></div>
+    {% elif termin.eintritt_art in ('frei', 'spende') %}<div class="td-f"><dt>Eintritt</dt>
+        <dd>{{ 'frei' if termin.eintritt_art == 'frei' else 'Spende erwünscht' }}</dd></div>{% endif %}
+    {% set anm = design and design.modul_veranstaltungen and termin.anmeldung_aktiv and termin.anmeldung_token
+                 and not ist_vergangen and not termin.abgesagt and not termin.nur_mitglieder %}
+    {% if anm %}<div class="td-f"><dt>Anmeldung</dt>
+        <dd>{% if termin.anmeldeschluss %}nötig, bis {{ termin.anmeldeschluss[:10] | datum_wt }}{% else %}nötig{% endif %}
+            {% if termin.max_teilnehmer %}{% set frei = termin.max_teilnehmer - va_belegt %}<br><span class="td-klein">
+            {%- if frei <= 0 %}Ausgebucht – Warteliste möglich
+            {%- elif current_user.is_authenticated %}Noch {{ frei }} {{ 'Platz' if frei == 1 else 'Plätze' }} frei
+            {%- elif frei <= 5 %}Nur noch wenige Plätze frei
+            {%- else %}Es sind noch Plätze frei{% endif %}</span>{% endif %}</dd></div>
+    {% elif not termin.anmeldung_aktiv and not ist_vergangen and not termin.abgesagt %}<div class="td-f"><dt>Anmeldung</dt>
+        <dd>nicht nötig – einfach vorbeikommen</dd></div>{% endif %}
+    {% set zg = zielgruppen_liste(termin.zielgruppen) %}
+    {% if zg %}<div class="td-f"><dt>Für wen</dt>
+        <dd class="td-ziele">{% for zk, zn in zg %}<span class="td-ziel">{{ zn }}</span>{% endfor %}</dd></div>{% endif %}
+    {% endif %}
+</dl>
+{% endmacro %}
+{# Desktopversion: Termin-Infos links, Mitmach-Karten rechts (.mp-neben) – mobil unverändert #}
+<div class="mp-neben">
+<div>
+{% if termin.abgesagt %}
+<div class="mp-karte" style="background:var(--fehler-grund);color:var(--fehler-text);text-align:center;padding:14px">
+    <div style="font-size:17px;font-weight:800">⛔ Diese Veranstaltung wurde abgesagt</div>
+    <div style="font-size:13px;opacity:.8;margin-top:4px">Schade! Schau gern bei unseren anderen Terminen vorbei.</div>
+</div>
+{% endif %}
+<div class="mp-karte" style="border-top:4px solid {{ termin.farbe|hexfarbe('var(--mp)') }}">
+    {% if termin.bild %}
+    <img src="{{ url_for('termine.bild', tid=termin.id, v=termin.bild) }}" alt="{{ termin.titel }}"
+         style="display:block;width:calc(100% + 36px);max-height:220px;object-fit:cover;
+                margin:-18px -18px 16px;border-radius:11px 11px 0 0">
+    {% endif %}
+    <h1 style="margin:0 0 6px;font-size:20px;line-height:1.3">{{ termin.titel }}</h1>
+    {% if termin.kategorie %}<span style="display:inline-block;background:{{ (termin.farbe|hexfarbe ~ '22') if termin.farbe else 'var(--flaeche-3)' }};color:{{ termin.farbe|hexfarbe('var(--text-hell)') }};border:1px solid {{ termin.farbe|hexfarbe('var(--linie)') }};border-radius:999px;padding:2px 10px;font-size:12px;font-weight:600">{{ termin.kategorie }}</span>{% endif %}
+    {% if termin.nur_mitglieder %}<span style="display:inline-block;background:var(--neutral-grund);color:var(--neutral-text);border:1px solid var(--linie);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700">👥 Nur für Mitglieder</span>{% endif %}
+    {{ fakten(' td-fakten-mobil') }}
+    {% if termin.verborgen %}
+    {% if termin.verborgen_grund == 'nicht_oeffentlich' %}
+    <p style="margin:12px 0 0;font-size:15px">🔒 Diese Veranstaltung ist nicht öffentlich.</p>
+    {% else %}
+    <p style="margin:12px 0 0;font-size:15px">🔒 Diese Veranstaltung ist unseren Mitgliedern vorbehalten.
+        <span class="feld-hinweis">Melde dich an, um Titel und Einzelheiten zu sehen.</span></p>
+    {% endif %}
+    {% elif termin.beschreibung %}<p style="margin:12px 0 0;font-size:15px;white-space:pre-line">{{ termin.beschreibung }}</p>{% endif %}
+    {% if not termin.verborgen %}
+    {% if termin.mitwirkende %}<div style="margin-top:10px;font-size:15px">🎤 {{ t('Mit') }} {{ termin.mitwirkende }}</div>{% endif %}
+    {% if termin.langbeschreibung %}<p style="margin:10px 0 0;font-size:14.5px;white-space:pre-line;color:var(--text-hell)">{{ termin.langbeschreibung }}</p>{% endif %}
+    {% if termin.gut_zu_wissen %}
+    <section class="td-gut" aria-label="Gut zu wissen">
+        <h2>Gut zu wissen</h2>
+        <p>{{ termin.gut_zu_wissen }}</p>
+    </section>
+    {% endif %}
+    {% if frage_mail %}{% set betreff = 'Frage zum Termin: ' ~ termin.titel ~ ' am ' ~ termin.datum[8:10] ~ '.' ~ termin.datum[5:7] ~ '.' ~ termin.datum[0:4] %}
+    <p class="td-frage"><a href="mailto:{{ frage_mail }}?subject={{ betreff | urlencode }}">✉️ Frage zum Termin</a>
+        <span class="feld-hinweis">– schreib uns, wir antworten gern.</span></p>
+    {% endif %}
+    {% endif %}
+    {% if termin.einlass_start %}
+    <div style="margin-top:10px;display:inline-block;background:var(--gut-grund);color:var(--gut-text);border:1px solid var(--gut-rand);border-radius:999px;padding:5px 14px;font-weight:800">🟢 {{ t('Der Einlass läuft') }} – {{ t('seit') }} {{ termin.einlass_start[11:16] }} {{ t('Uhr') }}</div>
+    {% elif einlass_zu %}
+    <div style="margin-top:10px;display:inline-block;background:var(--flaeche-3);color:var(--text-hell);border:1px solid var(--linie);border-radius:999px;padding:5px 14px;font-weight:800">🔒 {{ t('Der Einlass ist geschlossen') }}</div>
+    {% endif %}
+    {% if einlass_ok %}
+    <a class="mp-btn" style="margin-top:10px" href="{{ url_for('portal.einlass', tid=termin.id) }}">🎫 {{ t('Einlass starten (QR-Scan)') }}</a>
+    {% endif %}
+    {# Eine Aktionsleiste (19.11.2026): Trailer/Hörprobe · Kalender · Teilen · Merken – Symbole wie in der Terminliste #}
+    {% set hat_trailer = termin.trailer_url and not termin.verborgen %}
+    <div class="td-leiste">
+        {% if hat_trailer %}{% set ist_film = ('kino' in ((termin.kategorie or '') ~ ' ' ~ termin.titel)|lower) or ('film' in ((termin.kategorie or '') ~ ' ' ~ termin.titel)|lower) %}
+        <a href="{{ termin.trailer_url|sichere_url }}" target="_blank" rel="noopener" class="td-play"
+           style="background:{{ termin.farbe|hexfarbe('var(--rot)') }};color:{{ termin.farbe|kontrast if termin.farbe else '#fff' }}">▶ {{ 'Trailer' if ist_film else 'Hörprobe' }}<span class="td-lang"> {{ 'ansehen' if ist_film else 'anhören' }}</span></a>
+        {% endif %}
+        <a href="{{ url_for('portal.termin_ics', tid=termin.id) }}" class="td-rund td-kal{{ ' mit-text' if not hat_trailer }}"
+           title="In meinen Kalender übernehmen" aria-label="In meinen Kalender übernehmen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/><path d="M12 13v5M9.5 15.5h5"/></svg>{% if not hat_trailer %}<span>In Kalender</span>{% endif %}</a>
+        {# Teilen-Menü wie in der Terminliste (WhatsApp, Signal, E-Mail, Link) – global in _layout.html #}
+        <button type="button" class="td-rund teilen" title="Termin teilen" aria-label="Termin teilen" aria-haspopup="menu"
+                data-url="{{ termin_link(termin) }}"
+                data-text="{{ termin.titel }} – {{ termin.datum|wt }}, {{ termin.datum[8:10] }}.{{ termin.datum[5:7] }}.{{ termin.datum[0:4] }}{% if termin.uhrzeit %}, {{ termin.uhrzeit }} Uhr{% endif %}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg></button>
+        {% if not termin.verborgen %}<button type="button" class="td-rund herz{{ ' an' if termin.id in (gemerkt or []) }}" data-tid="{{ termin.id }}"
+                aria-pressed="{{ 'true' if termin.id in (gemerkt or []) else 'false' }}"
+                aria-label="{{ 'Gemerkt – nochmal tippen zum Entfernen' if termin.id in (gemerkt or []) else 'Auf den Merkzettel' }}"
+                title="{{ 'Gemerkt – nochmal tippen zum Entfernen' if termin.id in (gemerkt or []) else 'Auf den Merkzettel' }}"></button>{% endif %}
+    </div>
+    <style>
+        .td-leiste { display:flex; align-items:center; gap:8px; margin-top:14px; }
+        /* Faktenkasten */
+        .td-fakten { display:grid; gap:10px; margin:14px 0 0; padding:14px; border-radius:12px;
+                     background:var(--flaeche-2); border:1px solid var(--linie); }
+        .td-f { display:grid; grid-template-columns:86px minmax(0, 1fr); gap:8px; }
+        .td-f dt { padding-top:2px; font-size:11.5px; font-weight:800; color:var(--text-hell); text-transform:uppercase; letter-spacing:.06em; }
+        .td-f dd { margin:0; font-size:15px; line-height:1.45; }
+        .td-f a { color:var(--blau-text); font-weight:600; }
+        .td-rel { display:inline-block; margin-left:4px; padding:1px 9px; border-radius:999px; background:var(--mp);
+                  color:var(--auf-primaer); font-size:12px; font-weight:700; vertical-align:1px; }
+        .td-klein { font-size:13px; color:var(--text-hell); }
+        .td-ziele { display:flex; flex-wrap:wrap; gap:5px; }
+        .td-ziel { padding:2px 9px; border-radius:999px; font-size:12.5px; font-weight:600; white-space:nowrap;
+                   background:var(--info-grund); color:var(--info-text); border:1px solid var(--info-rand); }
+        .td-gut { margin-top:14px; padding:12px 14px; border-radius:12px; background:var(--info-grund);
+                  border:1px solid var(--info-rand); color:var(--text); }
+        .td-gut h2 { margin:0 0 4px; font-size:13px; font-weight:800; color:var(--info-text); text-transform:uppercase; letter-spacing:.06em; }
+        .td-gut p { margin:0; font-size:15px; line-height:1.5; white-space:pre-line; }
+        /* D) Feste Aktionsleiste auf dem Handy: erscheint, sobald die Leiste im Text aus dem Bild scrollt */
+        .td-fest { position:fixed; left:10px; right:10px; z-index:19; bottom:calc(76px + env(safe-area-inset-bottom));
+                   display:flex; align-items:center; gap:6px; padding:7px; border-radius:999px; background:var(--flaeche);
+                   border:1px solid var(--linie); box-shadow:0 8px 24px rgba(0,0,0,.18);
+                   transform:translateY(140%); opacity:0; pointer-events:none; transition:transform .2s, opacity .2s; }
+        .td-fest.sichtbar { transform:none; opacity:1; pointer-events:auto; }
+        .td-fest .td-haupt { flex:1; min-width:0; height:40px; line-height:40px; padding:0 14px; border-radius:999px; text-align:center;
+                             font-size:14.5px; font-weight:700; text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+                             background:var(--mp); color:var(--auf-primaer); }
+        .td-fest .td-rund { width:40px; height:40px; box-shadow:none; }
+        @media (min-width: 980px) { .td-fest { display:none; } }
+        @media (max-width: 979px) { .mp-wrap { padding-bottom:150px; } }
+        @media (prefers-reduced-motion: reduce) { .td-fest { transition:none; } }
+        .td-fakten-rechts { display:none; }
+        @media (min-width: 980px) {
+            .td-fakten-mobil { display:none; }
+            .td-fakten-rechts { display:grid; margin:14px 0 0; background:var(--flaeche);
+                                border-radius:calc(var(--radius) * 1.6); box-shadow:0 4px 16px rgba(0,0,0,.04); }
+        }
+        .td-leiste { gap:6px; }
+        .td-play { flex:0 1 auto; min-width:0; display:block; height:44px; line-height:44px; padding:0 18px; text-align:center;
+                   border-radius:999px; font-size:14px; font-weight:700; text-decoration:none; white-space:nowrap;
+                   overflow:hidden; text-overflow:ellipsis; }
+        .td-lang { display:none; }
+        @media (max-width: 419px) { .td-play { height:40px; line-height:40px; padding:0 14px; }
+                                    .td-rund { width:40px; height:40px; } .td-rund.herz { font-size:21px; } }
+        @media (min-width: 400px) { .td-lang { display:inline; } }
+        @media (max-width: 359px) { .td-leiste { gap:5px; } .td-play { padding:0 11px; font-size:13px; } }
+        @media (min-width: 420px) { .td-leiste { gap:8px; } .td-play { font-size:15px; padding:0 20px; } }
+        .td-rund { flex:none; width:44px; height:44px; display:grid; place-items:center; padding:0; border-radius:50%;
+                   border:1px solid var(--linie); background:var(--flaeche); color:var(--text-stark); cursor:pointer;
+                   text-decoration:none; box-shadow:0 1px 4px rgba(20,40,70,.08); }
+        .td-rund svg { width:20px; height:20px; }
+        .td-rund:hover { transform:scale(1.06); }
+        /* linker Knopf nur so breit wie nötig (19.11.) */
+        .td-kal.mit-text { flex:0 1 auto; width:auto; display:flex; justify-content:center; gap:8px; padding:0 18px;
+                           border-radius:999px; font-size:14.5px; font-weight:700; }
+        .td-rund.herz { font-size:23px; color:var(--text-schwach); }
+        .td-rund.herz.an { color:#e11d48; }
+    </style>
+    {# D) Feste Leiste (nur Handy): Hauptaktion · Teilen · Herz – gleiche Knöpfe/Menüs wie oben #}
+    {% set anm_fest = design and design.modul_veranstaltungen and termin.anmeldung_aktiv and termin.anmeldung_token
+                      and not ist_vergangen and not termin.abgesagt and not termin.nur_mitglieder %}
+    <div class="td-fest" aria-hidden="true">
+        {% if anm_fest %}
+        <a class="td-haupt" href="{{ url_for('veranstaltungen.oeffentlich', token=termin.anmeldung_token) }}" tabindex="-1">
+            {{ 'Auf die Warteliste' if (termin.max_teilnehmer and va_belegt >= termin.max_teilnehmer) else 'Jetzt anmelden' }}</a>
+        {% elif hat_trailer %}
+        <a class="td-haupt" href="{{ termin.trailer_url|sichere_url }}" target="_blank" rel="noopener" tabindex="-1"
+           style="background:{{ termin.farbe|hexfarbe('var(--rot)') }};color:{{ termin.farbe|kontrast if termin.farbe else '#fff' }}">▶ {{ 'Trailer' if ist_film else 'Hörprobe' }}</a>
+        {% else %}
+        <a class="td-haupt" href="{{ url_for('portal.termin_ics', tid=termin.id) }}" tabindex="-1">In Kalender</a>
+        {% endif %}
+        <button type="button" class="td-rund teilen" tabindex="-1" title="Termin teilen" aria-label="Termin teilen"
+                data-url="{{ termin_link(termin) }}"
+                data-text="{{ termin.titel }} – {{ termin.datum|wt }}, {{ termin.datum[8:10] }}.{{ termin.datum[5:7] }}.{{ termin.datum[0:4] }}{% if termin.uhrzeit %}, {{ termin.uhrzeit }} Uhr{% endif %}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg></button>
+        {% if not termin.verborgen %}<button type="button" class="td-rund herz{{ ' an' if termin.id in (gemerkt or []) }}" data-tid="{{ termin.id }}" tabindex="-1"
+                aria-pressed="{{ 'true' if termin.id in (gemerkt or []) else 'false' }}" title="Auf den Merkzettel" aria-label="Auf den Merkzettel"></button>{% endif %}
+    </div>
+    <script>
+    (function () {
+        // Feste Leiste einblenden, sobald die Aktionsleiste im Text oben aus dem Bild gescrollt ist –
+        // und wieder ausblenden, wenn sie zurückkommt. Nur Bildschirm-Mausklicks, Tastatur nutzt die obere Leiste.
+        var fest = document.querySelector(".td-fest"), oben = document.querySelector(".td-leiste");
+        if (!fest || !oben) return;
+        var geplant = false;
+        function pruefen() {
+            geplant = false;
+            // sichtbar, sobald die obere Leiste komplett oben aus dem Bild ist
+            fest.classList.toggle("sichtbar", oben.getBoundingClientRect().bottom < 0);
+        }
+        function anstossen() { if (!geplant) { geplant = true; requestAnimationFrame(pruefen); } }
+        window.addEventListener("scroll", anstossen, { passive: true });
+        window.addEventListener("resize", anstossen);
+        pruefen();
+    })();
+    </script>
+    <script>
+    (function () {
+        var daten = {
+            title: {{ termin.titel | tojson }},
+            text: {{ (termin.titel ~ ' am ' ~ (termin.datum|wt) ~ ', ' ~ termin.datum[8:10] ~ '.' ~ termin.datum[5:7] ~ '.' ~ termin.datum[:4]
+                      ~ (' um ' ~ termin.uhrzeit ~ ' Uhr' if termin.uhrzeit else '')
+                      ~ (' – ' ~ termin.ort if termin.ort else '')) | tojson }},
+            url: window.location.href
+        };
+        var bildUrl = {{ url_for('termine.bild', tid=termin.id, v=termin.bild) | tojson if bild_teilbar else 'null' }};
+
+        // Veranstaltungsbild mit ins Teilen-Blatt legen (Web Share mit Datei).
+        // Der Link wandert dabei in den Text – einige Ziele (z. B. WhatsApp)
+        // verwerfen bei Datei-Shares das eigene url-Feld.
+        // WICHTIG: Das Bild wird schon beim Seitenaufbau geladen. Läge der fetch
+        // im Klick-Handler, verfiele auf iOS die User-Aktivierung (~1 s), sobald
+        // das Netz langsam ist – navigator.share würde abgelehnt und der Knopf
+        // bliebe stumm. Ein .then auf dem fertig aufgelösten Promise läuft
+        // dagegen als Mikrotask noch innerhalb der Geste.
+        var bildDatei = (bildUrl && window.fetch) ? fetch(bildUrl).then(function (a) {
+            if (!a.ok) { throw new Error('Bild nicht ladbar'); }
+            return a.blob();
+        }).then(function (blob) {
+            var typ = blob.type && blob.type.indexOf('image/') === 0 ? blob.type : 'image/jpeg';
+            var name = (daten.title || '').replace(/[^A-Za-z0-9\- ]+/g, '').trim()
+                           .replace(/\s+/g, '-').slice(0, 40) || 'Veranstaltung';
+            return new File([blob], name + (typ === 'image/png' ? '.png' : '.jpg'), { type: typ });
+        }).catch(function () { return null; }) : Promise.resolve(null);
+
+        // Für das Teilen-Menü (_layout.html): fertig geladenes Bild als Datei bereitstellen
+        window.teilenBild = bildDatei;
+    })();
+    </script>
+    {% if termin.sponsor_name or termin.sponsor_logo %}
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--linie)">
+        <span class="feld-hinweis" style="flex:none">🤝 Mit freundlicher Unterstützung von</span>
+        {% set partner_titel = (termin.sponsor_name or 'unserem Partner') ~ (' – öffnet in einem neuen Tab' if termin.sponsor_url else '') %}
+        {% if termin.sponsor_url %}<a href="{{ termin.sponsor_url|sichere_url }}" target="_blank" rel="noopener" title="{{ partner_titel }}"
+            style="display:inline-flex;align-items:center;gap:8px;color:inherit;text-decoration:none;font-weight:600;min-width:0">
+        {% else %}<span title="{{ partner_titel }}" style="display:inline-flex;align-items:center;gap:8px;font-weight:600;min-width:0">{% endif %}
+            {% if termin.sponsor_logo %}<img src="{{ url_for('termine.sponsor_logo', tid=termin.id) }}" alt="{{ termin.sponsor_name or 'Logo unseres Partners' }}"
+                style="max-height:60px;max-width:180px;object-fit:contain;background:#fff;border-radius:6px;padding:3px 6px">
+            {% elif termin.sponsor_name %}<span>{{ termin.sponsor_name }}</span>{% endif %}
+        {% if termin.sponsor_url %}</a>{% else %}</span>{% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{% if serie_info %}
+<div class="mp-karte" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 14px">
+    <span style="font-weight:700">🔁 Terminreihe</span>
+    <span class="feld-hinweis">Termin {{ serie_info.pos }} von {{ serie_info.gesamt }}</span>
+    {% if serie_info.naechster %}
+    <a href="{{ url_for('portal.termin', tid=serie_info.naechster.id) }}"
+       style="margin-left:auto;text-decoration:none;border:1px solid var(--linie);border-radius:8px;padding:5px 10px;font-size:13px;color:inherit">
+        nächster: {{ serie_info.naechster.datum | datum_wt }} ›</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{# F „So war's“ (21.11.2026): nur für Gäste – Mitglieder haben unten die volle Galerie. Nur Fotos mit
+   Veröffentlichungs- UND Social-Media-Freigabe (Widerruf der Fotoerlaubnis nimmt sie automatisch zurück). #}
+{% if gast and ist_vergangen and not termin.verborgen and (so_wars or bew) %}
+<div class="mp-karte td-sowars">
+    <h2 class="td-h2">So war's{% if bew %} <span class="td-sterne" title="Durchschnitt aus {{ bew|length }} Bewertung{{ 'en' if bew|length != 1 }}">⭐ {{ ('%.1f'|format(bew_schnitt))|replace('.', ',') }} <span class="feld-hinweis">({{ bew|length }})</span></span>{% endif %}</h2>
+    {% if so_wars %}
+    <div class="foto-grid">
+        {% for f in so_wars %}<div class="foto-kachel"><img src="{{ url_for('portal.termin_foto_oeffentlich', tid=termin.id, fid=f.id) }}"
+             alt="{{ f.beschreibung or ('Foto von ' ~ termin.titel) }}" loading="lazy">{% if f.beschreibung %}<div class="foto-bu">{{ f.beschreibung }}</div>{% endif %}</div>{% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+</div>
+<div>
+{{ fakten(' td-fakten-rechts') }}
+{% if meine_va %}
+{# Fotoerlaubnis der eigenen Anmeldung(en) – für Mitglieder UND angemeldete Freunde,
+   bewusst auch bei vergangenen Terminen (Widerruf muss jederzeit möglich sein) #}
+<div class="mp-karte">
+    <h2 style="margin:0 0 6px;font-size:17px">📷 Fotoerlaubnis</h2>
+    {% for a in meine_va %}
+    <div style="display:flex;align-items:center;gap:11px;padding:7px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}">
+        <div style="flex:1;min-width:0">
+            {% if not a.foto_status %}
+            <div style="font-weight:600;color:var(--warn-text)">Noch nicht beantwortet</div>
+            <div class="feld-hinweis">Bitte sag uns, ob wir Fotos von dir zeigen dürfen.</div>
+            {% elif a.foto_status == 'ja' %}
+            <div style="font-weight:600">✓ Ja – Vereinsarbeit{{ ' und Facebook/Instagram' if a.foto_social == 'ja' }}</div>
+            <div class="feld-hinweis">Du kannst deine Antwort jederzeit ändern oder widerrufen.</div>
+            {% else %}
+            <div style="font-weight:600">🚫 Nein – keine Fotos</div>
+            <div class="feld-hinweis">Danke für deine Antwort – ändern kannst du sie jederzeit.</div>
+            {% endif %}
+        </div>
+        <a href="{{ url_for('veranstaltungen.foto_public', token=a.token) }}"
+           style="flex:none;text-decoration:none;border-radius:8px;padding:7px 11px;font-size:13.5px;font-weight:600;{{ 'background:var(--warn-grund);color:var(--warn-text);border:1px solid var(--gelb)' if not a.foto_status else 'border:1px solid var(--linie);color:inherit' }}">
+            {{ '📷 Beantworten' if not a.foto_status else 'Ändern' }}</a>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if gast %}
+{# Gäste/Freunde: keine Mitglieder-Bereiche (RSVP-Namen, Fotos, Schichten) – nur öffentliche Anmeldung #}
+{% if not ist_vergangen and not termin.abgesagt %}
+<div class="mp-karte">
+    <h2 style="margin:0 0 8px;font-size:17px">🎟️ Dabei sein?</h2>
+    {% if termin.verborgen_grund == 'nicht_oeffentlich' %}
+    <p class="feld-hinweis" style="margin:0 0 10px">🔒 Diese Veranstaltung ist <strong>nicht öffentlich</strong> –
+        der Raum ist an diesem Termin privat belegt.</p>
+    {% elif termin.nur_mitglieder %}
+    <p class="feld-hinweis" style="margin:0 0 10px">👥 Diese Veranstaltung ist <strong>nur für Mitglieder</strong> –
+        zum Beispiel eine Vorstandssitzung oder Mitgliederversammlung.
+        {% if design and design.freunde_registrierung and not current_user.is_authenticated %}Lust, dabei zu sein?
+        Sprich uns auf eine Mitgliedschaft an!{% endif %}</p>
+    {% elif design and design.modul_veranstaltungen and termin.anmeldung_aktiv and termin.anmeldung_token %}
+    {% if termin.max_teilnehmer and va_belegt >= termin.max_teilnehmer %}
+    <p class="feld-hinweis" style="margin:0 0 10px"><span style="background:var(--fehler-grund);color:var(--fehler-text);border:1px solid var(--fehler-rand);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:800">Ausgebucht</span>
+        &nbsp;Alle Plätze sind vergeben – mit einer Anmeldung kommst du auf die
+        <strong>Warteliste</strong> und rückst automatisch nach, wenn etwas frei wird.</p>
+    <a class="mp-btn" style="background:var(--gelb)" href="{{ url_for('veranstaltungen.oeffentlich', token=termin.anmeldung_token) }}">⏳ Auf die Warteliste</a>
+    {% else %}
+    <p class="feld-hinweis" style="margin:0 0 10px">Melde dich als Gast an – ganz ohne Konto. Nur Name und E-Mail nötig.
+        {% if termin.max_teilnehmer %}<br>{% if current_user.is_authenticated %}🪑 Noch {{ termin.max_teilnehmer - va_belegt }} Plätze frei.{% elif termin.max_teilnehmer - va_belegt <= 5 %}🔥 Nur noch wenige Plätze frei.{% else %}🪑 Es sind noch Plätze frei.{% endif %}{% endif %}</p>
+    <a class="mp-btn" href="{{ url_for('veranstaltungen.oeffentlich', token=termin.anmeldung_token) }}">🎟️ Jetzt Platz reservieren</a>
+    {% endif %}
+    {% else %}
+    <p class="feld-hinweis" style="margin:0 0 10px">Komm einfach vorbei – für diesen Termin ist keine Anmeldung nötig.</p>
+    {% endif %}
+    {% if design and design.freunde_registrierung and not current_user.is_authenticated %}
+    <p class="feld-hinweis" style="margin:10px 0 0">Öfter hier? <a href="{{ url_for('auth.freund_registrieren') }}">Als Freund registrieren</a> – dann bekommst du auch Neuigkeiten.</p>
+    {% endif %}
+</div>
+{% endif %}
+{% else %}
+{# Auch eingeloggte Mitglieder können Plätze buchen – ihre Daten sind vorausgefüllt.
+   Nur-Mitglieder-Termine laufen weiter über die Zusagen weiter unten. #}
+{% if not ist_vergangen and not termin.abgesagt and not termin.nur_mitglieder
+      and design and design.modul_veranstaltungen and termin.anmeldung_aktiv and termin.anmeldung_token %}
+<div class="mp-karte">
+    <h2 style="margin:0 0 8px;font-size:17px">🎟️ Dabei sein?</h2>
+    {% if termin.max_teilnehmer and va_belegt >= termin.max_teilnehmer %}
+    <p class="feld-hinweis" style="margin:0 0 10px"><span style="background:var(--fehler-grund);color:var(--fehler-text);border:1px solid var(--fehler-rand);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:800">Ausgebucht</span>
+        &nbsp;Mit einer Anmeldung kommst du auf die <strong>Warteliste</strong> und rückst automatisch nach.</p>
+    <a class="mp-btn" style="background:var(--gelb)" href="{{ url_for('veranstaltungen.oeffentlich', token=termin.anmeldung_token) }}">⏳ Auf die Warteliste</a>
+    {% else %}
+    <p class="feld-hinweis" style="margin:0 0 10px">Reserviere Plätze für dich und deine Begleitung –
+        deine Angaben sind schon vorausgefüllt.
+        {% if termin.max_teilnehmer %}<br>🪑 Noch {{ termin.max_teilnehmer - va_belegt }} Plätze frei.{% endif %}</p>
+    <a class="mp-btn" href="{{ url_for('veranstaltungen.oeffentlich', token=termin.anmeldung_token) }}">🎟️ Jetzt Platz reservieren</a>
+    {% endif %}
+</div>
+{% endif %}
+{% if ist_vergangen %}
+<div class="mp-karte">
+    <h2 style="margin:0 0 6px;font-size:17px">⭐ Bewertung{% if bew %} · Ø {{ bew_schnitt }}{% endif %}</h2>
+    {% if zugeordnet %}
+    <form method="post" action="{{ url_for('portal.termin_bewerten', tid=termin.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="sterne" style="font-size:30px">
+            {% for s in [1,2,3,4,5] %}
+            <label><input type="radio" name="sterne" value="{{ s }}" {{ 'checked' if meine_bew and meine_bew.sterne==s }} style="display:none"><span class="stern" data-s="{{ s }}">{{ '★' if meine_bew and meine_bew.sterne>=s else '☆' }}</span></label>
+            {% endfor %}
+        </div>
+        <textarea name="kommentar" rows="2" placeholder="Dein Kommentar (optional)" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--linie);border-radius:9px;margin-top:8px">{{ meine_bew.kommentar if meine_bew else '' }}</textarea>
+        <button class="mp-btn" style="margin-top:8px">Bewertung speichern</button>
+    </form>
+    {% endif %}
+    {% for b in bew if b.kommentar %}
+    <div style="padding:9px 0;border-top:1px solid var(--linie);margin-top:8px">
+        <div>{{ '★' * b.sterne }}{{ '☆' * (5 - b.sterne) }} <span class="feld-hinweis">· {{ b.vorname }} {{ (b.nachname or '')[:1] }}.</span></div>
+        <div style="font-size:14px;margin-top:2px">{{ b.kommentar }}</div>
+    </div>
+    {% endfor %}
+</div>
+<script>
+    document.querySelectorAll('.sterne label').forEach(function(l){
+        l.addEventListener('click', function(){
+            var val=+l.querySelector('input').value;
+            document.querySelectorAll('.sterne .stern').forEach(function(s){ s.textContent = (+s.dataset.s<=val)?'★':'☆'; });
+        });
+    });
+</script>
+{% endif %}
+
+<div class="mp-karte">
+    <h2 style="margin:0 0 8px;font-size:17px">Bist du dabei?</h2>
+    {% if zugeordnet %}
+    <form method="post" action="{{ url_for('portal.termin_rsvp', tid=termin.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div style="display:flex;gap:8px">
+            <button name="status" value="komme" class="rsvp-btn {{ 'an gruen' if rsvp.meine=='komme' }}">✅ Ich komme</button>
+            <button name="status" value="vielleicht" class="rsvp-btn {{ 'an gelb' if rsvp.meine=='vielleicht' }}">🤔 Vielleicht</button>
+            <button name="status" value="abgesagt" class="rsvp-btn {{ 'an rot' if rsvp.meine=='abgesagt' }}">✖ Absagen</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:9px">
+            <label class="feld-hinweis" for="gaeste">Begleitung / Gäste:</label>
+            <input type="number" id="gaeste" name="gaeste" min="0" value="{{ rsvp.meine_gaeste }}" style="width:70px;padding:7px;border:1px solid var(--linie);border-radius:8px">
+            <span class="feld-hinweis">(bei „Ich komme")</span>
+        </div>
+    </form>
+    {% else %}
+    <p class="feld-hinweis">Zum An-/Abmelden muss dein Konto einem Mitglied zugeordnet sein (siehe „Ich").</p>
+    {% endif %}
+    <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--linie)">
+        <div style="font-weight:700;font-size:15px">👥 {{ rsvp.erwartet }} erwartet</div>
+        <div class="feld-hinweis">{{ rsvp.komme }} kommen{% if rsvp.gaeste %} (+ {{ rsvp.gaeste }} Gäste){% endif %}{% if rsvp.vielleicht %} · {{ rsvp.vielleicht }} vielleicht{% endif %}{% if rsvp.abgesagt %} · {{ rsvp.abgesagt }} abgesagt{% endif %}</div>
+        {% if rsvp.namen %}<div class="feld-hinweis" style="margin-top:4px">Dabei: {{ rsvp.namen|join(', ') }}</div>{% endif %}
+    </div>
+</div>
+
+<div class="mp-karte" id="galerie">
+    <h2 style="margin:0 0 8px;font-size:17px">📸 Fotos{% if fotos %} · {{ fotos|length }}{% endif %}</h2>
+    {% if fotos %}
+    <div class="foto-grid">
+        {% for f in fotos %}
+        <div class="foto-kachel">
+            <a href="{{ url_for('portal.ansehen', was='foto', fid=f.id) }}">
+                <img src="{{ url_for('portal.galerie_foto', fid=f.id) }}" loading="lazy" alt="{{ f.beschreibung or 'Foto' }}">
+            </a>
+            {% if f.beschreibung %}<div class="foto-bu">{{ f.beschreibung }}</div>{% endif %}
+            {% if ist_admin or (meine_mid and f.mitglied_id == meine_mid) %}
+            <form method="post" action="{{ url_for('portal.foto_loeschen', fid=f.id) }}" onsubmit="return confirm('Dieses Foto löschen?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="foto-del" title="Löschen">✕</button>
+            </form>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="feld-hinweis" style="margin:0">Noch keine Fotos zu dieser Veranstaltung. Mach den Anfang! 📷</p>
+    {% endif %}
+
+    <details style="margin-top:12px">
+        <summary style="cursor:pointer;color:var(--mp);font-weight:600;font-size:14px;list-style:none">＋ Fotos hinzufügen</summary>
+        <form method="post" action="{{ url_for('portal.termin_foto', tid=termin.id) }}" enctype="multipart/form-data" style="margin-top:10px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="file" name="fotos" accept="image/*" multiple required style="width:100%">
+            <input type="text" name="beschreibung" maxlength="120" placeholder="Kurze Bildunterschrift (optional)" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--linie);border-radius:9px;margin-top:8px">
+            <label style="display:flex;gap:9px;align-items:flex-start;margin-top:10px;font-size:13.5px;line-height:1.5;cursor:pointer">
+                <input type="checkbox" name="freigabe" value="1" required style="margin-top:2px;accent-color:var(--mp)">
+                <span>Ich bestätige, dass ich dieses Foto / diese Fotos <strong>selbst gemacht</strong> habe,
+                dass <strong>alle abgebildeten Personen</strong> mit der Veröffentlichung einverstanden sind und
+                dass der Verein die Bilder für seine <strong>Öffentlichkeitsarbeit</strong> nutzen darf.</span>
+            </label>
+            <button class="mp-btn" style="margin-top:10px">Hochladen</button>
+            <p class="feld-hinweis" style="margin:8px 0 0">Mehrere Fotos gleichzeitig möglich.</p>
+        </form>
+    </details>
+</div>
+
+{% if schichten %}
+<div class="mp-karte">
+    <h2 style="margin:0 0 4px;font-size:17px">🧑‍🤝‍🧑 Schichten</h2>
+    {% for s in schichten %}
+    <div style="padding:10px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}">
+        <div style="font-weight:600">{{ s.titel }}</div>
+        {% if s.zeit_von and s.zeit_bis %}<div class="feld-hinweis" style="margin-top:2px">🕒 <strong>{{ s.zeit_von }}–{{ s.zeit_bis }} Uhr</strong> (Beginn – Ende)</div>
+        {% elif s.zeit_von %}<div class="feld-hinweis" style="margin-top:2px">🕒 ab {{ s.zeit_von }} Uhr</div>{% endif %}
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+            {% for sl in slots[s.id] %}
+                {% set slzeit = (' · 🕒 ' ~ sl.zeit_von ~ '–' ~ sl.zeit_bis ~ ' Uhr') if (sl.zeit_von and sl.zeit_bis) else '' %}
+                {% if sl.mitglied_id %}
+                <span class="slot besetzt">
+                    <span class="ini">{{ (sl.vorname or ' ')[:1] }}{{ (sl.nachname or ' ')[:1] }}</span>
+                    {{ sl.vorname }} {{ sl.nachname }}{% if sl.rolle_name %} · {{ sl.rolle_name }}{% endif %}{{ slzeit }}
+                </span>
+                {% else %}
+                <span class="slot offen">offen{% if sl.rolle_name %} · {{ sl.rolle_name }}{% endif %}{{ slzeit }}</span>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+    <p class="feld-hinweis" style="margin-top:10px">Eintragen und tauschen kannst du im Bereich <a href="{{ url_for('portal.schichten') }}" style="color:var(--mp);font-weight:600">Schichten</a>.</p>
+</div>
+{% endif %}
+{% endif %}{# Ende Mitglieder-Bereiche (nicht gast) #}
+</div>
+</div>
+
+{# C „Mehr Termine entdecken“ (21.11.2026): nächste Termine der Reihe + Ähnliches, im Look der Terminliste #}
+{% if weitere_reihe or aehnliche %}
+<div class="mp-karte td-entdecken">
+    {% if weitere_reihe %}
+    <h2 class="td-h2">Weitere Termine dieser Reihe</h2>
+    <div class="hz-liste">{% for t in weitere_reihe %}{% include "portal/_termin_zeile.html" %}{% endfor %}</div>
+    {% endif %}
+    {% if aehnliche %}
+    <h2 class="td-h2"{% if weitere_reihe %} style="margin-top:16px"{% endif %}>Das könnte dich auch interessieren</h2>
+    <div class="hz-liste">{% for t in aehnliche %}{% include "portal/_termin_zeile.html" %}{% endfor %}</div>
+    {% endif %}
+</div>
+{% include "portal/_termin_zeile_stil.html" %}
+{% endif %}
+
+<style>
+    .ini { display:inline-grid; place-items:center; width:24px; height:24px; border-radius:50%;
+           background:var(--mp); color:var(--auf-primaer); font-size:10px; font-weight:700; text-transform:uppercase; }
+    .slot { display:inline-flex; align-items:center; gap:7px; border-radius:999px; padding:4px 11px 4px 4px; font-size:13px; font-weight:600; }
+    .slot.besetzt { background:var(--info-grund); color:var(--info-text); border:1px solid var(--info-rand); }
+    .slot.offen { background:var(--fehler-grund); color:var(--fehler-text); border:1px solid var(--fehler-rand); padding-left:11px; }
+    .rsvp-btn { flex:1; border:1px solid var(--linie); background:var(--flaeche); color:var(--text); border-radius:10px;
+                padding:10px 4px; font-size:13px; font-weight:600; cursor:pointer; }
+    .rsvp-btn.an.gruen { border-color:var(--gruen); background:var(--gut-grund); color:var(--gut-text); }
+    .rsvp-btn.an.gelb { border-color:var(--gelb); background:var(--warn-grund); color:var(--warn-text); }
+    .rsvp-btn.an.rot { border-color:var(--rot); background:var(--fehler-grund); color:var(--fehler-text); }
+    .foto-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+    .td-h2 { margin:0 0 10px; font-size:17px; }
+    .td-sterne { font-size:15px; font-weight:700; color:var(--warn-text); margin-left:6px; }
+    .td-frage { margin:12px 0 0; font-size:14.5px; }
+    .td-frage a { color:var(--mp); font-weight:600; text-decoration:none; }
+    .td-frage a:hover { text-decoration:underline; }
+    /* Desktopversion: Fotoraster füllt die verfügbare Breite */
+    @media (min-width: 980px) { .foto-grid { grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); } }
+    .foto-kachel { position:relative; }
+    .foto-kachel img { width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:10px; display:block; background:var(--flaeche-3); }
+    .foto-bu { position:absolute; left:0; right:0; bottom:0; padding:10px 6px 4px; font-size:11px; color:#fff;
+               background:linear-gradient(transparent,rgba(0,0,0,.6)); border-radius:0 0 10px 10px;
+               white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .foto-del { position:absolute; top:4px; right:4px; width:26px; height:26px; border:none; border-radius:50%;
+                background:rgba(0,0,0,.55); color:#fff; font-size:12px; line-height:1; cursor:pointer; }
+</style>
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Kontoauszüge{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>📄 Kontoauszüge</h1><div class="sub">Archiv nach Geschäftsjahr – für die Kassenprüfung und den Anfangsbestand</div></div>
+    <div class="aktionen">
+        <a href="{{ url_for('finanzen.kassenbericht') }}" class="btn btn-sekundaer">📗 Kassenbericht</a>
+        <a href="{{ url_for('finanzen.liste') }}" class="btn btn-sekundaer">← Kassenbuch</a>
+    </div>
+</div>
+
+<div class="hilfe-box" style="margin-bottom:20px">
+    Lege hier die Kontoauszüge deiner Geldkonten ab (PDF aus dem Online-Banking oder Foto).
+    Kassenprüfer:innen können damit die Buchungen nachvollziehen, und der <strong>erste Auszug eines
+    Geschäftsjahres</strong> belegt den Anfangsbestand im <a href="{{ url_for('finanzen.kassenbericht') }}">Kassenbericht</a>.
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">📤 Kontoauszug hochladen</h2>
+    <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+            <div class="feld"><label>Geldkonto</label>
+                <select name="geldkonto_id" required>
+                    <option value="">— bitte wählen —</option>
+                    {% for g in geldkonten %}
+                    <option value="{{ g.id }}">{{ icons.get(g.typ, '💳') }} {{ g.name }}{{ '' if g.aktiv else ' (inaktiv)' }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="feld"><label>Geschäftsjahr</label>
+                <input type="number" name="jahr" min="1990" max="2100" value="{{ heute_wj }}" required style="width:110px">
+            </div>
+            <div class="feld"><label>Bezeichnung (optional)</label>
+                <input type="text" name="bezeichnung" maxlength="120" placeholder="z. B. Auszug Nr. 1 oder Januar">
+            </div>
+            <div class="feld"><label>Datei (PDF oder Bild)</label>
+                <input type="file" name="datei" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required>
+            </div>
+            <div class="feld"><button class="btn">📤 Hochladen</button></div>
+        </div>
+        <div class="feld-hinweis">Laufendes Geschäftsjahr: {{ wj_label_heute }}. Ein Geschäftsjahr wird mit seinem
+            Startjahr angegeben{{ ' – „' ~ heute_wj ~ '" steht für ' ~ wj_label_heute ~ '' if wj_label_heute != heute_wj|string }}.</div>
+    </form>
+</div>
+
+{% for j in jahre %}
+<div class="karte">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <h2 style="margin:0">📅 Geschäftsjahr {{ j.label }}</h2>
+        <a href="{{ url_for('finanzen.kassenbericht', jahr=j.jahr) }}" class="btn btn-sekundaer">📗 Kassenbericht {{ j.label }}</a>
+    </div>
+    <table class="tabelle" style="margin-top:10px">
+        <thead><tr><th>Geldkonto</th><th>Bezeichnung</th><th>Hochgeladen</th><th style="text-align:right">Aktionen</th></tr></thead>
+        <tbody>
+        {% for a in j.eintraege %}
+        <tr>
+            <td>{{ icons.get(a.gtyp, '💳') }} {{ a.gname or '(Geldkonto gelöscht)' }}</td>
+            <td>{{ a.bezeichnung or '–' }}</td>
+            <td>{{ a.hochgeladen_am | datum_de }}</td>
+            <td style="text-align:right;white-space:nowrap">
+                <a href="{{ url_for('finanzen.kontoauszug_datei', aid=a.id) }}" target="_blank" rel="noopener" class="btn btn-sekundaer btn-klein">👁 Ansehen</a>
+                <form method="post" action="{{ url_for('finanzen.kontoauszug_loeschen', aid=a.id) }}" style="display:inline"
+                      onsubmit="return confirm('Diesen Kontoauszug wirklich löschen?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein">🗑 Löschen</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="karte"><div class="feld-hinweis">Noch keine Kontoauszüge abgelegt – lade oben den ersten hoch.</div></div>
+{% endfor %}
+{% endblock %}

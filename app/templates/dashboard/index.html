@@ -1,0 +1,546 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{# Dashboard darf die volle Bildschirmbreite nutzen (Standard-Inhalt ist auf 1200px begrenzt) #}
+{% block inhalt_breite %}inhalt-breit{% endblock %}
+{% block content %}
+<style>
+    #dash-bereiche { display: grid; grid-template-columns: repeat(8, 1fr); gap: 14px; align-items: start; }
+    .dash-bereich { grid-column: span 8; }
+    .dash-bereich[data-span="1"] { grid-column: span 1; }
+    .dash-bereich[data-span="2"] { grid-column: span 2; }
+    .dash-bereich[data-span="3"] { grid-column: span 3; }
+    .dash-bereich[data-span="4"] { grid-column: span 4; }
+    .dash-bereich[data-span="5"] { grid-column: span 5; }
+    .dash-bereich[data-span="6"] { grid-column: span 6; }
+    .dash-bereich[data-span="7"] { grid-column: span 7; }
+    /* Kachel-Spalten im Bereich passen sich der Bereichsbreite an (~1 Spalte je Viertel Bildbreite) */
+    .dash-bereich[data-span="1"] .dash-grid, .dash-bereich[data-span="2"] .dash-grid { grid-template-columns: repeat(1, 1fr); }
+    .dash-bereich[data-span="3"] .dash-grid, .dash-bereich[data-span="4"] .dash-grid { grid-template-columns: repeat(2, 1fr); }
+    .dash-bereich[data-span="5"] .dash-grid, .dash-bereich[data-span="6"] .dash-grid { grid-template-columns: repeat(3, 1fr); }
+    .dash-bereich[data-span="7"] .dash-grid { grid-template-columns: repeat(4, 1fr); }
+    .dash-bereich[data-span="1"] .k2, .dash-bereich[data-span="2"] .k2,
+    .dash-bereich[data-span="1"] .k3, .dash-bereich[data-span="2"] .k3,
+    .dash-bereich[data-span="1"] .k4, .dash-bereich[data-span="2"] .k4 { grid-column: span 1; }
+    .dash-bereich[data-span="3"] .k3, .dash-bereich[data-span="4"] .k3,
+    .dash-bereich[data-span="3"] .k4, .dash-bereich[data-span="4"] .k4 { grid-column: span 2; }
+    .dash-bereich[data-span="5"] .k4, .dash-bereich[data-span="6"] .k4 { grid-column: span 3; }
+    .dash-kopf { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+    .dash-kopf h2 { font-size: 15px; margin: 0; }
+    .dash-kopf .griff { cursor: grab; color: var(--text-hell); font-size: 16px; user-select: none; }
+    .kachel .pfeilbtn { display: none; position: absolute; top: 6px; background: none; border: none;
+                        cursor: pointer; font-size: 12px; color: var(--text-hell); padding: 2px 4px; }
+    .kachel .pfeilbtn:nth-of-type(1) { right: 52px; }
+    .kachel .pfeilbtn:nth-of-type(2) { right: 32px; }
+    .kachel .pfeilbtn:hover { color: var(--blau); }
+    #dash-bereiche.anpassen .kachel .pfeilbtn { display: inline; }
+    .dash-kopf .klapp { margin-left: auto; background: none; border: none; cursor: pointer; color: var(--text-hell); font-size: 14px; padding: 2px 6px; }
+    .dash-bereich.zu .dash-inhalt { display: none; }
+    .dash-bereich.fix .griff { visibility: hidden; }
+    .dash-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; align-items: start; }
+    .dash-grid .karte { margin: 0; padding: 12px; }
+    .kachel { position: relative; overflow: hidden; }
+    .k1 { grid-column: span 1; } .k2 { grid-column: span 2; } .k3 { grid-column: span 3; } .k4 { grid-column: span 4; }
+    .kachel .wert { font-size: 20px; font-weight: 700; } .kachel .label { color: var(--text-hell); font-size: 12px; margin-top: 1px; }
+    .dash-grid .karte h3 { font-size: 14px; margin: 0 0 6px; }
+    .dash-grid .karte h3:first-child { margin-top: 0; }
+    .kachel .zeile-lst { padding: 5px 0; }
+    .dash-ampel-liste { display: flex; flex-direction: column; gap: 2px; margin-top: 3px; }
+    .dash-ampel-liste .zeile { display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 700; }
+    .dash-ampel-liste .pkt { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+    .pkt.gruen { background: var(--gruen); } .pkt.gelb { background: var(--gelb); } .pkt.rot { background: var(--rot); }
+    .haken { background: none; border: none; cursor: pointer; font-size: 18px; line-height: 1; padding: 0; color: var(--blau); flex: none; }
+    .kachel.aus { display: none; }
+    #dash-bereiche.anpassen .kachel.aus { display: block; opacity: .38; }
+    .augbtn { display: none; position: absolute; top: 4px; right: 4px; z-index: 2; background: var(--flaeche);
+              border: 1px solid var(--grau-linie); border-radius: 7px; cursor: pointer; font-size: 13px; line-height: 1; padding: 3px 6px; }
+    #dash-bereiche.anpassen .augbtn { display: block; }
+    .breite { display: none; background: none; border: none; cursor: pointer; color: var(--text-hell); font-size: 14px; padding: 2px 6px; }
+    #dash-bereiche.anpassen .breite { display: inline-block; }
+    /* Bearbeiten-Modus: Größe ziehen */
+    .resize { display: none; position: absolute; right: 3px; bottom: 2px; cursor: nwse-resize; color: var(--text-hell); user-select: none; font-size: 13px; }
+    #dash-bereiche.anpassen .resize { display: block; }
+    #dash-bereiche.anpassen .kachel { outline: 1px dashed var(--grau-linie); cursor: grab; }
+    #dash-bereiche.anpassen .kachel a { pointer-events: none; }
+    @media (max-width: 820px) {
+        #dash-bereiche { grid-template-columns: 1fr; }
+        .dash-bereich { grid-column: span 1 !important; }
+        .dash-bereich .dash-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        .dash-bereich .k3, .dash-bereich .k4 { grid-column: span 2 !important; }
+    }
+</style>
+
+<div class="page-header">
+    <div><h1>{{ einst.vereinsname or 'Dashboard' }}</h1>
+        <div class="sub">{% if rolle == 'schatz' %}Kasse, Beiträge und Fördermittel auf einen Blick
+            {%- elif rolle == 'oeffentlichkeit' %}Redaktionsplan, Rückmeldungen und kommende Veranstaltungen
+            {%- else %}Was gerade läuft und wo etwas zu tun ist{% endif %}</div></div>
+    <div class="aktionen">
+        <button id="anpassenBtn" class="btn btn-sekundaer" type="button" onclick="anpassenModus()">🔧 Anpassen</button>
+    </div>
+</div>
+
+{# ── Handlungsbedarf: das Wichtigste zuerst ──────────────────────────── #}
+<div class="karte" id="handlungsbedarf" style="margin-bottom:14px;padding:16px;
+     border-left:4px solid {{ 'var(--rot)' if todos and todos[0].farbe == 'rot' else ('var(--gelb)' if todos else 'var(--gruen)') }}">
+    <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:{{ '10px' if todos else '0' }}">
+        <h2 style="margin:0;font-size:17px">{% if todos %}⚡ Das braucht deine Aufmerksamkeit{% else %}✅ Nichts Dringendes{% endif %}</h2>
+        {% if todos %}<span class="feld-hinweis">{{ todos | selectattr('farbe', 'equalto', 'rot') | list | length }} überfällig ·
+            {{ todos | selectattr('farbe', 'equalto', 'gelb') | list | length }} in den nächsten {{ gelb_tage }} Tagen</span>{% endif %}
+    </div>
+    {% if todos %}
+    <ul style="list-style:none;margin:0;padding:0">
+        {% for t in todos[:12] %}
+        <li style="display:flex;gap:10px;align-items:baseline;padding:7px 0;
+            {{ 'border-bottom:1px solid var(--linie)' if not loop.last }}">
+            <span title="{{ {'rot':'überfällig','gelb':'wird bald fällig','grau':'ohne festes Datum'}[t.farbe] }}"
+                  style="flex:none;width:9px;height:9px;border-radius:50%;
+                  background:{{ {'rot':'var(--rot)','gelb':'var(--gelb)','grau':'var(--text-schwach)'}[t.farbe] }}"></span>
+            <a href="{{ t.ziel }}" style="flex:1;min-width:0;text-decoration:none;color:inherit">
+                <strong style="font-weight:600">{{ t.text }}</strong>
+                <span class="feld-hinweis" style="margin-left:6px">{{ t.bereich }}</span></a>
+            <span class="feld-hinweis" style="flex:none;white-space:nowrap;
+                  {{ 'color:var(--rot);font-weight:700' if t.farbe == 'rot' }}">{{ t.wann }}</span>
+        </li>
+        {% endfor %}
+    </ul>
+    {% if todos | length > 12 %}
+    <p class="feld-hinweis" style="margin:8px 0 0">… und {{ todos | length - 12 }} weitere.</p>
+    {% endif %}
+    {% else %}
+    <p class="feld-hinweis" style="margin:0">Keine Frist läuft ab, keine Aufgabe ist überfällig,
+        nichts wartet auf eine Entscheidung. Gute Zeit für die schönen Dinge.</p>
+    {% endif %}
+</div>
+
+{% if naechste_veranstaltung %}
+<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--info-grund);border:1px solid var(--info-rand);border-radius:9px;padding:6px 12px;margin-bottom:12px;font-size:13.5px">
+    ⏳ <strong>Nächste Veranstaltung:</strong>
+    <a href="{{ url_for('termine.detail', tid=naechste_veranstaltung.id) }}" style="text-decoration:none;color:inherit;font-weight:600">{{ naechste_veranstaltung.titel }}</a>
+    <span class="feld-hinweis">({{ naechste_veranstaltung.datum | datum_wt }}{% if naechste_veranstaltung.uhrzeit %}, {{ naechste_veranstaltung.uhrzeit }} Uhr{% endif %})</span>
+    <span id="countdown" data-ziel="{{ naechste_veranstaltung.datum }}T{{ naechste_veranstaltung.uhrzeit or '00:00' }}" style="margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--blau)"></span>
+</div>
+<script>
+(function(){
+    var el=document.getElementById('countdown'); if(!el) return;
+    var ziel=new Date(el.dataset.ziel).getTime();
+    function tick(){
+        if(isNaN(ziel)){el.textContent=''; return;}
+        var d=ziel-Date.now();
+        if(d<0){el.textContent='🎉 jetzt!'; return;}
+        var s=Math.floor(d/1000), tg=Math.floor(s/86400), st=Math.floor(s%86400/3600), mi=Math.floor(s%3600/60), se=s%60;
+        el.textContent=(tg>0?tg+' T ':'')+st+' h '+mi+' m '+se+' s';
+    }
+    tick(); setInterval(tick,1000);
+})();
+</script>
+{% endif %}
+
+<div id="anpassenLeiste" class="hilfe-box" style="display:none;align-items:center;gap:12px;flex-wrap:wrap">
+    <span>Kacheln mit <strong>◀ ▶</strong> verschieben oder am Griff <strong>⠿</strong> ziehen ·
+        <strong>🙈</strong> blendet aus · <strong>⇤ ⇥</strong> macht einen Bereich schmaler oder breiter ·
+        an der Ecke <strong>◢</strong> ziehst du die Höhe. Alles wird sofort gespeichert.</span>
+    <span style="margin-left:auto"></span>
+    <button class="btn btn-sekundaer btn-klein" type="button" onclick="dashStandard()">↩ Auf Standard zurücksetzen</button>
+    <button class="btn btn-sekundaer btn-klein" type="button" onclick="anpassenModus()">Fertig</button>
+</div>
+
+<div id="dash-bereiche">
+
+  {# ---------- Aktuelles & Ankündigungen (immer oben) ---------- #}
+  <section class="dash-bereich fix" data-key="aktuelles">
+    <div class="dash-kopf"><span class="griff">⠿</span><h2>📰 Aktuelles</h2><button class="klapp" type="button">▾</button></div>
+    <div class="dash-inhalt"><div class="dash-grid">
+        <div class="karte kachel k2" data-tk="ank">
+            <div style="display:flex;justify-content:space-between;align-items:center"><h3>📣 Ankündigungen</h3><a href="{{ url_for('kommunikation.ankuendigungen') }}" class="feld-hinweis">Verwalten →</a></div>
+            {% if ankuendigungen %}{% for a in ankuendigungen %}
+            <a href="{{ url_for('kommunikation.ankuendigungen') }}#a{{ a.id }}" class="zeile-lst"
+               style="display:block;text-decoration:none;color:inherit;{{ '' if loop.last else 'border-bottom:1px solid var(--grau-linie)' }}"><strong>{{ a.titel }}</strong>{% if a.text %}<div class="feld-hinweis">{{ a.text }}</div>{% endif %}</a>
+            {% endfor %}{% else %}<p class="feld-hinweis">Keine aktiven Ankündigungen.</p>{% endif %}
+            <div class="resize">◢</div>
+        </div>
+        <div class="karte kachel k2" data-tk="umfragen">
+            <div style="display:flex;justify-content:space-between;align-items:center"><h3>🗳️ Umfragen &amp; Terminfindung</h3><a href="{{ url_for('portal.umfrage_neu') }}" class="feld-hinweis">＋ Neu</a></div>
+            {% if umfragen %}{% for u in umfragen %}
+            <a href="{{ url_for('portal.umfrage', uid=u.id) }}" class="zeile-lst"
+               style="display:block;text-decoration:none;color:inherit;{{ '' if loop.last else 'border-bottom:1px solid var(--grau-linie)' }}"><strong>{{ u.titel }}</strong> <span class="feld-hinweis">{{ '📅 Terminfindung' if u.typ == 'termin' else 'Abstimmung' }}</span></a>
+            {% endfor %}{% else %}<p class="feld-hinweis">Keine laufende Umfrage. <a href="{{ url_for('portal.umfrage_neu') }}">Neue anlegen</a></p>{% endif %}
+            <div class="resize">◢</div>
+        </div>
+        <div class="karte kachel k2" data-tk="akt">
+            <div style="display:flex;justify-content:space-between;align-items:baseline"><h3>📰 Letzte Aktivitäten</h3>
+                <a href="{{ url_for('dashboard.aktivitaeten') }}" class="feld-hinweis" style="text-decoration:none">Alle anzeigen →</a></div>
+            {% if aktivitaeten %}{% for icon, text, zeit, ziel, wer in aktivitaeten %}
+            {% if ziel %}<a href="{{ ziel }}"{% else %}<div{% endif %} class="zeile-lst"
+                style="text-decoration:none;color:inherit;display:flex;gap:8px;{{ '' if loop.last else 'border-bottom:1px solid var(--grau-linie)' }}">
+                <span>{{ icon }}</span><div style="flex:1;min-width:0"><div>{{ text }}</div>
+                <div class="feld-hinweis">{{ zeit }}{% if wer %} · 👤 {{ wer }}{% endif %}</div></div>
+                {% if ziel %}<span style="align-self:center;color:var(--text-schwach)">›</span>{% endif %}
+            {% if ziel %}</a>{% else %}</div>{% endif %}
+            {% endfor %}{% else %}<p class="feld-hinweis">Noch keine Aktivitäten.{% if not einst.modul_aktuelles %} (Modul „Aktuelles" ist aus.){% endif %}</p>{% endif %}
+            <div class="resize">◢</div>
+        </div>
+        <div class="karte kachel k2" data-tk="aufgaben">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><strong>✅ Aufgaben</strong><a href="{{ url_for('aufgaben.index') }}" class="feld-hinweis">＋ Neu / Verwalten →</a></div>
+            {% if aufgaben %}{% for a in aufgaben %}
+            <div class="zeile-lst" style="display:flex;align-items:center;gap:10px;{{ '' if loop.last else 'border-bottom:1px solid var(--grau-linie)' }}">
+                <form method="post" action="{{ url_for('aufgaben.erledigt', aid=a.id) }}" style="margin:0"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="haken" title="Als erledigt markieren">☐</button></form>
+                <div style="flex:1;min-width:0"><strong>{{ a.titel }}</strong>{% if a.wiederholung and a.wiederholung != 'einmalig' %} <span class="badge badge-gruppe" style="font-size:11px">🔁</span>{% endif %}
+                    <div class="feld-hinweis">{% if a.faellig_am %}{{ a.faellig_am | datum_de }}{% if a.faellig_zeit %} · {{ a.faellig_zeit }}{% endif %}{% if a.faellig_am < heute_iso %} · <span style="color:var(--rot)">überfällig</span>{% endif %}{% endif %}{% if a.vorname %} · 👤 {{ a.vorname }} {{ a.nachname }}{% endif %}</div>
+                </div>
+            </div>
+            {% endfor %}{% else %}<p class="feld-hinweis">Keine offenen Aufgaben. <a href="{{ url_for('aufgaben.index') }}">Neue anlegen</a></p>{% endif %}
+            <div class="resize">◢</div>
+        </div>
+    </div></div>
+  </section>
+
+  {# ---------- WerkHaus ---------- #}
+  {% if einst.modul_werkhaus %}
+  <section class="dash-bereich" data-key="werkhaus">
+    <div class="dash-kopf"><span class="griff">⠿</span><h2><a href="{{ url_for('schichten.index') }}" style="text-decoration:none;color:inherit">🏭 {{ einst.werkhaus_name or 'Vereinsraum' }}</a></h2><button class="klapp" type="button">▾</button></div>
+    <div class="dash-inhalt"><div class="dash-grid">
+        <div class="karte kachel k1" data-tk="schicht">
+            <a href="{{ url_for('schichten.index') }}" style="text-decoration:none;color:inherit" title="Zum Schichtplan">
+                <div class="label" style="font-weight:600">🚦 Schichten</div>
+                <div class="dash-ampel-liste">
+                    <div class="zeile"><span class="pkt rot"></span>{{ schicht_ampel.rot }}</div>
+                    <div class="zeile"><span class="pkt gelb"></span>{{ schicht_ampel.gelb }}</div>
+                    <div class="zeile"><span class="pkt gruen"></span>{{ schicht_ampel.gruen }}</div>
+                </div>
+            </a>
+            <div class="resize">◢</div>
+        </div>
+        <div class="karte kachel k1" data-tk="besucher">
+            <a href="{{ url_for('schichten.rueckmeldungen') }}" style="text-decoration:none;color:inherit">
+                <div class="wert">{{ besucher_zeitraum }}</div>
+                <div class="label">Besucher:innen</div></a>
+            <form method="post" action="{{ url_for('dashboard.besucher_zeitraum') }}" style="margin-top:5px">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <select name="tage" onchange="this.form.submit()" style="font-size:12px">
+                    {% for opt in [7, 14, 30, 60, 90, 365] %}<option value="{{ opt }}" {{ 'selected' if besucher_tage == opt }}>letzte {{ opt }} T.</option>{% endfor %}
+                </select>
+            </form>
+            <div class="resize">◢</div>
+        </div>
+        {% if rueckmeldungen %}
+        <div class="karte kachel k2" data-tk="rueck">
+            <div style="display:flex;justify-content:space-between;align-items:center"><h3>📝 Rückmeldungen{% if rueck_ungelesen %} <span class="badge badge-offen">{{ rueck_ungelesen }} neu</span>{% endif %}</h3><a href="{{ url_for('schichten.rueckmeldungen') }}" class="feld-hinweis">Alle →</a></div>
+            <div class="feld-hinweis" style="display:flex;gap:12px;margin:2px 0 6px">
+                <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--gruen)"></span> erledigt</span>
+                <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--gelb)"></span> offen</span>
+            </div>
+            {% for r in rueckmeldungen %}
+            <a href="{{ url_for('schichten.rueckmeldungen') }}#rm{{ r.id }}" class="zeile-lst" style="text-decoration:none;color:inherit;display:flex;gap:8px;{{ '' if loop.last else 'border-bottom:1px solid var(--grau-linie)' }}">
+                {# Grün = erledigt: eine Frage ist beantwortet, eine reine Notiz gelesen.
+                   Gelb = liegt noch an. #}
+                {% set braucht_antwort = (r.fragen or '') | trim %}
+                {% set erledigt = r.antwort_am if braucht_antwort else r.gelesen %}
+                <span title="{{ 'beantwortet' if braucht_antwort and erledigt else ('offen – wartet auf Antwort' if braucht_antwort else ('gelesen' if erledigt else 'noch nicht gelesen')) }}"
+                      style="flex:none;align-self:center;width:10px;height:10px;border-radius:50%;
+                      background:{{ 'var(--gruen)' if erledigt else 'var(--gelb)' }}"></span>
+                <div style="flex:1;min-width:0"><div><strong>{{ r.schicht_titel or r.termin_titel or 'Schicht' }}</strong>
+                    {%- if braucht_antwort and not erledigt %} <span class="badge badge-offen" style="font-size:11px">Frage offen</span>
+                    {%- elif not r.gelesen %} <span class="badge badge-offen" style="font-size:11px">neu</span>{% endif %}</div>
+                    <div class="feld-hinweis">{{ r.vorname }} {{ r.nachname }}{% if r.besucher is not none %} · 👥 {{ r.besucher }}{% endif %}</div></div>
+            </a>
+            {% endfor %}
+            <div class="resize">◢</div>
+        </div>
+        {% endif %}
+    </div></div>
+  </section>
+  {% endif %}
+
+  {# ---------- Finanzen ---------- #}
+  <section class="dash-bereich" data-key="finanzen">
+    <div class="dash-kopf"><span class="griff">⠿</span><h2><a href="{{ url_for('finanzen.liste') }}" style="text-decoration:none;color:inherit">💶 Finanzen</a></h2><button class="klapp" type="button">▾</button></div>
+    <div class="dash-inhalt"><div class="dash-grid">
+        <div class="karte kachel k1" data-tk="fin_saldo"><a href="{{ url_for('finanzen.liste') }}" style="text-decoration:none;color:inherit"><div class="wert" style="color:{{ 'var(--gruen)' if saldo >= 0 else 'var(--rot)' }}">{{ saldo | euro }}</div><div class="label">Saldo {{ jahr }}</div></a><div class="resize">◢</div></div>
+        <div class="karte kachel k1" data-tk="fin_kasse"><a href="{{ url_for('finanzen.geldkonten_verwaltung') }}" style="text-decoration:none;color:inherit"><div class="wert" style="color:{{ 'var(--gruen)' if kassenbestand >= 0 else 'var(--rot)' }}">{{ kassenbestand | euro }}</div><div class="label">Kassenbestand 💶</div></a><div class="resize">◢</div></div>
+        <div class="karte kachel k1" data-tk="fin_offen"><a href="{{ url_for('beitraege.liste') }}" style="text-decoration:none;color:inherit"><div class="wert" style="color:var(--rot)">{{ offen | euro }}</div><div class="label">offene Beiträge</div></a><div class="resize">◢</div></div>
+        {% if einst.modul_spenden or einst.modul_rechnungen %}
+        <div class="karte kachel k1" data-tk="fin_aktion"><h3>Aktionen</h3>
+            {% if einst.modul_spenden %}<a href="{{ url_for('dashboard.spenden') }}" style="display:block;padding:2px 0">🧾 Spendenbescheinigungen</a>{% endif %}
+            {% if einst.modul_rechnungen %}<a href="{{ url_for('dashboard.rechnungen') }}" style="display:block;padding:2px 0">💌 Beitragsrechnungen</a>{% endif %}
+            <div class="resize">◢</div>
+        </div>{% endif %}
+        {% if faellige %}
+        <div class="karte kachel k2" data-tk="fin_faellig"><h3>🔁 Fällige wiederkehrende Buchungen</h3>
+            {% for d in faellige %}
+            <div class="zeile-lst" style="display:flex;align-items:center;gap:10px;{{ '' if loop.last else 'border-bottom:1px solid var(--grau-linie)' }}">
+                <div style="flex:1;min-width:0"><strong>{{ d.name }}</strong> <span style="color:{{ 'var(--gruen)' if d.typ == 'einnahme' else 'var(--rot)' }}">{{ '+' if d.typ == 'einnahme' else '−' }} {{ d.betrag | euro }}</span><div class="feld-hinweis">{% if d.ueberfaellig %}⚠️ fällig seit {{ d.naechste_faellig | datum_de }}{% else %}fällig am {{ d.naechste_faellig | datum_de }}{% endif %}</div></div>
+                <form method="post" action="{{ url_for('finanzen.dauer_verbuchen', did=d.id) }}" style="margin:0"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-klein" title="Verbuchen">✅</button></form>
+            </div>
+            {% endfor %}
+            <div class="resize">◢</div>
+        </div>{% endif %}
+    </div></div>
+  </section>
+
+  {# ---------- Mitgliederverwaltung ---------- #}
+  <section class="dash-bereich" data-key="mitglieder">
+    <div class="dash-kopf"><span class="griff">⠿</span><h2><a href="{{ url_for('mitglieder.liste') }}" style="text-decoration:none;color:inherit">👥 Mitgliederverwaltung</a></h2><button class="klapp" type="button">▾</button></div>
+    <div class="dash-inhalt"><div class="dash-grid">
+        <div class="karte kachel k1" data-tk="mgl_gesamt"><a href="{{ url_for('mitglieder.liste') }}" style="text-decoration:none;color:inherit"><div class="wert">{{ gesamt }}</div><div class="label">Mitglieder</div></a><div class="resize">◢</div></div>
+        <div class="karte kachel k1" data-tk="mgl_aktiv"><a href="{{ url_for('mitglieder.liste') }}" style="text-decoration:none;color:inherit"><div class="wert">{{ aktive }}</div><div class="label">davon aktiv</div></a><div class="resize">◢</div></div>
+        {% if einst.modul_geburtstage %}
+        <div class="karte kachel k2" data-tk="geb"><h3>🎂 Geburtstage (nächste {{ geb_tage }} T.)</h3>
+            {% if geburtstage %}{% for g in geburtstage %}
+            <div class="zeile-lst" style="display:flex;align-items:center;gap:10px;{{ '' if loop.last else 'border-bottom:1px solid var(--grau-linie)' }}"><span style="font-size:20px">🎂</span><div style="flex:1;min-width:0"><a href="{{ url_for('mitglieder.detail', mid=g.id) }}"><strong>{{ g.name }}</strong></a><div class="feld-hinweis">{{ g.datum | datum_de }} · wird {{ g.alter }}</div></div><div>{% if g.tage == 0 %}<span class="badge badge-ehrenmitglied">🎉 heute</span>{% elif g.tage == 1 %}<span class="badge badge-offen">morgen</span>{% else %}<span class="badge badge-inaktiv">{{ g.tage }} T.</span>{% endif %}</div></div>
+            {% endfor %}{% else %}<p class="feld-hinweis">Keine in den nächsten {{ geb_tage }} Tagen.</p>{% endif %}
+            <div class="resize">◢</div>
+        </div>{% endif %}
+        {% if einst.modul_jubilaeen %}
+        <div class="karte kachel k2" data-tk="jub"><div style="display:flex;justify-content:space-between;align-items:center"><h3>🏆 Jubiläen</h3><a href="{{ url_for('dashboard.jubilaeen') }}" class="feld-hinweis">⚙️ Regeln</a></div>
+            {% if jubilaeen %}<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-top:8px">
+            {% for j in jubilaeen %}<a href="{{ url_for('mitglieder.detail', mid=j.id) }}" style="text-decoration:none;color:inherit;text-align:center"><div>{{ lorbeer(j.zahl) }}</div><div style="font-weight:700;font-size:13px">{{ j.name }}</div><div class="feld-hinweis">{{ j.label }} · {% if j.tage == 0 %}heute{% elif j.tage == 1 %}morgen{% else %}{{ j.tage }} T.{% endif %}</div></a>{% endfor %}
+            </div>{% else %}<p class="feld-hinweis">Keine im Zeitraum.</p>{% endif %}
+            <div class="resize">◢</div>
+        </div>{% endif %}
+    </div></div>
+  </section>
+
+  {# ---------- Nächste Termine ---------- #}
+  <section class="dash-bereich" data-key="termine">
+    <div class="dash-kopf"><span class="griff">⠿</span><h2><a href="{{ url_for('kalender.index') }}" style="text-decoration:none;color:inherit">📅 Nächste Termine</a></h2><button class="klapp" type="button">▾</button></div>
+    <div class="dash-inhalt"><div class="dash-grid">
+        <div class="karte kachel k4" data-tk="termine">
+            {% if naechste_termine %}{% for t in naechste_termine %}
+            <a href="{{ url_for('termine.detail', tid=t.id) }}" class="zeile-lst"
+               style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;{{ '' if loop.last else 'border-bottom:1px solid var(--grau-linie)' }}"><div style="text-align:center;min-width:52px"><div class="feld-hinweis" style="font-size:11px">{{ t.datum|wt }}</div><div style="font-weight:700">{{ t.datum[8:10] }}.{{ t.datum[5:7] }}.</div>{% if t.uhrzeit %}<div class="feld-hinweis">{{ t.uhrzeit }}</div>{% endif %}</div><div style="flex:1;min-width:0"><strong>{{ t.titel }}</strong>{% if t.ort %}<div class="feld-hinweis">📍 {{ t.ort }}</div>{% endif %}</div><span style="color:var(--text-schwach)">›</span></a>
+            {% endfor %}{% else %}<p class="feld-hinweis">Keine kommenden Termine. <a href="{{ url_for('kalender.index') }}">Zum Kalender</a></p>{% endif %}
+            <div class="resize">◢</div>
+        </div>
+    </div></div>
+  </section>
+
+  {# ---------- Anmeldungen ---------- #}
+  {% if einst.modul_veranstaltungen %}
+  <section class="dash-bereich" data-key="veranstaltungen">
+    <div class="dash-kopf"><span class="griff">⠿</span><h2><a href="{{ url_for('veranstaltungen.index') }}" style="text-decoration:none;color:inherit">🎟️ Anmeldungen</a></h2><button class="klapp" type="button">▾</button></div>
+    <div class="dash-inhalt"><div class="dash-grid">
+        <div class="karte kachel k4" data-tk="veranstaltungen">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><strong>🎟️ Anmeldestand</strong><a href="{{ url_for('kalender.index') }}" class="feld-hinweis">Zum Kalender →</a></div>
+            {% if veranstaltungen_dash %}{% for e in veranstaltungen_dash %}
+            <div class="zeile-lst" style="display:flex;align-items:center;gap:10px;{{ '' if loop.last else 'border-bottom:1px solid var(--grau-linie)' }}">
+                <div style="flex:1;min-width:0"><strong>{{ e.t.titel }}</strong>
+                    <div class="feld-hinweis">{% if e.t.datum %}{{ e.t.datum | datum_wt }} · {% endif %}{{ e.teilnehmer }}{% if e.t.max_teilnehmer %}/{{ e.t.max_teilnehmer }}{% endif %} Teilnehmende{% if e.t.min_teilnehmer and e.teilnehmer < e.t.min_teilnehmer %} · <span style="color:var(--rot)">min {{ e.t.min_teilnehmer }}</span>{% endif %}{% if e.offen %} · {{ e.offen | euro }} offen{% endif %}</div>
+                </div>
+                <a href="{{ url_for('termine.detail', tid=e.t.id) }}" class="feld-hinweis">→</a>
+            </div>
+            {% endfor %}{% else %}<p class="feld-hinweis">Keine kommenden Veranstaltungen. <a href="{{ url_for('kalender.index') }}#neu">Anlegen</a></p>{% endif %}
+            <div class="resize">◢</div>
+        </div>
+    </div></div>
+  </section>
+  {% endif %}
+
+</div>
+
+<script>
+(function () {
+    var container = document.getElementById('dash-bereiche');
+    var layout = {{ dash_layout_json | safe }};
+    var CSRF = "{{ csrf_token() }}";
+    function sect(k) { return container.querySelector('.dash-bereich[data-key="' + k + '"]'); }
+    function akt() { return sect('aktuelles'); }
+
+    // Reihenfolge, Einklappen, Kachelgrößen anwenden
+    (layout.order || []).forEach(function (k) { var s = sect(k); if (s) container.appendChild(s); });
+    if (akt()) container.insertBefore(akt(), container.firstChild);
+    (layout.collapsed || []).forEach(function (k) { var s = sect(k); if (s) s.classList.add('zu'); });
+    container.querySelectorAll('.dash-bereich').forEach(function (s) { var b = s.querySelector('.klapp'); if (b) b.textContent = s.classList.contains('zu') ? '▸' : '▾'; });
+    Object.keys(layout.size || {}).forEach(function (tk) {
+        var t = container.querySelector('.kachel[data-tk="' + tk + '"]'); if (!t) return;
+        var s = layout.size[tk]; if (s.w) t.style.gridColumn = 'span ' + s.w; if (s.h) t.style.height = s.h + 'px';
+    });
+
+    // Gespeicherte Kachel-Reihenfolge je Bereich anwenden
+    Object.keys(layout.torder || {}).forEach(function (k) {
+        var s = sect(k); if (!s) return;
+        var grid = s.querySelector('.dash-grid'); if (!grid) return;
+        var rest = [].slice.call(grid.querySelectorAll(':scope > .kachel[data-tk]'));
+        var sortiert = [];
+        (layout.torder[k] || []).forEach(function (tk) {
+            var i = rest.findIndex(function (t) { return t.dataset.tk === tk; });
+            if (i >= 0) sortiert.push(rest.splice(i, 1)[0]);
+        });
+        sortiert.concat(rest).forEach(function (t) { grid.appendChild(t); });
+    });
+
+    // Steuer-Buttons: je Kachel ein Auge (aus-/einblenden), je Bereich eine Breiten-Umschaltung (⇔)
+    container.querySelectorAll('.kachel[data-tk]').forEach(function (t) {
+        // Verschieben per Pfeil: klappt auf Touchgeräten und dort, wo Ziehen hakt
+        [['◀', -1, 'Nach vorn'], ['▶', 1, 'Nach hinten']].forEach(function (def) {
+            var pf = document.createElement('button');
+            pf.type = 'button'; pf.className = 'pfeilbtn'; pf.textContent = def[0];
+            pf.title = def[2] + ' schieben';
+            pf.addEventListener('click', function (e) {
+                e.preventDefault(); e.stopPropagation();
+                var raster = t.parentNode, gs = [].slice.call(raster.children), i = gs.indexOf(t);
+                var nb = gs[i + def[1]];
+                if (nb) { raster.insertBefore(def[1] < 0 ? t : nb, def[1] < 0 ? nb : t); speichern(); }
+            });
+            t.appendChild(pf);
+        });
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'augbtn'; b.title = 'Kachel ein-/ausblenden'; b.textContent = '🙈';
+        b.addEventListener('click', function (e) {
+            e.preventDefault(); e.stopPropagation();
+            t.classList.toggle('aus'); b.textContent = t.classList.contains('aus') ? '👁' : '🙈'; speichern();
+        });
+        t.appendChild(b);
+    });
+    var BREITEN = { 1: '⅛', 2: '¼', 3: '⅜', 4: '½', 5: '⅝', 6: '¾', 7: '⅞', 8: 'voll' };
+    container.querySelectorAll('.dash-bereich .dash-kopf').forEach(function (kopf) {
+        var s = kopf.closest('.dash-bereich');
+        function breite() { return parseInt(s.dataset.span) || 8; }
+        function setzen(w) { s.dataset.span = Math.max(1, Math.min(8, w)); }
+        // Schmaler / breiter in Achtel-Schritten
+        var minus = document.createElement('button');
+        minus.type = 'button'; minus.className = 'breite'; minus.textContent = '⇤';
+        var plus = document.createElement('button');
+        plus.type = 'button'; plus.className = 'breite'; plus.textContent = '⇥';
+        function beschriften() {
+            minus.title = 'Schmaler (aktuell ' + BREITEN[breite()] + ')';
+            plus.title = 'Breiter (aktuell ' + BREITEN[breite()] + ')';
+        }
+        beschriften();
+        minus.addEventListener('click', function () { setzen(breite() - 1); beschriften(); speichern(); });
+        plus.addEventListener('click', function () { setzen(breite() + 1); beschriften(); speichern(); });
+        kopf.appendChild(minus); kopf.appendChild(plus);
+    });
+    Object.keys(layout.spans || {}).forEach(function (k) { var s = sect(k); if (s) s.dataset.span = layout.spans[k]; });
+    (layout.hidden || []).forEach(function (tk) {
+        var t = container.querySelector('.kachel[data-tk="' + tk + '"]');
+        if (t) { t.classList.add('aus'); var a = t.querySelector('.augbtn'); if (a) a.textContent = '👁'; }
+    });
+
+    function speichern() {
+        var order = [].map.call(container.querySelectorAll('.dash-bereich'), function (s) { return s.dataset.key; });
+        var collapsed = [].map.call(container.querySelectorAll('.dash-bereich.zu'), function (s) { return s.dataset.key; });
+        var size = {};
+        container.querySelectorAll('.kachel[data-tk]').forEach(function (t) {
+            var m = (t.style.gridColumn || '').match(/span (\d+)/);
+            var h = parseInt(t.style.height) || 0;
+            if (m || h) size[t.dataset.tk] = { w: m ? parseInt(m[1]) : 2, h: h };
+        });
+        var spans = {};
+        container.querySelectorAll('.dash-bereich').forEach(function (s) { spans[s.dataset.key] = parseInt(s.dataset.span) || 8; });
+        var hidden = [].map.call(container.querySelectorAll('.kachel.aus[data-tk]'), function (t) { return t.dataset.tk; });
+        var torder = {};
+        container.querySelectorAll('.dash-bereich').forEach(function (s) {
+            var grid = s.querySelector('.dash-grid'); if (!grid) return;
+            torder[s.dataset.key] = [].map.call(grid.querySelectorAll(':scope > .kachel[data-tk]'),
+                                                function (t) { return t.dataset.tk; });
+        });
+        fetch("{{ url_for('dashboard.layout_speichern') }}", {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+            body: JSON.stringify({ v: 3, order: order, collapsed: collapsed, size: size, spans: spans,
+                                   hidden: hidden, torder: torder })
+        }).catch(function () {});
+    }
+
+    window.anpassenModus = function () {
+        var on = container.classList.toggle('anpassen');
+        document.getElementById('anpassenBtn').textContent = on ? '✓ Fertig' : '🔧 Anpassen';
+        var leiste = document.getElementById('anpassenLeiste');
+        if (leiste) { leiste.style.display = on ? 'flex' : 'none'; }
+    };
+
+    window.dashStandard = function () {
+        if (!confirm('Alle Anpassungen verwerfen und die Standard-Ansicht wiederherstellen?')) { return; }
+        fetch("{{ url_for('dashboard.layout_speichern') }}", {
+            method: 'POST', headers: {'Content-Type': 'application/json',
+                                      'X-CSRFToken': '{{ csrf_token() }}'},
+            body: '{}'
+        }).then(function () { location.reload(); }).catch(function () { location.reload(); });
+    };
+
+    // Ein-/Ausklappen
+    container.querySelectorAll('.klapp').forEach(function (btn) {
+        btn.addEventListener('click', function () { var s = btn.closest('.dash-bereich'); s.classList.toggle('zu'); btn.textContent = s.classList.contains('zu') ? '▸' : '▾'; speichern(); });
+    });
+
+    // Bereiche ziehen (Aktuelles bleibt fix oben)
+    var gezogen = null;
+    container.querySelectorAll('.dash-bereich:not(.fix)').forEach(function (s) {
+        var g = s.querySelector('.griff'); if (!g) return;
+        g.addEventListener('mousedown', function () { s.draggable = true; });
+        g.addEventListener('mouseup', function () { s.draggable = false; });
+        s.addEventListener('dragstart', function (e) {
+            gezogen = s; s.style.opacity = '.5';
+            if (e.dataTransfer) {                       // Safari zieht sonst gar nicht
+                e.dataTransfer.effectAllowed = 'move';
+                try { e.dataTransfer.setData('text/plain', s.dataset.key || 'x'); } catch (x) {}
+            }
+        });
+        s.addEventListener('dragend', function () { s.style.opacity = ''; s.draggable = false; if (gezogen) { gezogen = null; speichern(); } });
+    });
+    container.addEventListener('dragover', function (e) {
+        if (!gezogen) return; e.preventDefault();
+        var s = e.target.closest('.dash-bereich'); if (!s || s === gezogen || s.classList.contains('fix')) return;
+        var r = s.getBoundingClientRect();
+        // Nebeneinanderliegende Bereiche: links/rechts entscheidet, sonst oben/unten
+        var vor = (e.clientX - r.left) < r.width / 2;
+        if (e.clientY < r.top) vor = true; else if (e.clientY > r.bottom) vor = false;
+        container.insertBefore(gezogen, vor ? s : s.nextSibling);
+        if (akt()) container.insertBefore(akt(), container.firstChild);
+    });
+
+    // Kacheln per Drag umsortieren (nur im Anpassen-Modus, innerhalb ihres Bereichs)
+    var gezKachel = null;
+    container.querySelectorAll('.kachel[data-tk]').forEach(function (t) {
+        t.addEventListener('dragstart', function (e) {
+            if (!container.classList.contains('anpassen')) { e.preventDefault(); return; }
+            gezKachel = t; t.style.opacity = '.5';
+            e.stopPropagation();                    // nicht als Bereichs-Drag interpretieren
+            if (e.dataTransfer) {
+                e.dataTransfer.effectAllowed = 'move';
+                try { e.dataTransfer.setData('text/plain', t.dataset.tk || 'x'); } catch (x) {}
+            }
+        });
+        t.addEventListener('dragend', function () {
+            t.style.opacity = ''; t.draggable = false;
+            if (gezKachel) { gezKachel = null; speichern(); }
+        });
+        t.addEventListener('mousedown', function (e) {
+            // Ziehen nur im Anpassen-Modus und nicht am Größen-Griff / Auge starten
+            if (container.classList.contains('anpassen') &&
+                !e.target.closest('.resize') && !e.target.closest('.augbtn') &&
+                !e.target.closest('select') && !e.target.closest('button')) t.draggable = true;
+        });
+        t.addEventListener('mouseup', function () { t.draggable = false; });
+    });
+    container.querySelectorAll('.dash-grid').forEach(function (grid) {
+        grid.addEventListener('dragover', function (e) {
+            if (!gezKachel || gezKachel.parentNode !== grid) return;   // nur im eigenen Bereich
+            e.preventDefault(); e.stopPropagation();
+            var z = e.target.closest('.kachel'); if (!z || z === gezKachel) return;
+            var r = z.getBoundingClientRect();
+            var vor = (e.clientX - r.left) < r.width / 2;
+            if (e.clientY < r.top) vor = true; else if (e.clientY > r.bottom) vor = false;
+            grid.insertBefore(gezKachel, vor ? z : z.nextSibling);
+        });
+    });
+
+    // Kacheln in der Größe ziehen (nur im Anpassen-Modus)
+    var res = null;
+    container.addEventListener('mousedown', function (e) {
+        var h = e.target.closest('.resize'); if (!h || !container.classList.contains('anpassen')) return;
+        e.preventDefault(); var t = h.closest('.kachel');
+        res = { t: t, x: e.clientX, y: e.clientY, w: t.offsetWidth, h: t.offsetHeight };
+    });
+    window.addEventListener('mousemove', function (e) {
+        if (!res) return;
+        var grid = res.t.closest('.dash-grid'), gap = 10;
+        var cols = getComputedStyle(grid).gridTemplateColumns.split(' ').length;
+        var colW = (grid.clientWidth - (cols - 1) * gap) / cols;
+        var span = Math.max(1, Math.min(cols, Math.round((res.w + (e.clientX - res.x) + gap) / (colW + gap))));
+        res.t.style.gridColumn = 'span ' + span;
+        res.t.style.height = Math.max(70, Math.min(900, res.h + (e.clientY - res.y))) + 'px';
+    });
+    window.addEventListener('mouseup', function () { if (res) { res = null; speichern(); } });
+})();
+</script>
+{% endblock %}

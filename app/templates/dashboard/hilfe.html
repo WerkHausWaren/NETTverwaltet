@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Hilfe & Unterlagen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>❓ Hilfe & Unterlagen</h1>
+        <div class="sub">Handbuch und Kurzanleitungen eures Vereins – zum Lesen und Weitergeben</div></div>
+    <a href="{{ url_for('dashboard.was_neu') }}" class="btn btn-sekundaer">✨ Was ist neu?</a>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">📚 Unterlagen</h2>
+    {% if unterlagen %}
+    {% for u in unterlagen %}
+    <div style="display:flex;gap:12px;align-items:center;padding:10px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--grau-linie)' }}">
+        <a href="{{ url_for('dashboard.hilfe_lesen', schluessel=u.schluessel) if u.web else url_for('dashboard.hilfe_unterlage', dateiname=u.datei, laden=1) }}"
+           style="display:flex;gap:12px;align-items:center;flex:1;min-width:0;text-decoration:none;color:inherit">
+            <span style="font-size:22px;flex:none">{{ u.symbol }}</span>
+            <div style="flex:1;min-width:0"><strong>{{ u.name }}</strong>
+                {% if u.passend %} <span class="badge badge-gruppe" style="font-size:11px">für deine Rolle</span>{% endif %}
+                <div class="feld-hinweis">{{ 'Lesen – oder als PDF laden' if u.web else 'PDF' }} · {{ u.groesse }}</div></div>
+            <span style="flex:none;color:var(--text-schwach)">{{ '›' if u.web else '⬇︎' }}</span>
+        </a>
+        {% if u.web %}
+        <a href="{{ url_for('dashboard.hilfe_unterlage', dateiname=u.datei, laden=1) }}" title="PDF herunterladen"
+           class="btn btn-sekundaer btn-klein" style="flex:none">📄 PDF</a>
+        {% endif %}
+    </div>
+    {% endfor %}
+    <p class="feld-hinweis" style="margin:10px 0 0">Alle Unterlagen sind genau auf euren
+        Verein zugeschnitten – Kapitel zu Funktionen, die ihr nicht nutzt, fehlen bewusst.</p>
+    {% else %}
+    <p class="feld-hinweis">Die Unterlagen sind noch nicht hochgeladen –
+        das erledigt der nächste Handbuch-Bau automatisch mit.</p>
+    {% endif %}
+</div>
+{% endblock %}

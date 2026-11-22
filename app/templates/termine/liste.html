@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Termine{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Termine & Veranstaltungen</h1><div class="sub">Events planen und Teilnahmen verwalten</div></div>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Neuer Termin</h2>
+    <form method="post" action="{{ url_for('termine.neu') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld"><label>Titel</label><input type="text" name="titel" placeholder="z.B. Jahreshauptversammlung" required></div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Datum</label><input type="date" name="datum" required></div>
+            <div class="feld"><label>Uhrzeit von</label><input type="time" name="uhrzeit"></div>
+            <div class="feld"><label>bis</label><input type="time" name="uhrzeit_bis"></div>
+            <div class="feld"><label>Ort</label><input type="text" name="ort"></div>
+        </div>
+        <div class="feld"><label>Beschreibung</label><textarea name="beschreibung"></textarea></div>
+        <button type="submit" class="btn">＋ Termin anlegen</button>
+    </form>
+</div>
+
+{% if termine %}
+<table>
+    <thead><tr><th>Datum</th><th>Titel</th><th>Ort</th><th class="rechts">Zusagen</th></tr></thead>
+    <tbody>
+    {% for t in termine %}
+        <tr onclick="window.location='{{ url_for('termine.detail', tid=t.id) }}'" style="cursor:pointer">
+            <td>{{ t.datum | datum_de }}{% if t.uhrzeit %} · {{ t.uhrzeit }}{% endif %}</td>
+            <td><strong>{{ t.titel }}</strong>{% if t.serie_id %} <span title="Teil einer Serie">🔁</span>{% endif %}</td>
+            <td>{{ t.ort }}</td>
+            <td class="rechts">{{ t.zusagen }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="karte leer"><div class="icon">📅</div><p>Noch keine Termine angelegt.</p></div>
+{% endif %}
+{% endblock %}

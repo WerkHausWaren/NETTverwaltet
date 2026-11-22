@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Adressetiketten</title>
+<style>
+    body { font-family: -apple-system, Arial, sans-serif; color: #1e293b; margin: 12mm; }
+    .drucken { margin-bottom: 14px; }
+    .btn { background: #2563eb; color: #fff; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .raster { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; }
+    .etikett { border: 1px dashed #cbd5e1; border-radius: 4px; padding: 8px 10px; min-height: 28mm; font-size: 12px; }
+    .etikett .name { font-weight: 600; }
+    @media print {
+        .drucken { display: none; }
+        body { margin: 8mm; }
+        .etikett { border: none; }
+        .raster { gap: 0; }
+    }
+</style>
+</head>
+<body>
+<div class="drucken"><button class="btn" onclick="window.print()">🖨️ Drucken / Als PDF sichern</button>
+    &nbsp;<span style="color:#64748b;font-size:13px">3 Spalten – passend für gängige Etikettenbögen (z.B. 70×37 mm).</span></div>
+<div class="raster">
+    {% for m in mitglieder %}
+    <div class="etikett">
+        <div class="name">{{ m.anrede }} {{ m.titel }} {{ m.vorname }} {{ m.nachname }}</div>
+        {% if m.firma %}<div>{{ m.firma }}</div>{% endif %}
+        <div>{{ m.strasse }}</div>
+        <div>{{ m.plz }} {{ m.ort }}</div>
+        {% if m.land and m.land != 'Deutschland' %}<div>{{ m.land }}</div>{% endif %}
+    </div>
+    {% endfor %}
+</div>
+</body>
+</html>

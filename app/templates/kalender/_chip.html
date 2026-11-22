@@ -1,0 +1,14 @@
+{% if e.art == 'eigen' %}
+<a href="{{ url_for('termine.detail', tid=e.id) }}" class="kal-event kal-ev{{ ' kal-entwurf' if not e.aktiv }}"
+   style="background:{{ e.farbe|hexfarbe }};color:{{ e.farbe|kontrast }}{% if not e.aktiv %};opacity:.55{% endif %}"
+   data-art="eigen" data-titel="{{ e.titel|e }}" data-datum="{{ e.datum|datum_wt }}"
+   data-zeit="{{ e.uhrzeit|e }}" data-ort="{{ e.ort|e }}" data-besch="{{ e.beschreibung|e }}"
+   data-kat="{{ e.kategorie|e }}" data-farbe="{{ e.farbe|hexfarbe }}" data-aktiv="{{ e.aktiv }}"
+   >{{ '✎ ' if not e.aktiv }}{% if e.serie_id %}🔁 {% endif %}{{ e.uhrzeit }} {{ e.titel }}</a>
+{% else %}
+<span class="kal-event kal-ev" style="background:{{ e.farbe|hexfarbe }};color:{{ e.farbe|kontrast }};cursor:pointer"
+   data-art="extern" data-titel="{{ e.titel|e }}" data-datum="{{ e.datum|datum_wt }}"
+   data-zeit="{{ e.uhrzeit|e }}" data-ort="{{ e.ort|e }}" data-besch="{{ e.beschreibung|e }}"
+   data-quelle="{{ e.quelle|e }}" data-farbe="{{ e.farbe|hexfarbe }}" data-aktiv="1"
+   >{{ e.uhrzeit }} {{ e.titel }}</span>
+{% endif %}

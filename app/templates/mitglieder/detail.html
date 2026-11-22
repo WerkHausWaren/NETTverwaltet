@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% block title %}{{ m.vorname }} {{ m.nachname }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ m.titel }} {{ m.vorname }} {{ m.nachname }}</h1>
+        <div class="sub">Mitgliedsnummer {{ m.mitgliedsnummer or '—' }} ·
+            <span class="badge badge-{{ m.status|lower|replace('ä','ae') }}">{{ m.status }}</span>
+            {{ abwesend_badge(m, gross=True) }}
+            {% if hat_schluessel %}<a href="#schluessel" class="badge badge-gruppe" style="text-decoration:none">🔑 Schlüssel/Code</a>{% endif %}</div>
+    </div>
+    <div class="aktionen">
+        <a href="{{ url_for('mitglieder.bearbeiten', mid=m.id) }}" class="btn">✏️ Bearbeiten</a>
+        {% if m.email %}<a href="{{ url_for('kommunikation.neu', mitglied=m.id) }}" class="btn btn-sekundaer">✉️ E-Mail</a>{% endif %}
+        <a href="{{ url_for('dokumente.ausweis', mid=m.id) }}" target="_blank" class="btn btn-sekundaer">💳 Ausweis</a>
+        <a href="{{ url_for('zugaenge.index', mitglied=m.id) }}" class="btn btn-sekundaer">🔐 Zugang</a>
+        {% if m.status != 'ausgetreten' %}<a href="{{ url_for('mitglieder.austritt', mid=m.id) }}" class="btn btn-sekundaer">👋 Austritt</a>{% endif %}
+        <form method="post" action="{{ url_for('mitglieder.loeschen', mid=m.id) }}"
+              onsubmit="return confirm('Dieses Mitglied wirklich löschen?')" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-gefahr" type="submit">🗑️ Löschen</button>
+        </form>
+    </div>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Kontakt & Adresse</h2>
+    <dl class="detail-grid">
+        {% if m.firma %}<dt>Firma</dt><dd>{{ m.firma }}</dd>{% endif %}
+        <dt>Anschrift</dt><dd>{{ m.strasse }}<br>{{ m.plz }} {{ m.ort }}{% if m.land and m.land != 'Deutschland' %}, {{ m.land }}{% endif %}</dd>
+        <dt>E-Mail</dt><dd>{% if m.email %}<a href="mailto:{{ m.email }}">{{ m.email }}</a>{% else %}—{% endif %}
+            {% if m.email_weitere %}{% for e in m.email_weitere.split('\n') if e.strip() %}<br><a href="mailto:{{ e.strip() }}">{{ e.strip() }}</a> <span class="feld-hinweis">(weitere)</span>{% endfor %}{% endif %}</dd>
+        <dt>Telefon</dt><dd>{{ m.telefon or '—' }}</dd>
+        <dt>Mobil</dt><dd>{{ m.mobil or '—' }}</dd>
+        {% if design.sprachen_labels and m.sprachen %}
+        <dt>🌐 Sprachen</dt><dd>
+            {% for s in m.sprachen.split(',') if s.strip() %}<span class="badge badge-gruppe" title="{{ s.strip() }}">{{ sprach_kuerzel(s) }}</span> {% endfor %}
+        </dd>
+        {% endif %}
+        <dt>Kommunikation</dt><dd>
+            {% for w in (m.komm_genutzt or '').split(',') if w %}<span class="badge badge-gruppe">{{ w }}</span>{% else %}—{% endfor %}
+        </dd>
+        <dt>Erlaubt</dt><dd>
+            {% for w in (m.komm_erlaubt or '').split(',') if w %}<span class="badge badge-aktiv">{{ w }}</span>{% else %}—{% endfor %}
+        </dd>
+    </dl>
+    {% set wanr = (m.mobil or m.telefon) | wa_nummer %}
+    {% if wanr or m.telefon or m.mobil or m.email %}
+    <div class="aktionen" style="margin-top:14px;flex-wrap:wrap">
+        {% if wanr %}<a href="https://wa.me/{{ wanr }}" target="_blank" rel="noopener" class="btn btn-sekundaer btn-klein">💬 WhatsApp</a>{% endif %}
+        {% if m.mobil or m.telefon %}<a href="tel:{{ (m.mobil or m.telefon)|replace(' ','') }}" class="btn btn-sekundaer btn-klein">📞 Anrufen</a>{% endif %}
+        {% if m.email %}<a href="mailto:{{ m.email }}" class="btn btn-sekundaer btn-klein">✉️ E-Mail</a>{% endif %}
+    </div>
+    <div class="feld-hinweis" style="margin-top:6px">Signal lässt sich technisch nicht per Nummer-Link öffnen – Nummer: {{ m.mobil or m.telefon or '—' }}</div>
+    {% endif %}
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Mitgliedschaft</h2>
+    <dl class="detail-grid">
+        <dt>Geburtsdatum</dt><dd>{{ m.geburtsdatum | datum_de or '—' }}</dd>
+        <dt>Eintritt</dt><dd>{{ m.eintrittsdatum | datum_de or '—' }}</dd>
+        {% if m.austrittsdatum %}<dt>Austritt</dt><dd>{{ m.austrittsdatum | datum_de }}</dd>{% endif %}
+        <dt>Beitragsgruppe</dt><dd>{{ m.beitragsgruppe or '—' }}</dd>
+        <dt>Beitrag</dt><dd>{{ m.beitrag | euro }} ({{ m.zahlungsweise }}, {{ m.zahlungsart }})</dd>
+        {% if m.zahlungsart == 'SEPA-Lastschrift' %}
+        <dt>IBAN</dt><dd>{{ m.iban or '—' }}</dd>
+        <dt>Mandat</dt><dd>{{ m.mandatsreferenz or '—' }}{% if m.mandatsdatum %} vom {{ m.mandatsdatum | datum_de }}{% endif %}</dd>
+        {% endif %}
+        <dt>Lastschriftmandat</dt><dd>
+            {% if m.mandat_vorhanden %}<span class="badge badge-aktiv">✅ liegt vor</span>
+            {% else %}<span class="badge badge-ausgetreten">✗ fehlt</span>{% endif %}
+            {% if m.mandat_dateiname %} · <a href="{{ url_for('mitglieder.mandat', mid=m.id) }}" target="_blank">📎 Nachweis öffnen</a>{% endif %}
+            {% if m.zahlungsart == 'SEPA-Lastschrift' and not (m.mandatsreferenz and m.mandatsdatum) %}
+            <div class="feld-hinweis" style="margin-top:4px">⚠️ Für einen Einzug fehlt noch
+                {% if not m.mandatsreferenz %}die Mandatsreferenz{% endif %}{% if not m.mandatsreferenz and not m.mandatsdatum %} und {% endif %}{% if not m.mandatsdatum %}das Unterschriftsdatum{% endif %}.</div>
+            {% endif %}
+            <div style="margin-top:6px">
+                <a class="btn btn-sekundaer btn-klein"
+                   href="{{ url_for('mitglieder.zahlungsdaten', mid=m.id) }}">💳 Zahlungsangaben pflegen</a>
+            </div>
+        </dd>
+        <dt>Gruppen</dt><dd>
+            {% for g in gruppen %}<span class="badge badge-gruppe">{{ g.name }}</span>{% else %}—{% endfor %}
+        </dd>
+    </dl>
+</div>
+
+<div class="karte" id="schluessel">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+        <h2 style="margin:0">🔑 Schlüssel & Zugangscodes</h2>
+        <a href="{{ url_for('schluessel.index', mitglied=m.id) }}" class="btn btn-sekundaer btn-klein">＋ Ausgeben / verwalten</a>
+    </div>
+    {% if schluessel %}
+    <table style="margin-top:10px">
+        <thead><tr><th>Bezeichnung</th><th>Typ</th><th>Ausgegeben</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for s in schluessel %}
+            <tr>
+                <td><strong>{{ s.bezeichnung or '—' }}</strong>{% if s.typ == 'Zugangscode' and s.code_wert %} · <code>{{ s.code_wert }}</code>{% endif %}{% if s.notiz %}<br><span class="sub">{{ s.notiz }}</span>{% endif %}</td>
+                <td>{{ '🔑' if s.typ == 'Schlüssel' else '🔢' }} {{ s.typ }}</td>
+                <td>{{ s.ausgegeben_am | datum_de or '—' }}{% if s.befristet_bis %}<br><span class="sub">bis {{ s.befristet_bis | datum_de }}</span>{% endif %}</td>
+                <td>{% if s.zurueckgegeben_am %}<span class="badge badge-ausgetreten">zurück {{ s.zurueckgegeben_am | datum_de }}</span>{% else %}<span class="badge badge-aktiv">ausgegeben</span>{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="feld-hinweis" style="margin-top:8px">Kein Schlüssel und kein Zugangscode ausgegeben.
+        <a href="{{ url_for('schluessel.index', mitglied=m.id) }}">Jetzt ausgeben →</a></p>
+    {% endif %}
+</div>
+
+{% if eigene_felder %}
+<div class="karte">
+    <h2 style="margin-top:0">Weitere Angaben</h2>
+    <dl class="detail-grid">
+        {% for f in eigene_felder %}
+        <dt>{{ f.name }}</dt>
+        <dd>{% if f.typ == 'ja_nein' %}{{ 'Ja' if f.wert == '1' else 'Nein' }}
+            {%- elif f.typ == 'datum' and f.wert %}{{ f.wert | datum_de }}
+            {%- elif f.typ == 'mehrzeilig' and f.wert %}<span style="white-space:pre-wrap">{{ f.wert }}</span>
+            {%- else %}{{ f.wert or '—' }}{% endif %}</dd>
+        {% endfor %}
+    </dl>
+</div>
+{% endif %}
+
+{% if design and design.modul_kinder %}
+<div class="karte" id="kinder">
+    <h2 style="margin-top:0">👨‍👩‍👧 Kinder / Angehörige</h2>
+    {% if kinder %}
+    <table style="margin-bottom:14px">
+        <thead><tr><th>Name</th><th>Geburtsdatum</th><th>Austritt / geht bis</th><th>Notiz</th><th></th></tr></thead>
+        <tbody>
+        {% for k in kinder %}
+        <tr>
+            <td><strong>{{ k.name }}</strong></td>
+            <td>{{ k.geburtsdatum | datum_de }}</td>
+            <td>{% if k.austritt_datum %}{{ k.austritt_datum | datum_de }}{% else %}—{% endif %}</td>
+            <td>{{ k.notiz }}</td>
+            <td class="rechts">
+                <form method="post" action="{{ url_for('mitglieder.kind_loeschen', mid=m.id, kid=k.id) }}"
+                      onsubmit="return confirm('Eintrag „{{ k.name }}“ löschen?')" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer" style="padding:4px 10px">🗑️</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="feld-hinweis">Noch keine Einträge. Trage z. B. Kinder mit dem Datum ein, an dem sie die Kita verlassen – der Vorstand wird rechtzeitig (30 Tage vorher) per Push erinnert.</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('mitglieder.kind_neu', mid=m.id) }}"
+          style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld" style="margin:0"><label>Name</label><input name="name" required></div>
+        <div class="feld" style="margin:0"><label>Geburtsdatum</label><input type="date" name="geburtsdatum"></div>
+        <div class="feld" style="margin:0"><label>Austritt / geht bis</label><input type="date" name="austritt_datum"></div>
+        <div class="feld" style="margin:0;flex:1;min-width:140px"><label>Notiz</label><input name="notiz"></div>
+        <button class="btn">+ Hinzufügen</button>
+    </form>
+</div>
+{% endif %}
+
+{% if m.notizen %}
+<div class="karte"><h2 style="margin-top:0">Notizen</h2><p style="white-space:pre-wrap;margin:0">{{ m.notizen }}</p></div>
+{% endif %}
+
+<div class="karte">
+    <h2 style="margin-top:0">Beiträge</h2>
+    {% if beitraege %}
+    <table>
+        <thead><tr><th>Jahr</th><th>Bezeichnung</th><th class="rechts">Betrag</th><th>Fällig</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for b in beitraege %}
+            <tr>
+                <td>{{ b.jahr }}</td><td>{{ b.bezeichnung }}</td>
+                <td class="rechts">{{ b.betrag | euro }}</td>
+                <td>{{ b.faellig_am | datum_de }}</td>
+                <td>{% if b.bezahlt %}<span class="badge badge-bezahlt">bezahlt</span>{% else %}<span class="badge badge-offen">offen</span>{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="feld-hinweis">Noch keine Beiträge erfasst. Beiträge werden im Bereich „Beiträge / SEPA“ erzeugt.</p>
+    {% endif %}
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">💝 Spenden{% if spenden %} <span class="sub" style="font-weight:400">· gesamt {{ spenden_summe | euro }}</span>{% endif %}</h2>
+    {% if spenden %}
+    <table>
+        <thead><tr><th>Datum</th><th>Zweck</th><th>Art</th><th class="rechts">Betrag</th></tr></thead>
+        <tbody>
+        {% for s in spenden %}
+            <tr>
+                <td>{{ s.datum | datum_de }}</td>
+                <td>{{ s.zweck or '—' }}</td>
+                <td>{{ 'Sachspende' if s.art == 'sach' else 'Geldspende' }}</td>
+                <td class="rechts">{{ s.betrag | euro }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="feld-hinweis">Noch keine Spenden dieses Mitglieds erfasst. Spenden werden im Bereich „Spenden“ verwaltet.</p>
+    {% endif %}
+    <p class="feld-hinweis" style="margin-top:8px">🧾 Spendenbescheinigungen stellst du im Bereich
+        <a href="{{ url_for('spenden.index') }}">💝 Spenden</a> aus.</p>
+    {% if false %}
+    {% endif %}
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">💶 Buchungen dieses Mitglieds <span class="sub" style="font-weight:400">(Kassenbuch: Beiträge, Spenden …)</span></h2>
+    {% if buchungen_mitglied %}
+    <table class="tabelle">
+        <thead><tr><th>Datum</th><th>Kategorie</th><th>Text</th><th style="text-align:right">Betrag</th></tr></thead>
+        <tbody>
+        {% for b in buchungen_mitglied %}
+        <tr><td>{{ b.datum | datum_de }}</td>
+            <td class="feld-hinweis">{{ b.konto_nr or '' }} {{ b.konto_name or b.kategorie }}</td>
+            <td>{{ b.beschreibung }}</td>
+            <td style="text-align:right;color:{{ 'var(--gruen)' if b.typ=='einnahme' else 'var(--rot)' }}">
+                {{ '+' if b.typ=='einnahme' else '−' }} {{ b.betrag | euro }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="feld-hinweis">Noch keine Kassenbuch-Buchungen mit diesem Mitglied verknüpft.
+        Beim Verbuchen von Umsätzen kannst du Buchungen einem Mitglied zuordnen.</p>
+    {% endif %}
+
+{% endblock %}

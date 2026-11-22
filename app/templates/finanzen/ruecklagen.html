@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}Rücklagen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🏦 Rücklagen (§ 62 AO)</h1>
+        <div class="sub">Mittel zurücklegen, ohne die Gemeinnützigkeit zu gefährden – mit Nachweis fürs Finanzamt</div></div>
+    <div class="aktionen"><a href="{{ url_for('finanzen.liste') }}" class="btn btn-sekundaer">← Kassenbuch</a></div>
+</div>
+
+<div class="hilfe-box" style="margin-bottom:14px">💡 <strong>Warum das wichtig ist:</strong> Gemeinnützige Vereine
+    müssen ihre Mittel grundsätzlich <strong>zeitnah</strong> verwenden (bis Ende des übernächsten Jahres).
+    Wer Geld länger behalten will, braucht dafür eine <strong>dokumentierte Rücklage</strong>. Diese Seite hält
+    fest, wofür und wann etwas zurückgelegt wurde – genau das fragt das Finanzamt bei der Prüfung.</div>
+
+{% if faellig %}
+<div class="karte" style="border:2px solid var(--fehler-rand);background:var(--fehler-grund)">
+    <h2 style="margin-top:0;color:var(--fehler-text)">⏰ Verwendungsfrist abgelaufen</h2>
+    <p style="margin:0 0 8px">Diese Rücklagen sollten inzwischen verwendet (oder aufgelöst) sein:</p>
+    <ul style="margin:0">
+        {% for r in faellig %}<li><strong>{{ r.bezeichnung }}</strong> ({{ r.betrag | euro }}) –
+            geplant bis {{ r.verwendung_bis | datum_de }}</li>{% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<div class="karten-reihe" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+    <div class="karte"><div class="feld-hinweis">Rücklagen-Bestand</div>
+        <div style="font-size:26px;font-weight:800">{{ bestand | euro }}</div>
+        <div class="feld-hinweis">{{ offen | length }} offene Rücklage{{ 'n' if offen | length != 1 }}</div></div>
+    <div class="karte"><div class="feld-hinweis">davon freie Rücklage</div>
+        <div style="font-size:26px;font-weight:800">{{ frei_bestand | euro }}</div>
+        <div class="feld-hinweis">muss nicht aufgelöst werden</div></div>
+    <div class="karte" style="background:var(--flaeche-2)"><div class="feld-hinweis">Freie Rücklage {{ wj_label }} – Höchstbetrag</div>
+        <div style="font-size:26px;font-weight:800;color:var(--gruen)">{{ rechnung.hoechstbetrag | euro }}</div>
+        {% if rechnung.hoechstbetrag > 0 %}
+        <button type="button" class="btn btn-sekundaer btn-klein" style="margin-top:6px"
+                onclick="freieRuecklage({{ '%.2f' % rechnung.hoechstbetrag }})">↓ Diesen Betrag eintragen</button>
+        {% else %}<div class="feld-hinweis">rechnerisch möglich in diesem Jahr</div>{% endif %}</div>
+</div>
+
+<details class="karte">
+    <summary style="cursor:pointer;font-weight:600">🧮 Wie sich der Höchstbetrag der freien Rücklage berechnet</summary>
+    <table class="tabelle no-sort" style="margin-top:10px">
+        <tbody>
+        <tr><td>Überschuss aus <strong>Vermögensverwaltung</strong> (z. B. Zinsen, Vermietung)</td>
+            <td class="rechts">{{ rechnung.vv_ueberschuss | euro }}</td></tr>
+        <tr><td>davon <strong>1/3</strong> (§ 62 Abs. 1 Nr. 4 AO)</td>
+            <td class="rechts">{{ rechnung.vv_drittel | euro }}</td></tr>
+        <tr><td>Überschuss der <strong>übrigen Bereiche</strong> (ideell, Zweckbetrieb, wirtschaftlich)</td>
+            <td class="rechts">{{ rechnung.sonstige | euro }}</td></tr>
+        <tr><td>davon <strong>10 %</strong></td><td class="rechts">{{ rechnung.sonstige_zehntel | euro }}</td></tr>
+        <tr style="font-weight:800;border-top:2px solid var(--linie)">
+            <td>Höchstbetrag freie Rücklage {{ wj_label }}</td>
+            <td class="rechts">{{ rechnung.hoechstbetrag | euro }}</td></tr>
+        </tbody>
+    </table>
+    <p class="feld-hinweis" style="margin:8px 0 0">Diese Rechnung beruht auf den gebuchten Beträgen des
+        Wirtschaftsjahres und den zugeordneten Sphären. Sie ist eine <strong>Orientierungshilfe</strong> –
+        im Zweifel bitte mit der Steuerberatung abstimmen. Nicht ausgeschöpfte Beträge dürfen in den beiden
+        Folgejahren nachgeholt werden.</p>
+</details>
+
+<div class="karte">
+    <h2 style="margin-top:0">Bestehende Rücklagen</h2>
+    {% if offen %}
+    <div class="tabellen-scroll">
+    <table class="tabelle">
+        <thead><tr><th>Bezeichnung</th><th>Art</th><th>Gebildet</th><th>Zu verwenden bis</th>
+            <th class="rechts">Betrag</th><th class="rechts">Auflösen</th></tr></thead>
+        <tbody>
+        {% for r in offen %}
+        <tr>
+            <td><strong>{{ r.bezeichnung }}</strong>
+                {% if r.zweck %}<br><span class="feld-hinweis">{{ r.zweck }}</span>{% endif %}</td>
+            <td><span class="badge badge-gruppe">{{ (namen.get(r.art) or r.art or '–').split('(')[0] | trim }}</span></td>
+            <td>{{ r.gebildet_am | datum_de }}</td>
+            <td>{% if r.verwendung_bis %}<span style="{{ 'color:var(--rot);font-weight:700' if r.verwendung_bis < heute }}">{{ r.verwendung_bis | datum_de }}</span>
+                {% else %}<span class="feld-hinweis">{{ 'unbefristet' if r.art == 'frei' else '–' }}</span>{% endif %}</td>
+            <td class="rechts" style="font-weight:700">{{ r.betrag | euro }}</td>
+            <td class="rechts" style="white-space:nowrap">
+                <form method="post" style="display:inline-flex;gap:4px;align-items:center"
+                      onsubmit="return confirm('Rücklage „{{ r.bezeichnung }}“ als aufgelöst vermerken?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="aktion" value="aufloesen">
+                    <input type="hidden" name="id" value="{{ r.id }}">
+                    <input type="date" name="aufgeloest_am" value="{{ heute }}" style="width:145px">
+                    <button class="btn btn-sekundaer btn-klein">✓ aufgelöst</button>
+                </form>
+                <form method="post" style="display:inline" onsubmit="return confirm('Diesen Eintrag löschen?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="aktion" value="loeschen">
+                    <input type="hidden" name="id" value="{{ r.id }}">
+                    <button class="btn btn-sekundaer btn-klein" title="Eintrag löschen">✕</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="feld-hinweis">Noch keine Rücklagen gebildet.</p>
+    {% endif %}
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">＋ Rücklage bilden</h2>
+    <form method="post" id="rl-form" style="scroll-margin-top:16px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld-reihe">
+            <div class="feld"><label>Bezeichnung *</label>
+                <input type="text" name="bezeichnung" required placeholder="z. B. Neue Bestuhlung Saal"></div>
+            <div class="feld" style="max-width:150px"><label>Betrag *</label>
+                <input type="text" name="betrag" required inputmode="decimal" placeholder="2.500,00"></div>
+            <div class="feld" style="max-width:170px"><label>Gebildet am</label>
+                <input type="date" name="gebildet_am" value="{{ heute }}"></div>
+        </div>
+        <div class="feld"><label>Art der Rücklage</label>
+            <select name="art" id="art-select" onchange="artHinweis()">
+                {% for key, name, hilfe in arten %}<option value="{{ key }}" data-hilfe="{{ hilfe }}">{{ name }}</option>{% endfor %}
+            </select>
+            <div class="feld-hinweis" id="art-hinweis">{{ arten[0][2] }}</div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Wofür genau? <span class="feld-hinweis">(Pflicht bei zweckgebundenen Rücklagen)</span></label>
+                <input type="text" name="zweck" placeholder="z. B. Ersatz der 60 Stühle im großen Saal"></div>
+            <div class="feld" style="max-width:200px"><label>Zu verwenden bis</label>
+                <input type="date" name="verwendung_bis">
+                <div class="feld-hinweis">bei freier Rücklage leer lassen</div></div>
+        </div>
+        <div class="feld"><label>Notiz (z. B. Vorstandsbeschluss vom …)</label>
+            <input type="text" name="notiz" placeholder="Beschluss der Vorstandssitzung vom 12.03.2026"></div>
+        <button class="btn">🏦 Rücklage bilden</button>
+    </form>
+</div>
+
+{% if aufgeloest %}
+<details class="karte">
+    <summary style="cursor:pointer;font-weight:600">📁 Aufgelöste Rücklagen ({{ aufgeloest | length }})</summary>
+    <table class="tabelle no-sort" style="margin-top:10px">
+        <thead><tr><th>Bezeichnung</th><th>Gebildet</th><th>Aufgelöst</th><th class="rechts">Betrag</th></tr></thead>
+        <tbody>
+        {% for r in aufgeloest %}
+        <tr style="opacity:.7"><td>{{ r.bezeichnung }}</td><td>{{ r.gebildet_am | datum_de }}</td>
+            <td>{{ r.aufgeloest_am | datum_de }}</td>
+            <td class="rechts">{{ (r.aufgeloest_betrag or r.betrag) | euro }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</details>
+{% endif %}
+
+<script>
+function freieRuecklage(betrag) {
+    var f = document.getElementById('rl-form');
+    document.getElementById('art-select').value = 'frei';
+    artHinweis();
+    f.bezeichnung.value = f.bezeichnung.value || 'Freie Rücklage {{ wj_label }}';
+    f.betrag.value = String(betrag).replace('.', ',');
+    f.verwendung_bis.value = '';
+    f.scrollIntoView({behavior: 'smooth'});
+    f.bezeichnung.focus();
+}
+function artHinweis() {
+    var s = document.getElementById('art-select');
+    document.getElementById('art-hinweis').textContent = s.options[s.selectedIndex].dataset.hilfe;
+}
+</script>
+{% endblock %}

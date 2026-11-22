@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Info senden{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>✉️ Info / Voucher senden</h1><div class="sub">{{ t.titel }} · {{ t.datum | datum_de }}</div></div>
+    <div class="aktionen">
+        <a href="{{ url_for('kommunikation.vorlagen_veranstaltungen') }}" class="btn btn-sekundaer">📧 Vorlagen bearbeiten</a>
+        <a href="{{ url_for('veranstaltungen.detail', tid=t.id) }}" class="btn btn-sekundaer">Zurück</a>
+    </div>
+</div>
+
+<form method="post" action="{{ url_for('veranstaltungen.mailen', tid=t.id) }}" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="karte">
+        <h2 style="margin-top:0">Vorlage</h2>
+        <select id="vorlage" onchange="vorlageWaehlen()" style="min-width:280px">
+            <option value="">— eigene Nachricht —</option>
+            {% for key, v in vorlagen.items() %}<option value="{{ key }}">{{ namen.get(key) or v[0] }}</option>{% endfor %}
+        </select>
+        <p class="feld-hinweis" style="margin-top:8px">Platzhalter: <code>{anmelder}</code> <code>{veranstaltung}</code> <code>{datum}</code> <code>{ort}</code> <code>{betrag}</code> <code>{teilnehmer}</code> <code>{voucher_link}</code> <code>{feedback_link}</code> <code>{vereinsname}</code></p>
+        <div class="feld"><label>Betreff</label><input type="text" name="betreff" id="betreff"></div>
+        <div class="feld"><label>Nachricht</label><textarea name="inhalt" id="inhalt" style="min-height:220px"></textarea></div>
+        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" name="signatur" value="1" {{ 'checked' if signatur_aktiv }} {{ 'disabled' if not signatur_aktiv }}>
+            Vereins-Signatur (mit Logo) unter die Mail setzen
+            {% if not signatur_aktiv %}<span class="feld-hinweis">(Signatur ist in den <a href="{{ url_for('einstellungen.index') }}">Einstellungen</a> ausgeschaltet)</span>{% endif %}
+        </label>
+        {% if signatur_aktiv and signatur_text %}
+        <pre style="margin:8px 0 0;background:var(--flaeche-3);border:1px solid var(--linie);border-radius:8px;padding:10px 12px;white-space:pre-wrap;font-family:inherit;font-size:13px">{{ signatur_text }}</pre>
+        <p class="feld-hinweis" style="margin:4px 0 0">Dazu kommen automatisch Logo, Vereinsname und Anschrift – wie bei Serien-E-Mails.</p>
+        {% endif %}
+    </div>
+
+    <div class="karte">
+        <h2 style="margin-top:0">📎 Anhänge <span class="feld-hinweis">(gehen an alle ausgewählten Empfänger:innen)</span></h2>
+        <div class="feld"><label>Dateien hochladen</label><input type="file" name="anhang_upload" multiple></div>
+        {% if dokumente %}
+        <div class="feld"><label>Aus den Vereinsunterlagen</label>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:4px">
+                {% for d in dokumente %}
+                <label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" name="anhang_dok" value="{{ d.id }}"> <span>📄 {{ d.titel or d.original_name }}</span></label>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% if dms_dateien %}
+        <div class="feld"><label>Aus der Dateiablage</label>
+            <select name="anhang_dms" multiple size="6" style="width:100%;font-family:monospace">
+                {% for f in dms_dateien %}<option value="{{ f.pfad }}">{{ f.ordner }} / {{ f.name }}</option>{% endfor %}
+            </select>
+            <div class="feld-hinweis">Mehrfachauswahl mit Cmd/Strg.</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="karte">
+        <h2 style="margin-top:0">Empfänger:innen <span class="feld-hinweis">(nur mit E-Mail-Adresse)</span></h2>
+        <p><label style="cursor:pointer"><input type="checkbox" onclick="document.querySelectorAll('input[name=empfaenger]').forEach(c=>c.checked=this.checked)"> alle auswählen</label></p>
+        {% if anmeldungen %}
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:4px">
+            {% for a in anmeldungen %}
+            <label class="einw-zeile" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="empfaenger" value="{{ a.id }}" checked style="margin-top:3px">
+                <span>{{ a.anmelder_name }} <span class="sub">({{ a.email }})</span>
+                {% if gesendet.get(a.id) %}
+                    <br><span class="sub" title="zuletzt: {{ gesendet[a.id].letzte }}">✉️ {{ gesendet[a.id].n }}× erhalten · zuletzt: „{{ gesendet[a.id].letzte | truncate(38) }}“ {{ gesendet[a.id].wann[:10] | datum_de }}</span>
+                {% else %}
+                    <br><span class="sub" style="opacity:.7">✉️ noch keine Mail erhalten</span>
+                {% endif %}
+                </span></label>
+            {% endfor %}
+        </div>
+        {% else %}<p class="feld-hinweis">Keine Anmeldungen mit E-Mail-Adresse vorhanden.</p>{% endif %}
+    </div>
+    <button type="submit" class="btn" {{ 'disabled' if not anmeldungen }}>✉️ Senden</button>
+</form>
+
+{% if protokoll %}
+<div class="karte" style="margin-top:16px">
+    <h2 style="margin-top:0">📨 Versand-Protokoll <span class="feld-hinweis">(diese Veranstaltung, neueste zuerst)</span></h2>
+    <table>
+        <thead><tr><th>Wann</th><th>Empfänger:innen</th><th>Betreff</th><th>📎</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for p in protokoll %}
+        <tr>
+            <td class="sub" style="white-space:nowrap">{{ p.gesendet_am[:16].replace('T', ' ') }}</td>
+            <td>{{ p.anmelder_name or '—' }} <span class="sub">({{ p.email }})</span></td>
+            <td>{{ p.betreff }}{% if p.automatisch %} <span class="badge badge-gruppe" style="font-size:11px" title="automatische Anmeldebestätigung">auto</span>{% endif %}</td>
+            <td class="sub">{{ p.anhaenge or '' }}</td>
+            <td>{% if p.ok %}<span style="color:var(--gruen)">✓ gesendet</span>{% else %}<span style="color:var(--rot)">✗ fehlgeschlagen</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<script>
+    var VORLAGEN = {{ vorlagen | tojson }};
+    function vorlageWaehlen(){
+        var k = document.getElementById('vorlage').value;
+        if(!k){ return; }
+        document.getElementById('betreff').value = VORLAGEN[k][0];
+        document.getElementById('inhalt').value = VORLAGEN[k][1];
+    }
+</script>
+{% endblock %}

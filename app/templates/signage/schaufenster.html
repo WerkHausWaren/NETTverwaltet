@@ -1,0 +1,841 @@
+<!doctype html>
+<html lang="de" data-modus="{{ 'dunkel' if m.dunkel else 'hell' }}">
+<head>
+{% include "signage/_kopf.html" %}
+<meta name="apple-mobile-web-app-title" content="Schaufenster">
+<title>{{ geraet_name or 'Schaufenster' }}</title>
+<style>
+{% include "signage/_stil.html" %}
+{% set f = m.f %}
+html,body{overflow:hidden;cursor:none}
+#buehne{position:absolute;left:0;top:0;right:0;bottom:15vmin}
+.folie{position:absolute;left:0;top:0;right:0;bottom:0;opacity:0;-webkit-transition:opacity .9s ease;transition:opacity .9s ease;
+  box-sizing:border-box;padding:6vmin 7vmin 4vmin;overflow:hidden}
+.folie.zeigen{opacity:1}
+.folie h2{font-size:8vmin;font-weight:700;line-height:1.05;margin:1.4vmin 0 3.4vmin;letter-spacing:-.015em}
+/* Listen: Heute / Diese Woche */
+.spalten{-webkit-column-count:2;-moz-column-count:2;column-count:2;-webkit-column-gap:7vmin;column-gap:7vmin}
+.gruppe{-webkit-column-break-inside:avoid;break-inside:avoid;page-break-inside:avoid;margin-bottom:2.2vmin}
+.tag{font-size:2.4vmin;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:{{ f.akzent_schrift }};
+  padding:1.2vmin 0 .6vmin}
+.zeile{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;
+  border-top:1px solid {{ f.linie }};padding:1.5vmin 0}
+.zeile .z{width:22vmin;white-space:nowrap;-webkit-flex-shrink:0;flex-shrink:0;font-size:3.3vmin;color:{{ f.leise }}}
+.zeile .c{width:.8vmin;height:4.4vmin;border-radius:.4vmin;background:{{ f.linie }};margin-right:2.4vmin;-webkit-flex-shrink:0;flex-shrink:0}
+.zeile .t{font-size:3.9vmin;font-weight:600;line-height:1.15}
+.zeile .o{display:block;font-size:2.6vmin;font-weight:400;color:{{ f.leise }};margin-top:.3vmin}
+.spalten .zeile .t{font-size:3.2vmin}
+.spalten .zeile{padding:1.05vmin 0}
+.spalten .zeile .c{height:3.6vmin}
+.spalten .zeile .z{width:20vmin;font-size:2.7vmin;white-space:nowrap}
+/* Termin */
+.termin{padding:0}
+.termin .bild{width:56%;background-color:{{ f.akzent }};background-position:center;background-size:cover;background-repeat:no-repeat;position:relative;-webkit-flex-shrink:0;flex-shrink:0;overflow:hidden}
+.termin .bild.leer{background-image:-webkit-repeating-linear-gradient(135deg,rgba(255,255,255,.07) 0,rgba(255,255,255,.07) 2vmin,transparent 2vmin,transparent 5vmin);
+  background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.07) 0,rgba(255,255,255,.07) 2vmin,transparent 2vmin,transparent 5vmin)}
+.termin .bild .ersatz{position:absolute;left:5vmin;right:5vmin;bottom:5vmin;font-size:7vmin;font-weight:700;line-height:1.05;color:#fff;text-shadow:0 .3vmin 1.6vmin rgba(0,0,0,.35)}
+.ecke{position:absolute;left:3vmin;top:3vmin;text-align:center}
+/* Datumskachel: dezent – helles Kärtchen, Vereinsfarbe nur als feine Linie oben */
+.kal{background:{{ 'rgba(18,20,23,.86)' if m.dunkel else 'rgba(255,255,255,.93)' }};color:{{ f.tinte }};border-radius:1vmin;width:11vmin;
+  padding:1vmin 0 1.1vmin;border-top:.55vmin solid {{ f.akzent }};box-shadow:0 .3vmin 1.4vmin rgba(0,0,0,.18)}
+.kal .n{font-size:1.6vmin;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:{{ f.leise }}}
+.kal .d{font-size:5.6vmin;font-weight:300;line-height:1;margin:.4vmin 0 .2vmin}
+.kal .mo{font-size:1.7vmin;font-weight:600;color:{{ f.leise }}}
+.ecke .bald{display:block;margin-top:1vmin;font-size:1.9vmin;padding:.6vmin 1vmin;box-shadow:0 .3vmin 1.2vmin rgba(0,0,0,.2)}
+.schleier{position:absolute;left:0;top:0;right:0;bottom:0;background:rgba(20,20,20,.45)}
+.band{position:absolute;left:0;right:0;bottom:7vmin;background:#c62828;color:#fff;font-size:5vmin;font-weight:800;
+  letter-spacing:.22em;text-transform:uppercase;text-align:center;padding:1.4vmin 0}
+.termin .text{padding:4.6vmin 5vmin 3.4vmin;box-sizing:border-box;min-height:0}
+.inhalt{-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-height:0;overflow:hidden}
+.marke{display:inline-block;font-size:2.3vmin;font-weight:700;letter-spacing:.04em;padding:.8vmin 1.6vmin;border-radius:.8vmin;margin:0 0 2vmin}
+.marke.bald{background:{{ f.tinte }};color:{{ f.grund }};margin:0}
+.marke.hl{border:.3vmin solid {{ f.akzent }};color:{{ f.akzent_schrift }}}
+.kat{font-size:2.4vmin;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:{{ f.leise }};margin-bottom:1.2vmin}
+.kat i{display:inline-block;width:1.8vmin;height:1.8vmin;border-radius:50%;margin-right:1.2vmin;vertical-align:-.1vmin}
+.termin h3{font-size:5.6vmin;font-weight:700;line-height:1.08;margin:0 0 2vmin;letter-spacing:-.01em;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.termin .wann{font-size:3.4vmin;font-weight:600;margin-bottom:.8vmin}
+.termin .wo,.termin .preis{font-size:2.9vmin;color:{{ f.leise }};margin-bottom:.6vmin}
+.status{display:inline-block;font-size:2.7vmin;font-weight:700;padding:1vmin 2vmin;border-radius:5vmin;margin-top:1.8vmin;line-height:1.2}
+{% if m.dunkel %}
+.st-abgesagt{background:#c62828;color:#fff}.st-voll{background:#4a1f1d;color:#ffb4ab}.st-wenig{background:#45310c;color:#ffd27a}
+.st-frei{background:#173a28;color:#8fe0b0}.st-ohne{background:{{ f.flaeche }};color:{{ f.tinte }};border:1px solid {{ f.linie }}}
+{% else %}
+.st-abgesagt{background:#c62828;color:#fff}.st-voll{background:#fde8e6;color:#a3221a}.st-wenig{background:#fff1d6;color:#8a4b00}
+.st-frei{background:#e3f4ea;color:#1d6b40}.st-ohne{background:{{ f.flaeche }};color:{{ f.tinte }};border:1px solid {{ f.linie }}}
+{% endif %}
+.st-anmeldung{background:{{ f.akzent }};color:{{ f.auf_akzent }}}
+.unten{-webkit-flex-shrink:0;flex-shrink:0;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end;
+  -webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between;padding-top:2.4vmin}
+.qrzeile{-webkit-box-align:center;-webkit-align-items:center;align-items:center}
+.qrkarte{background:#fff;border-radius:1.4vmin;padding:1.1vmin;border:1px solid {{ f.linie }};-webkit-flex-shrink:0;flex-shrink:0}
+.qrkarte img{display:block;width:16vmin;height:16vmin}
+.qrzeile span{font-size:2.8vmin;font-weight:700;margin-left:2.4vmin;line-height:1.25;color:{{ f.akzent_schrift }};max-width:20vmin}
+.sponsor{text-align:right;margin-left:3vmin;min-width:0}
+.sponsor .ueberzeile{font-size:1.8vmin;letter-spacing:.1em;margin-bottom:1vmin}
+.sponsor img{display:inline-block;max-height:8vmin;max-width:28vmin;background:#fff;border-radius:.8vmin;padding:.6vmin}
+.sponsor b{font-size:3vmin}
+/* Listen-Status */
+.zeile .st{display:inline-block;font-size:2.1vmin;font-weight:700;padding:.3vmin 1.3vmin;border-radius:3vmin;margin-left:1.4vmin;white-space:nowrap;vertical-align:.3vmin}
+.zeile.abg .t{text-decoration:line-through;color:{{ f.leise }}}
+/* Eigene Folien */
+.eigen-bild{padding:0;background-color:{{ f.flaeche }};background-position:center;background-repeat:no-repeat;background-size:contain}
+.eigen-bild.fuellen{background-size:cover}
+.eigen-text{-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-box-align:center;-webkit-align-items:center;align-items:center;padding:6vmin 9vmin}
+.eigen-text h2{font-size:7.6vmin;max-width:100%}
+.eigen-text p{font-size:4vmin;line-height:1.45;margin:0;white-space:pre-line}
+.eigen-text .qrkarte{margin-left:6vmin}
+.eigen-text .qrkarte img{width:30vmin;height:30vmin}
+.hg-farbe{background:{{ f.akzent }};color:{{ f.auf_akzent }}}
+.hg-farbe .strich{background:{{ f.auf_akzent }}}
+.hg-dunkel{background:#121417;color:#eef1f4}
+.hg-hell{background:{{ f.grund }}}
+/* Text, App, Willkommen */
+.text-folie{-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;padding-left:9vmin;padding-right:12vmin}
+.text-folie h2{font-size:7.4vmin;max-width:90%}
+.text-folie p{font-size:3.9vmin;line-height:1.45;margin:0;max-width:78%;white-space:pre-line}
+.app-folie{-webkit-box-align:center;-webkit-align-items:center;align-items:center}
+.app-folie p{font-size:3.6vmin;line-height:1.45;margin:0 0 3vmin;max-width:92%}
+.app-folie .web{font-size:3.4vmin;font-weight:700;color:{{ f.akzent_schrift }}}
+.app-folie .qrkarte{margin-left:6vmin}
+.app-folie .qrkarte img{width:38vmin;height:38vmin}
+.willkommen{-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-box-align:center;-webkit-align-items:center;align-items:center;text-align:center}
+.willkommen .logo-gross{height:34vmin;margin-bottom:4vmin}
+.willkommen h2{margin:0 0 1.6vmin}
+.willkommen p{font-size:3.8vmin;margin:0;color:{{ f.leise }}}
+/* Teaser auf der Termin-Folie */
+.termin .teaser{font-size:3vmin;line-height:1.4;margin:0 0 2vmin;color:{{ f.tinte }};opacity:.86;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+/* Hausfolien */
+.haus{-webkit-box-align:center;-webkit-align-items:center;align-items:center;padding:6vmin 9vmin;background:{{ f.grund }}}
+.haus h2{font-size:8vmin}
+.haus p{font-size:3.8vmin;line-height:1.45;margin:0;max-width:92%}
+.haus .qrspalte{margin-left:6vmin;text-align:center;-webkit-flex-shrink:0;flex-shrink:0}
+/* QR-Karte immer quadratisch: nie auf die Breite der Bildunterschrift dehnen */
+.qrkarte{display:inline-block;line-height:0;vertical-align:top}
+.qrkarte img{display:block}
+.qrspalte{max-width:34vmin}
+.haus .qrkarte img{width:28vmin;height:28vmin}
+.haus .qrspalte span{display:block;margin-top:1.6vmin;font-size:2.8vmin;font-weight:700;color:{{ f.akzent_schrift }}}
+.haus.stern{background:{{ '#241c06' if m.dunkel else '#fff8e6' }};border-top:1.2vmin solid #f0b429}
+.haus.stern .strich{background:#f0b429}
+.haus.stern .ueberzeile{color:{{ '#f5c94a' if m.dunkel else '#8a5d00' }}}
+.haus.stern .qrspalte span{color:{{ '#f5c94a' if m.dunkel else '#8a5d00' }}}
+.stern-gross{width:16vmin;height:16vmin;margin-right:5vmin;-webkit-flex-shrink:0;flex-shrink:0}
+.kanaele{margin-top:4vmin}
+.kanal{background:{{ f.flaeche }};border:1px solid {{ f.linie }};border-radius:1.6vmin;padding:2.4vmin;margin-right:3vmin;text-align:center}
+.kanal .qrkarte{display:inline-block}
+.kanal .qrkarte img{width:20vmin;height:20vmin}
+.kanal b{display:block;font-size:3vmin;margin-top:1.4vmin}
+.kanal small{display:block;font-size:2.4vmin;color:{{ f.leise }};margin-top:.4vmin}
+.haus.mit-bild{padding:0;-webkit-box-align:stretch;-webkit-align-items:stretch;align-items:stretch}
+.haus.mit-bild .hbild{width:48%;-webkit-flex-shrink:0;flex-shrink:0;align-self:stretch;-webkit-align-self:stretch;
+  background-size:cover;background-position:center;background-repeat:no-repeat}
+.haus.mit-bild .htext{padding:5vmin 5.5vmin 3.4vmin;min-height:0;overflow:hidden;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}
+.haus.mit-bild h2{font-size:6.4vmin}
+.haus.mit-bild p{font-size:3vmin;line-height:1.42}
+.haus.mit-bild .qrspalte{margin:4vmin 0 0;text-align:left;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}
+.haus.mit-bild .qrspalte .qrkarte img{width:16vmin;height:16vmin}
+.haus.mit-bild .qrspalte span{margin:0 0 0 2.4vmin}
+/* Lebendiger Adventskalender – eigene Gestaltung nach den LAK-Vorlagen 2026:
+   LAK-Rot #ff3300, Creme #f9eec0, Blau #3975b9, fette Großschrift („WIR ÖFFNEN TÜREN“) */
+.lak{background:#ff3300;color:#f9eec0}
+.lak .lak-ueber{font-size:2.5vmin;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#f9eec0;opacity:.9}
+.lak h2{font-weight:900;color:#f9eec0;font-size:7.6vmin;text-transform:uppercase;letter-spacing:.01em;line-height:1.02}
+.lak p{color:#fff6dc}
+.lak .band-blau{display:inline-block;background:#3975b9;color:#fff;font-weight:800;font-size:2.7vmin;padding:.9vmin 2.2vmin;border-radius:.6vmin;margin-top:2.6vmin}
+.lak .qrkarte{border:0;box-shadow:0 .4vmin 1.6vmin rgba(120,20,0,.35)}
+.lak .qrspalte{margin-left:5vmin;text-align:center;-webkit-flex-shrink:0;flex-shrink:0}
+.lak .qrspalte span{display:block;margin-top:1.6vmin;font-size:2.8vmin;font-weight:800;color:#f9eec0;text-transform:uppercase;letter-spacing:.04em}
+.lak .status{background:#f9eec0;color:#b32400;border:0}
+.lak .status.st-abgesagt{background:#1d3f6e;color:#fff}
+.lak-motiv{display:block;max-width:100%;height:auto}
+.lak-intro{-webkit-box-align:center;-webkit-align-items:center;align-items:center;padding:4vmin 6vmin}
+.lak-intro .motiv{width:40%;-webkit-flex-shrink:0;flex-shrink:0;margin-right:4vmin}
+.lak-intro h2{font-size:5vmin;margin:1vmin 0 2vmin}
+.lak-intro p{font-size:3.4vmin;line-height:1.4;margin:0}
+.lak-intro .qrkarte img{width:22vmin;height:22vmin}
+.lak-stern{width:16vmin;height:16vmin;margin-right:4vmin;-webkit-flex-shrink:0;flex-shrink:0}
+.raster{-webkit-flex-wrap:wrap;flex-wrap:wrap;margin:2vmin -.7vmin 0}
+/* Türchen wie auf der LAK-Website (/adventskalender): braune Holztür, goldene Zahl, Messingknauf;
+   vergangene stehen offen, das heutige leuchtet und öffnet sich */
+.tuer{width:calc(8.333% - 1.4vmin);margin:.7vmin;height:18vmin;position:relative;box-sizing:border-box;
+  border:.35vmin solid #6f4320;border-radius:.9vmin;background:#fff6dc;-webkit-perspective:60vmin;perspective:60vmin}
+.tuer .zahl{position:absolute;left:0;right:0;top:50%;margin-top:-3vmin;text-align:center;font-size:4.6vmin;font-weight:900;color:#c42100}
+.tuer .fluegel{position:absolute;left:-.1vmin;top:-.1vmin;right:-.1vmin;bottom:-.1vmin;border-radius:.7vmin;
+  background:-webkit-repeating-linear-gradient(left,#8a5a2b 0,#8a5a2b .9vmin,#7c4e22 .9vmin,#7c4e22 1.8vmin);
+  background:repeating-linear-gradient(94deg,#8a5a2b 0 .9vmin,#7c4e22 .9vmin 1.8vmin);
+  border:.1vmin solid #5d3a1c;box-shadow:inset 0 0 0 .5vmin rgba(61,37,15,.45);
+  -webkit-transform-origin:left center;transform-origin:left center;-webkit-backface-visibility:hidden;backface-visibility:hidden;z-index:2}
+.tuer .fluegel b{position:absolute;left:0;right:0;top:50%;margin-top:-2.9vmin;text-align:center;font-size:4.4vmin;font-weight:800;color:#ffe9a8;
+  text-shadow:0 .15vmin .3vmin rgba(0,0,0,.55)}
+.tuer .fluegel:after{content:"";position:absolute;right:.8vmin;top:50%;width:1vmin;height:1vmin;margin-top:-.5vmin;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#ffe9a8,#c9962b 70%);box-shadow:0 0 .4vmin rgba(0,0,0,.4)}
+.tuer.leer{opacity:.6}
+/* Vergangene Türchen schwingen beim Erscheinen der Folie nacheinander auf (Verzögerung je Tür per Skript) */
+.tuer.auf .fluegel{-webkit-animation:tuerStehtAuf 1.2s ease-in-out both;animation:tuerStehtAuf 1.2s ease-in-out both}
+@-webkit-keyframes tuerStehtAuf{0%{-webkit-transform:rotateY(0)}20%{-webkit-transform:rotateY(6deg)}100%{-webkit-transform:rotateY(-76deg)}}
+@keyframes tuerStehtAuf{0%{transform:rotateY(0)}20%{transform:rotateY(6deg)}100%{transform:rotateY(-76deg);box-shadow:.6vmin .2vmin 1vmin rgba(0,0,0,.25)}}
+.tuer.heute{-webkit-animation:tuerGlimmt 2.6s ease-in-out infinite;animation:tuerGlimmt 2.6s ease-in-out infinite}
+@-webkit-keyframes tuerGlimmt{0%,100%{box-shadow:0 0 1.4vmin rgba(255,215,102,.6)}50%{box-shadow:0 0 3.4vmin rgba(255,215,102,1)}}
+@keyframes tuerGlimmt{0%,100%{box-shadow:0 0 1.4vmin rgba(255,215,102,.6)}50%{box-shadow:0 0 3.4vmin rgba(255,215,102,1)}}
+.glitzer{position:absolute;color:#ffd766;text-shadow:0 0 .8vmin #f0b429;opacity:0;z-index:3;pointer-events:none;font-size:2.6vmin;
+  -webkit-animation:lakFunkeln 3.4s ease-in-out infinite;animation:lakFunkeln 3.4s ease-in-out infinite}
+@-webkit-keyframes lakFunkeln{0%,24%,100%{opacity:0;-webkit-transform:scale(.25) rotate(0)}8%{opacity:1;-webkit-transform:scale(1) rotate(30deg)}16%{opacity:.15;-webkit-transform:scale(.5) rotate(55deg)}}
+@keyframes lakFunkeln{0%,24%,100%{opacity:0;transform:scale(.25) rotate(0)}8%{opacity:1;transform:scale(1) rotate(30deg)}16%{opacity:.15;transform:scale(.5) rotate(55deg)}}
+/* Magischer Übergang der LAK-Folien: Sternenregen, Sternschnuppe, sanftes Heranzoomen */
+.folie.lak{-webkit-transform:scale(1.045);transform:scale(1.045);-webkit-transition:opacity .9s ease,-webkit-transform 1.6s ease-out;transition:opacity .9s ease,transform 1.6s ease-out}
+.folie.lak.zeigen{-webkit-transform:scale(1);transform:scale(1)}
+.zauber{position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none;overflow:hidden;z-index:6}
+.funke{position:absolute;color:#ffe9a8;text-shadow:0 0 1vmin #ffd766,0 0 2.4vmin rgba(240,180,41,.8);opacity:0;line-height:1;
+  -webkit-animation:funkeRegen 2.4s ease-out both;animation:funkeRegen 2.4s ease-out both}
+@-webkit-keyframes funkeRegen{0%{opacity:0;-webkit-transform:translateY(-4vmin) scale(.2) rotate(0)}25%{opacity:1;-webkit-transform:translateY(0) scale(1.15) rotate(40deg)}
+  70%{opacity:.85}100%{opacity:0;-webkit-transform:translateY(6vmin) scale(.4) rotate(120deg)}}
+@keyframes funkeRegen{0%{opacity:0;transform:translateY(-4vmin) scale(.2) rotate(0)}25%{opacity:1;transform:translateY(0) scale(1.15) rotate(40deg)}
+  70%{opacity:.85}100%{opacity:0;transform:translateY(6vmin) scale(.4) rotate(120deg)}}
+.funke.bleibt{-webkit-animation:lakFunkeln 4.2s ease-in-out infinite;animation:lakFunkeln 4.2s ease-in-out infinite}
+.schnuppe{position:absolute;left:-30%;top:12%;width:30%;height:.5vmin;border-radius:.5vmin;opacity:0;
+  background:-webkit-linear-gradient(left,rgba(255,233,168,0),#ffe9a8 85%,#fff);background:linear-gradient(90deg,rgba(255,233,168,0),#ffe9a8 85%,#fff);
+  box-shadow:0 0 1.4vmin rgba(255,215,102,.9);-webkit-transform:rotate(14deg);transform:rotate(14deg);
+  -webkit-animation:schnuppe 1.7s ease-in .35s both;animation:schnuppe 1.7s ease-in .35s both}
+@-webkit-keyframes schnuppe{0%{opacity:0;left:-30%;top:8%}15%{opacity:1}100%{opacity:0;left:110%;top:40%}}
+@keyframes schnuppe{0%{opacity:0;left:-30%;top:8%}15%{opacity:1}100%{opacity:0;left:110%;top:40%}}
+@media (prefers-reduced-motion: reduce){
+  .zauber,.glitzer{display:none}.folie.lak{-webkit-transform:none;transform:none}
+  .tuer.auf .fluegel{-webkit-animation:none;animation:none;-webkit-transform:rotateY(-76deg);transform:rotateY(-76deg)}
+  .tuer.oeffnen .fluegel,.tuer.heute{-webkit-animation:none;animation:none}
+  .sw-foto i,.countdown,.geheim .seite .tuer,.countdown .puls{-webkit-animation:none;animation:none}
+}
+.tuer.heute{border-color:#ffd766;box-shadow:0 0 2.6vmin rgba(255,215,102,.95)}
+.tuer.oeffnen .fluegel{-webkit-animation:tuerAuf 1.6s ease-in-out .9s forwards;animation:tuerAuf 1.6s ease-in-out .9s forwards}
+@-webkit-keyframes tuerAuf{0%{-webkit-transform:rotateY(0)}18%{-webkit-transform:rotateY(6deg)}100%{-webkit-transform:rotateY(-82deg)}}
+@keyframes tuerAuf{0%{transform:rotateY(0)}18%{transform:rotateY(6deg)}100%{transform:rotateY(-82deg);box-shadow:.6vmin .2vmin 1.2vmin rgba(0,0,0,.3)}}
+.raster-kopf{-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start}
+.raster-kopf .motiv-klein{width:22vmin;margin-left:3vmin;-webkit-flex-shrink:0;flex-shrink:0}
+.raster-kopf .motiv-mittel{width:30vmin;margin-left:3vmin;-webkit-flex-shrink:0;flex-shrink:0}
+.lak-raster{padding:4.4vmin 5.5vmin 3vmin}
+.lak-raster h2{font-size:5.6vmin;margin:.8vmin 0 1.2vmin}
+.lak-raster .gefuehl{font-size:2.9vmin;line-height:1.38;margin:0 0 1.4vmin;max-width:95%;color:#fff6dc}
+.zahlen{-webkit-flex-wrap:wrap;flex-wrap:wrap}
+.zahl-chip{background:rgba(249,238,192,.16);border:.25vmin solid rgba(249,238,192,.65);color:#f9eec0;font-weight:800;font-size:2.2vmin;
+  padding:.5vmin 1.5vmin;border-radius:3vmin;margin:0 1.1vmin .8vmin 0;letter-spacing:.05em;text-transform:uppercase}
+.lak-raster .raster{margin-top:1.2vmin}
+.lak-raster .tuer{height:14.5vmin}
+.lak-raster .lak-hinweis{margin-top:1.4vmin;font-size:3vmin}
+.kanal-kopf{-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;margin-bottom:1.6vmin}
+.kanal-icon{display:inline-block;width:5.6vmin;height:5.6vmin;margin-right:1.4vmin;-webkit-flex-shrink:0;flex-shrink:0}
+.kanal-icon svg{display:block;width:100%;height:100%}
+.kanal b{margin:0;font-size:3vmin}
+/* „Folge uns!“ – Pinnwand: schräge Papierkarten mit Klebestreifen, große Logos, handgemachte Details */
+.haus.social{padding-top:4vmin;padding-bottom:3vmin;background:{{ '#1d1a16' if m.dunkel else '#fbf7ef' }}}
+.social h2{position:relative;display:inline-block}
+.social .kringel{position:absolute;left:-1%;bottom:-2.2vmin;width:104%;height:2.8vmin;overflow:visible}
+.social .kanaele{margin-top:4.6vmin;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;-webkit-flex-wrap:wrap;flex-wrap:wrap}
+.social .kanal{position:relative;border:0;border-radius:.5vmin;padding:4vmin 2.6vmin 2vmin;margin:0 4.2vmin 2vmin 0;background:{{ '#2a2620' if m.dunkel else '#fff' }};
+  box-shadow:0 .7vmin 2.2vmin rgba(60,40,10,.16),0 .15vmin .35vmin rgba(60,40,10,.12);-webkit-transform:rotate(-3deg);transform:rotate(-3deg)}
+.social .kanal:nth-child(2){-webkit-transform:rotate(2.3deg) translateY(1.6vmin);transform:rotate(2.3deg) translateY(1.6vmin)}
+.social .kanal:nth-child(3){-webkit-transform:rotate(-1.2deg) translateY(-.6vmin);transform:rotate(-1.2deg) translateY(-.6vmin)}
+.social .tesa{position:absolute;top:-2vmin;left:50%;width:14vmin;height:4vmin;margin-left:-7vmin;background:rgba(255,226,140,.78);
+  -webkit-transform:rotate(-5deg);transform:rotate(-5deg);box-shadow:0 .1vmin .3vmin rgba(0,0,0,.08)}
+.social .kanal:nth-child(2) .tesa{background:rgba(170,226,196,.8);-webkit-transform:rotate(4deg);transform:rotate(4deg);margin-left:-5vmin}
+.social .kanal:nth-child(3) .tesa{background:rgba(250,190,205,.8);-webkit-transform:rotate(-2deg);transform:rotate(-2deg);margin-left:-8vmin}
+.social .kanal-kopf{-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;margin-bottom:1.4vmin}
+.social .kanal-icon{width:11.5vmin;height:11.5vmin;margin:0 0 1.2vmin;-webkit-filter:drop-shadow(0 .4vmin .8vmin rgba(0,0,0,.18));filter:drop-shadow(0 .4vmin .8vmin rgba(0,0,0,.18))}
+.social .kanal b{font-size:3.4vmin}
+.social .kanal .qrkarte img{width:16vmin;height:16vmin}
+.social .kanal small{font-style:italic}
+.social .scanhinweis{position:absolute;right:5vmin;top:50%;margin:0;padding-top:9vmin;font-size:3.6vmin;font-style:italic;font-weight:700;
+  color:{{ f.akzent_schrift }};-webkit-transform:rotate(-6deg);transform:rotate(-6deg);line-height:1.25;max-width:24vmin}
+.social .scanhinweis svg{position:absolute;left:-2vmin;top:0;width:12vmin;height:9vmin;overflow:visible}
+.lak-hinweis{margin-top:2.4vmin;font-size:3.4vmin;color:#f9eec0;font-weight:800}
+.lak-tuer{padding:0}
+.lak-tuer .seite{width:42%;position:relative;background-color:#ff3300;background-size:cover;background-position:center;background-repeat:no-repeat;-webkit-flex-shrink:0;flex-shrink:0}
+.lak-tuer .seite.motiv-grund{background-size:contain;background-position:center 60%;background-origin:content-box;padding:3vmin;box-sizing:border-box}
+.lak-tuer .seite .tuer{position:absolute;left:3.6vmin;top:3.6vmin;width:15vmin;height:19vmin;margin:0}
+.lak-tuer .seite .tuer .zahl,.lak-tuer .seite .tuer .fluegel b{font-size:8vmin;margin-top:-5vmin}
+.lak-tuer .text{padding:4.6vmin 5vmin 3.4vmin;box-sizing:border-box;min-height:0;background:#e62e00}
+.lak-tuer h3{font-size:5.6vmin;font-weight:900;line-height:1.05;margin:1.4vmin 0 1.6vmin;color:#fff;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.lak-tuer .teaser{font-size:3vmin;line-height:1.4;color:#fff1d6;margin:0 0 1.8vmin;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.lak-tuer .wann{font-size:3.2vmin;font-weight:800;color:#f9eec0}
+.lak-tuer .wo{font-size:2.8vmin;color:#ffe2c4;margin-top:.6vmin}
+.lak-tuer .qrkarte img{width:15vmin;height:15vmin}
+.lak-tuer .qrzeile span{color:#f9eec0;font-weight:800;text-transform:uppercase;letter-spacing:.04em;font-size:2.5vmin}
+.lak-tuer .sponsor .ueberzeile{color:#ffe2c4}
+.lak-tuer .sponsor b{color:#fff}
+.lak-partner .logos{-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-top:3vmin}
+.lak-partner .logo-p{background:#fff;border-radius:1.2vmin;height:12vmin;min-width:20vmin;margin:0 2vmin 2vmin 0;padding:1.4vmin 2vmin;
+  box-sizing:border-box;color:#b32400;font-weight:800;font-size:2.8vmin}
+.lak-partner .logo-p img{max-height:9vmin;max-width:26vmin}
+.mehr-hinweis{margin-top:1.6vmin;font-size:2.6vmin;font-weight:700;color:{{ f.akzent_schrift }}}
+/* Begrüßung nach Tageszeit */
+.gruss{-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;padding:6vmin 9vmin;overflow:hidden}
+.gruss .deko{position:absolute;left:0;top:0;right:0;bottom:0;overflow:hidden}
+.gruss .kreis{position:absolute;right:-18vmin;top:-14vmin;width:70vmin;height:70vmin;border-radius:50%;background:{{ f.akzent }};opacity:.08}
+.gruss .kreis.k2{right:auto;left:-26vmin;top:auto;bottom:-34vmin;width:60vmin;height:60vmin;opacity:.05}
+.gruss h2{font-size:10vmin;color:{{ f.akzent_schrift }};margin:1.6vmin 0 2.4vmin;position:relative}
+.gruss .wetter{font-size:5.4vmin;font-weight:300;margin-bottom:1.4vmin;position:relative}
+.gruss p{font-size:4vmin;line-height:1.4;margin:0 0 3vmin;position:relative;max-width:90%}
+.gruss .heute-chip{display:inline-block;background:{{ f.akzent }};color:{{ f.auf_akzent }};font-weight:800;font-size:3vmin;padding:1.2vmin 2.6vmin;border-radius:5vmin;position:relative}
+/* So war's: Foto-Collage mit langsamem Heranzoomen */
+.sowars{padding:0}
+.sw-bilder{width:60%;-webkit-flex-shrink:0;flex-shrink:0;position:relative;overflow:hidden;background:{{ f.flaeche }}}
+.sw-foto{position:absolute;overflow:hidden;background:{{ f.flaeche }}}
+.sw-foto i{position:absolute;left:0;top:0;right:0;bottom:0;background-size:cover;background-position:center;
+  -webkit-animation:kenBurns 16s ease-out both;animation:kenBurns 16s ease-out both}
+@-webkit-keyframes kenBurns{0%{-webkit-transform:scale(1)}100%{-webkit-transform:scale(1.09)}}
+@keyframes kenBurns{0%{transform:scale(1)}100%{transform:scale(1.09)}}
+.sw-text{padding:6vmin 5.5vmin;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;min-height:0;overflow:hidden}
+.sw-text .so{font-size:7.4vmin;font-weight:800;color:{{ f.akzent_schrift }};margin:1.2vmin 0 .8vmin;line-height:1}
+.sw-text h2{font-size:5vmin;margin:0 0 2.6vmin}
+.sw-text p{font-size:3.4vmin;line-height:1.4;margin:0 0 2.6vmin}
+.sw-text .naechstes{display:inline-block;border:.3vmin solid {{ f.akzent }};color:{{ f.akzent_schrift }};font-weight:800;font-size:2.8vmin;padding:1vmin 2vmin;border-radius:1vmin}
+/* Countdown-Band auf dem Termin-Bild */
+.countdown{position:absolute;left:0;bottom:4.4vmin;background:{{ f.akzent }};color:{{ f.auf_akzent }};font-weight:900;font-size:4.4vmin;
+  padding:1.3vmin 3.2vmin 1.3vmin 3.6vmin;border-radius:0 1.2vmin 1.2vmin 0;box-shadow:0 .5vmin 2vmin rgba(0,0,0,.3);letter-spacing:.01em;
+  -webkit-animation:bandEin .9s ease-out .6s both;animation:bandEin .9s ease-out .6s both}
+@-webkit-keyframes bandEin{0%{-webkit-transform:translateX(-100%)}100%{-webkit-transform:translateX(0)}}
+@keyframes bandEin{0%{transform:translateX(-100%)}100%{transform:translateX(0)}}
+.countdown .puls{display:inline-block;width:1.8vmin;height:1.8vmin;border-radius:50%;background:{{ f.auf_akzent }};margin-right:1.6vmin;vertical-align:.3vmin;
+  -webkit-animation:puls 1.4s ease-in-out infinite;animation:puls 1.4s ease-in-out infinite}
+@-webkit-keyframes puls{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes puls{0%,100%{opacity:1}50%{opacity:.25}}
+/* LAK: Türchen von morgen bleibt ein Geheimnis */
+.geheim .seite{background:#e62e00}
+.geheim .seite .tuer{left:50%;top:50%;width:24vmin;height:32vmin;margin:-16vmin 0 0 -12vmin;
+  -webkit-animation:wackeln 3.2s ease-in-out infinite;animation:wackeln 3.2s ease-in-out infinite}
+.geheim .seite .tuer .zahl,.geheim .seite .tuer .fluegel b{font-size:12vmin;margin-top:-7.4vmin}
+@-webkit-keyframes wackeln{0%,70%,100%{-webkit-transform:rotate(0)}76%{-webkit-transform:rotate(-1.6deg)}82%{-webkit-transform:rotate(1.6deg)}88%{-webkit-transform:rotate(-.8deg)}}
+@keyframes wackeln{0%,70%,100%{transform:rotate(0)}76%{transform:rotate(-1.6deg)}82%{transform:rotate(1.6deg)}88%{transform:rotate(-.8deg)}}
+.geheim .fragezeichen{position:absolute;right:10%;top:10%;font-size:13vmin;font-weight:900;color:#ffd766;text-shadow:0 0 2vmin rgba(255,215,102,.9);
+  -webkit-animation:fragePuls 2.8s ease-in-out infinite;animation:fragePuls 2.8s ease-in-out infinite}
+@-webkit-keyframes fragePuls{0%,100%{opacity:.55;-webkit-transform:scale(.92) rotate(-6deg)}50%{opacity:1;-webkit-transform:scale(1.08) rotate(6deg)}}
+@keyframes fragePuls{0%,100%{opacity:.55;transform:scale(.92) rotate(-6deg)}50%{opacity:1;transform:scale(1.08) rotate(6deg)}}
+.geheim h3{font-size:6.4vmin}
+.geheim .lak-text{font-size:3.4vmin;line-height:1.4;color:#fff1d6;margin:0 0 2vmin}
+/* Feiertage: je Fest eine eigene Farbwelt + Animation, Text mittig auf einer ruhigen Ebene */
+.feiertag{-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-box-align:center;-webkit-align-items:center;align-items:center;
+  text-align:center;padding:6vmin 8vmin;overflow:hidden;color:#fff}
+.ft-deko{position:absolute;left:0;top:0;right:0;bottom:0;overflow:hidden;z-index:0}
+.ft-text{position:relative;z-index:2;max-width:86%}
+.ft-text .ft-unter{font-size:2.4vmin;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.9;margin-bottom:2vmin}
+.ft-text h2{font-size:9.4vmin;line-height:1.03;margin:0 0 2.6vmin;letter-spacing:-.01em;text-shadow:0 .3vmin 2.4vmin rgba(0,0,0,.25)}
+.ft-text p{font-size:3.9vmin;line-height:1.42;margin:0 auto 2.6vmin;max-width:80vmin}
+.ft-text .ft-gruss{font-size:3vmin;font-style:italic;opacity:.9}
+.ft-neujahr,.ft-silvester{background:#0b1a3a;background:radial-gradient(ellipse at 50% 30%,#22377a 0,#0b1a3a 70%)}
+.ft-neujahr h2,.ft-silvester h2{color:#ffd766}
+.ft-frauentag{background:#6a2c8f;background:linear-gradient(135deg,#5b2a86 0,#b8407a 100%)}
+.ft-karfreitag{background:#2b2f36;background:linear-gradient(180deg,#24282e 0,#3a3f47 100%);color:#e8e6e1}
+.ft-karfreitag h2{font-weight:300;text-shadow:none}
+.ft-ostern{background:#d8efc6;background:linear-gradient(180deg,#f3fbe9 0,#c9e8b0 100%);color:#1f4d2b}
+.ft-ostern h2{color:#2e7d32;text-shadow:none}
+.ft-mai{background:#c62828;background:linear-gradient(135deg,#b71c1c 0,#e53935 100%)}
+.ft-himmelfahrt{background:#8fd0f3;background:linear-gradient(180deg,#5db6ea 0,#dff3ff 100%);color:#0b3a5c}
+.ft-himmelfahrt h2{text-shadow:0 .2vmin 1.4vmin rgba(255,255,255,.6)}
+.ft-pfingsten{background:#0e5a8a;background:linear-gradient(180deg,#7cc6ef 0,#1a7cb8 55%,#0d4f7c 100%)}
+.ft-einheit{background:#1c1c1c;background:linear-gradient(135deg,#141414 0,#2a2a2a 100%)}
+.ft-einheit h2{color:#ffce00}
+.ft-reformation{background:#5a3a1a;background:linear-gradient(180deg,#3a2410 0,#8a5a26 100%);color:#fff1d6}
+/* Schulferien (Typ feiertag, art ferien-…) */
+.ft-ferien-sommer{background:#ffb347;background:linear-gradient(160deg,#ffe07a 0,#ffb05a 55%,#ff8a5b 100%);color:#3b1d00}
+.ft-ferien-herbst{background:#9a4a14;background:linear-gradient(135deg,#7a3410 0,#c8661f 60%,#e39a3b 100%)}
+.ft-ferien-winter,.ft-ferien-weihnachten{background:#1f477a;background:linear-gradient(180deg,#173a66 0,#3d78b8 100%)}
+.ft-ferien-ostern{background:#e4f4d4;background:linear-gradient(180deg,#f6fcee 0,#cfeab8 100%);color:#1f4d2b}
+.ft-ferien-pfingsten{background:#1a7cb8;background:linear-gradient(180deg,#8fd0f3 0,#1f86c4 60%,#11598b 100%)}
+.ft-liste{margin:2.2vmin auto 0;display:inline-block;text-align:left;font-size:2.7vmin;line-height:1.5;
+  background:rgba(255,255,255,.16);border-radius:1.4vmin;padding:1.4vmin 2.4vmin}
+.ft-ferien-sommer .ft-liste,.ft-ferien-ostern .ft-liste{background:rgba(255,255,255,.5)}
+.ft-liste b{display:block;font-size:2vmin;letter-spacing:.14em;text-transform:uppercase;opacity:.8;margin-bottom:.4vmin}
+.ft-liste span{font-weight:700;margin-right:1.2vmin;font-variant-numeric:tabular-nums}
+.ft-weihnachten{background:#8c1018;background:radial-gradient(ellipse at 50% 35%,#b3121f 0,#6d0a12 75%)}
+.ft-weihnachten h2{color:#fff}
+/* Feuerwerk */
+.burst{position:absolute;width:0;height:0}
+.strahl-w{position:absolute;left:0;top:0;width:15vmin;height:.5vmin;-webkit-transform-origin:0 50%;transform-origin:0 50%}
+.strahl{display:block;width:100%;height:100%;border-radius:.5vmin;-webkit-transform-origin:0 50%;transform-origin:0 50%;opacity:0;
+  -webkit-animation:strahl 3.2s ease-out infinite;animation:strahl 3.2s ease-out infinite}
+@-webkit-keyframes strahl{0%{opacity:0;-webkit-transform:scaleX(0)}8%{opacity:1}40%{opacity:1;-webkit-transform:scaleX(1)}70%,100%{opacity:0;-webkit-transform:scaleX(1.15)}}
+@keyframes strahl{0%{opacity:0;transform:scaleX(0)}8%{opacity:1}40%{opacity:1;transform:scaleX(1)}70%,100%{opacity:0;transform:scaleX(1.15)}}
+/* fallende Blüten / Schnee */
+.faellt{position:absolute;top:-8vmin;-webkit-animation:faellt 11s linear infinite;animation:faellt 11s linear infinite}
+@-webkit-keyframes faellt{0%{-webkit-transform:translateY(0) rotate(0)}100%{-webkit-transform:translateY(120vh) rotate(360deg)}}
+@keyframes faellt{0%{transform:translateY(0) rotate(0)}100%{transform:translateY(120vh) rotate(360deg)}}
+.bluete{width:3.2vmin;height:3.2vmin;border-radius:60% 0 60% 0;opacity:.85}
+.flocke{color:#fff;opacity:.85;line-height:1}
+/* Kerze */
+.kerze{position:absolute;left:14%;bottom:12%;width:7vmin;height:26vmin;background:linear-gradient(90deg,#efe6d2,#fffaf0 45%,#e2d6bc);border-radius:1vmin 1vmin .6vmin .6vmin}
+.kerze:before{content:"";position:absolute;left:50%;top:-2.6vmin;width:.5vmin;height:2.8vmin;margin-left:-.25vmin;background:#333}
+.flamme{position:absolute;left:50%;top:-10vmin;width:4vmin;height:8vmin;margin-left:-2vmin;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;
+  background:radial-gradient(ellipse at 50% 75%,#fff7c2 0,#ffd04a 35%,#ff8a00 70%,rgba(255,120,0,0) 100%);
+  -webkit-animation:flackern 2.6s ease-in-out infinite;animation:flackern 2.6s ease-in-out infinite;-webkit-transform-origin:50% 100%;transform-origin:50% 100%}
+.schein{position:absolute;left:50%;top:-22vmin;width:44vmin;height:44vmin;margin-left:-22vmin;border-radius:50%;background:radial-gradient(circle,rgba(255,200,90,.28) 0,rgba(255,200,90,0) 65%)}
+@-webkit-keyframes flackern{0%,100%{-webkit-transform:scale(1) rotate(-1deg)}30%{-webkit-transform:scale(1.05,.96) rotate(1.5deg)}60%{-webkit-transform:scale(.97,1.04) rotate(-1.5deg)}}
+@keyframes flackern{0%,100%{transform:scale(1) rotate(-1deg)}30%{transform:scale(1.05,.96) rotate(1.5deg)}60%{transform:scale(.97,1.04) rotate(-1.5deg)}}
+/* Ostereier */
+.ei{position:absolute;bottom:3vmin;width:11vmin;height:14vmin;-webkit-animation:hopsen 3s ease-in-out infinite;animation:hopsen 3s ease-in-out infinite}
+.ei svg{display:block;width:100%;height:100%}
+@-webkit-keyframes hopsen{0%,80%,100%{-webkit-transform:translateY(0)}88%{-webkit-transform:translateY(-2.4vmin) rotate(-4deg)}}
+@keyframes hopsen{0%,80%,100%{transform:translateY(0)}88%{transform:translateY(-2.4vmin) rotate(-4deg)}}
+/* Sonne (1. Mai) */
+.sonne{position:absolute;right:-12vmin;top:-12vmin;width:56vmin;height:56vmin;-webkit-animation:drehen 60s linear infinite;animation:drehen 60s linear infinite}
+.sonne i{position:absolute;left:50%;top:50%;width:28vmin;height:3vmin;margin-top:-1.5vmin;background:rgba(255,224,130,.28);border-radius:3vmin;-webkit-transform-origin:0 50%;transform-origin:0 50%}
+.sonne b{position:absolute;left:50%;top:50%;width:18vmin;height:18vmin;margin:-9vmin 0 0 -9vmin;border-radius:50%;background:rgba(255,224,130,.45)}
+@-webkit-keyframes drehen{100%{-webkit-transform:rotate(360deg)}}
+@keyframes drehen{100%{transform:rotate(360deg)}}
+/* Wolken (Himmelfahrt) */
+.wolke{position:absolute;width:24vmin;height:8vmin;background:#fff;border-radius:8vmin;opacity:.9;-webkit-animation:ziehen 40s linear infinite;animation:ziehen 40s linear infinite}
+.wolke:before,.wolke:after{content:"";position:absolute;background:#fff;border-radius:50%}
+.wolke:before{width:10vmin;height:10vmin;left:4vmin;top:-5vmin}
+.wolke:after{width:13vmin;height:13vmin;left:10vmin;top:-7vmin}
+@-webkit-keyframes ziehen{0%{-webkit-transform:translateX(-40vmin)}100%{-webkit-transform:translateX(160vw)}}
+@keyframes ziehen{0%{transform:translateX(-40vmin)}100%{transform:translateX(160vw)}}
+/* See + Segelboot (Pfingsten) */
+.welle{position:absolute;left:0;bottom:0;width:200%;height:16vmin;-webkit-animation:wellen 14s linear infinite;animation:wellen 14s linear infinite}
+.welle svg{display:block;width:100%;height:100%}
+.welle.w2{bottom:-3vmin;opacity:.6;-webkit-animation-duration:20s;animation-duration:20s}
+@-webkit-keyframes wellen{100%{-webkit-transform:translateX(-50%)}}
+@keyframes wellen{100%{transform:translateX(-50%)}}
+.boot{position:absolute;right:12%;bottom:11vmin;width:18vmin;height:20vmin;-webkit-animation:schaukeln 4s ease-in-out infinite;animation:schaukeln 4s ease-in-out infinite}
+.boot svg{display:block;width:100%;height:100%}
+@-webkit-keyframes schaukeln{0%,100%{-webkit-transform:rotate(-3deg) translateY(0)}50%{-webkit-transform:rotate(3deg) translateY(-1vmin)}}
+@keyframes schaukeln{0%,100%{transform:rotate(-3deg) translateY(0)}50%{transform:rotate(3deg) translateY(-1vmin)}}
+/* Einheit: Band in Schwarz-Rot-Gold */
+.band-de{position:absolute;left:-10%;top:-20%;width:16vmin;height:160%;-webkit-transform:rotate(18deg);transform:rotate(18deg);
+  background:linear-gradient(90deg,#000 0,#000 33.3%,#dd0000 33.3%,#dd0000 66.6%,#ffce00 66.6%,#ffce00 100%);opacity:.9}
+.band-de.b2{left:auto;right:-10%;opacity:.35}
+/* Kirchtürme (Reformation): an den Rändern, nie unter dem Text */
+.kirche{position:absolute;bottom:0;width:24vmin;height:31vmin}
+.kirche svg{display:block;width:100%;height:100%}
+.kirche.links{left:2vmin}
+.kirche.rechts{right:2vmin}
+.boden{position:absolute;left:0;right:0;bottom:0;height:3vmin;background:rgba(30,18,6,.6)}
+.ft-reformation .ft-text{max-width:62%}
+.ft-karfreitag .ft-text,.ft-pfingsten .ft-text{max-width:60%}
+.ft-karfreitag .ft-text{margin-left:14%}
+.ft-pfingsten .ft-text{margin-right:14%}
+/* Mit Zitat etwas kompakter, damit Text und Deko sich in keinem Format berühren */
+.mit-zitat .ft-text .ft-unter{margin-bottom:1.4vmin}
+.mit-zitat .ft-text h2{font-size:7.6vmin;margin-bottom:1.8vmin}
+.mit-zitat .ft-text p{font-size:3.3vmin;margin-bottom:1.6vmin}
+.mit-zitat .ft-text .ft-gruss{font-size:2.6vmin}
+.mit-liste .ft-text .ft-unter{margin-bottom:1.2vmin}
+.mit-liste .ft-text h2{font-size:7.4vmin;margin-bottom:1.6vmin}
+.mit-liste .ft-text p{font-size:3.2vmin;margin-bottom:1.4vmin}
+.mit-liste .ft-text .ft-gruss{font-size:2.5vmin}
+.ft-ferien-sommer .sonne{right:-22vmin;top:-22vmin;opacity:.75}
+.mit-liste .boot{display:none}
+.ft-ostern{-webkit-box-pack:start;-webkit-justify-content:flex-start;justify-content:flex-start;padding-top:5vmin}
+.ei{width:9vmin;height:11.5vmin;bottom:2vmin}
+/* Zitat (mit Übersetzung bei Platt) und optionales Foto mit Bildnachweis */
+.ft-zitat{margin:2.4vmin auto 0;max-width:76vmin;padding-top:2vmin;border-top:.25vmin solid currentColor;border-top-color:rgba(255,255,255,.35)}
+.ft-ostern .ft-zitat,.ft-himmelfahrt .ft-zitat{border-top-color:rgba(0,0,0,.18)}
+.ft-zitat q{display:block;font-size:3vmin;line-height:1.35;font-style:italic;quotes:"„" "“"}
+.ft-zitat .ue{display:block;font-size:2.2vmin;opacity:.8;margin-top:.6vmin}
+.ft-zitat cite{display:block;font-size:2.3vmin;font-style:normal;font-weight:700;letter-spacing:.06em;margin-top:1vmin;opacity:.9}
+.ft-foto{position:relative;-webkit-flex-shrink:0;flex-shrink:0;margin-left:5vmin;width:26vmin;height:26vmin;border-radius:50%;background-size:cover;background-position:center;
+  border:.6vmin solid rgba(255,255,255,.85);box-shadow:0 .6vmin 2.4vmin rgba(0,0,0,.35);z-index:3}
+.ft-nachweis{position:absolute;right:2vmin;bottom:.8vmin;font-size:1.6vmin;opacity:.75;z-index:3}
+.mit-foto .ft-text{max-width:62%}
+.mit-foto .kirche{display:none}
+.mit-foto .boot{display:none}
+.mit-foto.ft-karfreitag .ft-text,.mit-foto.ft-pfingsten .ft-text{margin-left:0;margin-right:0}
+/* Funkeln (allgemein) */
+.funkel{position:absolute;color:#ffd766;text-shadow:0 0 1vmin #f0b429;opacity:0;-webkit-animation:lakFunkeln 3.8s ease-in-out infinite;animation:lakFunkeln 3.8s ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){.ft-deko *{-webkit-animation:none!important;animation:none!important}}
+/* Wer wir sind: Werte-Kärtchen aus der Satzung */
+.werte{-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-top:2.6vmin}
+.wert{background:{{ f.flaeche }};border:.25vmin solid {{ f.linie }};border-left:.8vmin solid {{ f.akzent }};border-radius:1vmin;
+  padding:1vmin 1.8vmin;margin:0 1.4vmin 1.4vmin 0;font-size:2.7vmin;font-weight:700}
+.haus .fuss-zeile{margin-top:1.6vmin;font-size:2.3vmin;color:{{ f.leise }};letter-spacing:.03em}
+.haus.verein p{font-size:3.1vmin;font-style:italic;line-height:1.4}
+.haus.verein h2{font-size:6.4vmin;margin-bottom:2vmin}
+.haus.verein .wert{font-size:2.3vmin;padding:.8vmin 1.4vmin;margin:0 1.1vmin 1.1vmin 0}
+.haus.verein .werte{margin-top:2vmin}
+.haus.verein .qrkarte img{width:22vmin;height:22vmin}
+.haus.verein{padding-top:5vmin;padding-bottom:4vmin}
+/* Willkommen in vielen Sprachen */
+.wk-folie{-webkit-box-align:center;-webkit-align-items:center;align-items:center;padding:6vmin 8vmin;overflow:hidden;background:{{ f.grund }}}
+.wk-deko{position:absolute;left:0;top:0;right:0;bottom:0;overflow:hidden}
+.wk-deko i{position:absolute;border-radius:50%;opacity:.13}
+.wk-alle{font-size:2.3vmin;font-weight:700;letter-spacing:.06em;color:{{ f.leise }};margin-bottom:3.4vmin;line-height:1.6}
+.wk-alle b{color:{{ f.akzent_schrift }}}
+.wk-inhalt{-webkit-transition:opacity .45s ease;transition:opacity .45s ease}
+.wk-inhalt.weg{opacity:0}
+.wk-sprache{font-size:2.6vmin;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:{{ f.akzent_schrift }}}
+.wk-gruss{font-size:9.6vmin;font-weight:800;line-height:1.05;margin:1.2vmin 0 2.4vmin;letter-spacing:-.01em}
+.wk-text{font-size:3.9vmin;line-height:1.42;max-width:94%}
+.wk-punkte{margin-top:3.4vmin}
+.wk-punkte i{display:inline-block;width:1.6vmin;height:1.6vmin;border-radius:50%;background:{{ f.linie }};margin-right:1.2vmin}
+.wk-punkte i.an{background:{{ f.akzent }}}
+.wk-folie .qrspalte{position:relative;margin-left:5vmin;text-align:center;-webkit-flex-shrink:0;flex-shrink:0}
+.wk-folie .qrkarte img{width:24vmin;height:24vmin}
+.wk-folie .qrspalte span{display:block;margin-top:1.6vmin;font-size:2.8vmin;font-weight:700;color:{{ f.akzent_schrift }}}
+/* Fußleiste */
+#fuss{position:absolute;left:0;right:0;bottom:0;height:15vmin;box-sizing:border-box;padding:1.8vmin 7vmin 1.8vmin 5vmin;
+  background:{{ f.flaeche }};border-top:1px solid {{ f.linie }}}
+#fuss .web{font-size:2.6vmin;color:{{ f.leise }};margin-right:4vmin}
+#uhr{font-size:5vmin;font-weight:300}
+#balken{position:absolute;left:0;top:-1px;height:.6vmin;background:{{ f.akzent }};width:0}
+#schwarz{position:fixed;left:0;top:0;right:0;bottom:0;background:#000;display:none;z-index:9}
+@media (orientation: portrait){
+  .termin{-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column}
+  .termin .bild{width:auto;height:36%}
+  .termin .text{padding:3.6vmin 4.6vmin 3vmin}
+  .termin h3{font-size:5vmin;-webkit-line-clamp:2}
+  .qrkarte img{width:14vmin;height:14vmin}
+  .spalten{-webkit-column-count:1;column-count:1}
+  .app-folie{-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start}
+  .app-folie .qrkarte{margin:4vmin 0 0}
+  .eigen-text{-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start}
+  .eigen-text .qrkarte{margin:4vmin 0 0}
+  .termin .teaser{-webkit-line-clamp:2}
+  .haus{-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;
+    -webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}
+  /* Hochformat: QR-Code neben seine Unterschrift statt darunter – spart Höhe */
+  .haus .qrspalte{margin:4vmin 0 0;text-align:left;max-width:none;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}
+  .haus .qrspalte span{margin:0 0 0 2.6vmin;max-width:30vmin}
+  .haus .qrkarte img{width:22vmin;height:22vmin}
+  .stern-gross{width:11vmin;height:11vmin;margin:0 0 2vmin}
+  .wk-folie{-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}
+  .wk-folie .qrspalte{margin:4vmin 0 0;text-align:left;max-width:none;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}
+  .wk-folie .qrspalte span{margin:0 0 0 2.6vmin}
+  .wk-gruss{font-size:8.4vmin}
+  .wk-folie .qrkarte img{width:20vmin;height:20vmin}
+  .haus.verein .qrkarte img{width:17vmin;height:17vmin}
+  .haus .wachsen{-webkit-box-flex:0;-webkit-flex:0 0 auto;flex:0 0 auto;width:100%;box-sizing:border-box}
+  .haus.mit-bild{-webkit-box-pack:start;-webkit-justify-content:flex-start;justify-content:flex-start}
+  .haus.mit-bild .htext{-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-height:0;padding:4vmin 5vmin 3vmin;
+    -webkit-box-pack:start;-webkit-justify-content:flex-start;justify-content:flex-start}
+  .haus.mit-bild h2{font-size:5.8vmin;margin-bottom:2vmin}
+  .haus.mit-bild p{font-size:2.9vmin}
+  .haus.mit-bild .qrspalte .qrkarte img{width:15vmin;height:15vmin}
+  /* LAK-Einleitung: Motiv oben in begrenzter Höhe, darunter Text und QR-Code nebeneinander */
+  .lak-intro{-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-align-content:center;align-content:center;padding:5vmin}
+  .lak-intro .motiv{width:100%;margin:0 0 3vmin;text-align:center}
+  .lak-intro .motiv .lak-motiv{width:auto;max-width:100%;max-height:46vmin;margin:0 auto}
+  .lak-intro .wachsen{-webkit-box-flex:1;-webkit-flex:1 1 45%;flex:1 1 45%}
+  .lak-intro .qrspalte{margin:0 0 0 4vmin}
+  .lak-intro .qrkarte img{width:20vmin;height:20vmin}
+  .lak-intro h2{font-size:5.4vmin}
+  .kanal{width:25vmin;padding:2vmin 1.4vmin;margin-right:2vmin;box-sizing:border-box}
+  .haus.social{padding-left:5vmin;padding-right:5vmin}
+  .social .kanaele{margin-top:5vmin}
+  .social .kanal{width:27vmin;padding:3.6vmin 1.2vmin 1.8vmin;margin-right:3vmin}
+  .social .kanal:nth-child(3){margin-right:0}
+  .social .kanal-icon{width:10.5vmin;height:10.5vmin}
+  .social .kanal b{font-size:2.6vmin}
+  .social .kanal .qrkarte img{width:17vmin;height:17vmin}
+  .social .scanhinweis{position:relative;right:auto;top:auto;width:100%;max-width:none;text-align:center;margin:4vmin 0 0;padding-top:7vmin;-webkit-transform:rotate(-3deg);transform:rotate(-3deg)}
+  .social .scanhinweis br{display:none}
+  .social .scanhinweis svg{left:50%;top:0;margin-left:-6vmin;-webkit-transform:rotate(80deg);transform:rotate(80deg)}
+  .kanal-kopf{-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column}
+  .kanal-icon{margin:0 0 .8vmin}
+  .kanal b{font-size:2.5vmin}
+  .kanal .qrkarte img{width:17vmin;height:17vmin}
+  .tuer{width:calc(16.666% - 1.6vmin);height:16vmin}
+  .lak-tuer{-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column}
+  .lak-tuer .seite{width:auto;height:32%}
+  /* Feiertage hoch: Text nach oben, Kerze/Kirchen darunter – nie überlappend */
+  .ft-karfreitag,.ft-reformation,.ft-pfingsten,.ft-ostern{-webkit-box-pack:start;-webkit-justify-content:flex-start;justify-content:flex-start;padding-top:9vmin}
+  .kerze{left:50%;margin-left:-3vmin;bottom:3%;height:15vmin;width:6vmin}
+  .kirche{width:15vmin;height:20vmin}
+  .boot{width:12vmin;height:14vmin;bottom:8vmin}
+  .ft-reformation .ft-text{max-width:86%}
+  .ft-karfreitag .ft-text,.ft-pfingsten .ft-text{max-width:86%;margin-left:0;margin-right:0}
+  .mit-foto{-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column}
+  .mit-foto .ft-foto{-webkit-box-ordinal-group:0;-webkit-order:-1;order:-1;margin:0 0 2.6vmin;width:18vmin;height:18vmin}
+  .mit-foto .ft-text{max-width:90%}
+  .sowars{-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column}
+  .sw-bilder{width:auto;height:52%}
+  .gruss h2{font-size:9vmin}
+  .haus.mit-bild{-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column}
+  .haus.mit-bild .hbild{width:auto;height:34%}
+  .raster-kopf .motiv-klein{display:none}
+  .raster-kopf .motiv-mittel{width:24vmin}
+  .lak-raster .tuer{height:13vmin}
+
+}
+.standbild *{-webkit-animation-play-state:paused!important;animation-play-state:paused!important}
+</style>
+</head>
+<body>
+{% if vorschau and not standbild %}<div class="vorschau">Vorschau</div>{% endif %}
+<div id="buehne"></div>
+<div id="fuss" class="flex mitte-v">
+  <div id="balken"></div>
+  <div class="wachsen" style="height:100%">{% with hoehe="11.4vmin" %}{% include "signage/_logo.html" %}{% endwith %}</div>
+  {% if m.website %}<span class="web">{{ m.website }}</span>{% endif %}
+  <span id="uhr" class="zahl">{{ jetzt.strftime('%H:%M') }}</span>
+</div>
+<div id="schwarz"></div>
+<script>
+(function(){
+var QUELLE = {{ folien_url|tojson }}, VORSCHAU = {{ 'true' if vorschau else 'false' }}, STANDBILD = {{ 'true' if standbild else 'false' }};
+var LOGO = {{ (url_for('signage.logo') if m.hat_logo else '')|tojson }}, KACHEL = {{ 'true' if m.f.logo_kachel else 'false' }};
+var WEB = {{ m.website|tojson }};
+var folien = [], neu = null, idx = -1, geladenAm = new Date(), timer = null;
+var buehne = document.getElementById('buehne'), balken = document.getElementById('balken');
+function el(tag, cls, text){var e=document.createElement(tag);if(cls)e.className=cls;if(text)e.appendChild(document.createTextNode(text));return e;}
+function farbe(f){return /^#[0-9a-fA-F]{3,8}$/.test(f||'')?f:'';}
+function z(n){return n<10?'0'+n:''+n;}
+function uhr(){var d=new Date();document.getElementById('uhr').innerHTML=z(d.getHours())+':'+z(d.getMinutes());
+  if(!VORSCHAU && d.getHours()===4 && (d-geladenAm)>3*3600*1000){location.reload();}}
+function kopf(d,f){d.appendChild(el('span','strich'));
+  if(f.unter){var u=el('div','ueberzeile',f.unter);u.style.marginTop='2.4vmin';d.appendChild(u);}
+  d.appendChild(el('h2','',f.titel));}
+function stern(cls){var ns='http://www.w3.org/2000/svg',sv=document.createElementNS(ns,'svg');sv.setAttribute('viewBox','0 0 100 100');sv.setAttribute('class',cls);
+  var pg=document.createElementNS(ns,'polygon');pg.setAttribute('points','50,4 61,37 96,37 68,58 79,92 50,71 21,92 32,58 4,37 39,37');pg.setAttribute('fill','#f0b429');
+  pg.setAttribute('stroke','#ffd766');pg.setAttribute('stroke-width','2');pg.setAttribute('stroke-linejoin','round');sv.appendChild(pg);return sv;}
+var GLITZER=[[-14,-10],[88,-14],[104,30],[-20,44],[96,82],[-12,92],[40,-22],[46,104]];
+function tuerEl(n,cls,verzoegerung){var t=el('div','tuer'+(cls||''));t.appendChild(el('span','zahl',String(n)));var fl=el('div','fluegel');
+  fl.appendChild(el('b','',String(n)));t.appendChild(fl);
+  if(verzoegerung){fl.style.webkitAnimationDelay=fl.style.animationDelay=verzoegerung+'s';}
+  if((cls||'').indexOf('heute')>=0){for(var gi=0;gi<GLITZER.length;gi++){var g=el('span','glitzer','✦');g.style.left=GLITZER[gi][0]+'%';g.style.top=GLITZER[gi][1]+'%';
+    g.style.webkitAnimationDelay=g.style.animationDelay=(gi*0.42)+'s';t.appendChild(g);}}
+  return t;}
+function zauber(d){var z=el('div','zauber'),zeichen=['✦','★','✧','•','✦','✶'];
+  for(var i=0;i<22;i++){var fk=el('span','funke',zeichen[i%zeichen.length]);fk.style.left=(Math.random()*96)+'%';fk.style.top=(Math.random()*88)+'%';
+    fk.style.fontSize=(1.6+Math.random()*3.2)+'vmin';fk.style.webkitAnimationDelay=fk.style.animationDelay=(Math.random()*1.4)+'s';z.appendChild(fk);}
+  for(var k=0;k<7;k++){var b=el('span','funke bleibt','✦');b.style.left=(4+Math.random()*90)+'%';b.style.top=(4+Math.random()*84)+'%';
+    b.style.fontSize=(1.4+Math.random()*1.6)+'vmin';b.style.webkitAnimationDelay=b.style.animationDelay=(2+Math.random()*3)+'s';z.appendChild(b);}
+  z.appendChild(el('div','schnuppe'));d.appendChild(z);}
+function kanalIcon(art,i){var w=el('span','kanal-icon');var svg;
+  if(art==='instagram')svg='<svg viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="igv'+i+'" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#feda75"/><stop offset=".35" stop-color="#fa7e1e"/><stop offset=".6" stop-color="#d62976"/><stop offset="1" stop-color="#4f5bd5"/></linearGradient></defs>'
+    +'<rect width="48" height="48" rx="12" fill="url(#igv'+i+')"/><rect x="10" y="10" width="28" height="28" rx="8" fill="none" stroke="#fff" stroke-width="3.6"/><circle cx="24" cy="24" r="6.6" fill="none" stroke="#fff" stroke-width="3.6"/><circle cx="32.6" cy="15.4" r="2.3" fill="#fff"/></svg>';
+  else if(art==='whatsapp')svg='<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="#25D366"/><path d="M24 9.5a14.5 14.5 0 0 0-12.4 22l-2 7.2 7.4-1.9A14.5 14.5 0 1 0 24 9.5z" fill="#fff"/>'
+    +'<path d="M18.6 16.2c.4-.8.8-.8 1.2-.8h1c.3 0 .7.1 1 .8l1.4 3.3c.1.3.1.6-.1.9l-.9 1.1c-.2.3-.3.5 0 .9 1 1.7 2.4 3 4.2 3.9.4.2.6.1.9-.1l1.2-1.4c.3-.4.6-.3.9-.2l3.2 1.5c.4.2.6.3.7.5.1.6-.1 1.8-.7 2.5-.6.7-2.2 1.5-3.3 1.4-3.8-.4-7.5-2.9-9.6-6.1-1.1-1.7-1.9-3.9-1.4-5.8z" fill="#25D366"/></svg>';
+  else svg='<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="{{ f.akzent }}"/><g fill="none" stroke="{{ f.auf_akzent }}" stroke-width="2.6"><circle cx="24" cy="24" r="13"/><ellipse cx="24" cy="24" rx="5.6" ry="13"/><path d="M11 24h26M13.5 17h21M13.5 31h21"/></g></svg>';
+  w.innerHTML=svg;return w;}
+function feiertagDeko(art){var z=el('div','ft-deko'),i,e;
+  function zufall(a,b){return a+Math.random()*(b-a);}
+  function funkeln(n,farbe){for(var k=0;k<n;k++){var fu=el('span','funkel','✦');fu.style.left=zufall(3,95)+'%';fu.style.top=zufall(3,90)+'%';fu.style.fontSize=zufall(1.6,3.6)+'vmin';
+    if(farbe)fu.style.color=farbe;fu.style.webkitAnimationDelay=fu.style.animationDelay=zufall(0,4)+'s';z.appendChild(fu);}}
+  function faellt(n,cls,zeichen,farben,groesse){for(var k=0;k<n;k++){var f=el('span','faellt '+cls,zeichen||'');f.style.left=zufall(0,98)+'%';
+    if(farben)f.style.background=farben[k%farben.length];if(groesse)f.style.fontSize=zufall(groesse[0],groesse[1])+'vmin';
+    var dauer=zufall(8,15);f.style.webkitAnimationDuration=f.style.animationDuration=dauer+'s';f.style.webkitAnimationDelay=f.style.animationDelay=(-zufall(0,dauer))+'s';z.appendChild(f);}}
+  if(art==='neujahr'||art==='silvester'){
+    var orte=[[16,26,'#ffd766'],[82,20,'#ff7eb6'],[24,76,'#7fe3ff'],[78,70,'#ffd766'],[50,12,'#b6ff8a']];
+    for(i=0;i<orte.length;i++){var bu=el('div','burst');bu.style.left=orte[i][0]+'%';bu.style.top=orte[i][1]+'%';
+      for(var s=0;s<16;s++){var w=el('span','strahl-w');w.style.webkitTransform=w.style.transform='rotate('+(s*22.5)+'deg)';var st=el('span','strahl');
+        st.style.background='linear-gradient(90deg,rgba(255,255,255,0),'+orte[i][2]+')';st.style.webkitAnimationDelay=st.style.animationDelay=(i*0.65)+'s';w.appendChild(st);bu.appendChild(w);}
+      z.appendChild(bu);}
+    funkeln(14);
+  } else if(art==='frauentag'){faellt(22,'bluete','',['#ff8fb1','#ffd0dc','#e8336e','#ffb3c7']);funkeln(6,'#ffe0ec');
+  } else if(art==='karfreitag'){var k=el('div','kerze');k.appendChild(el('div','schein'));k.appendChild(el('div','flamme'));z.appendChild(k);
+  } else if(art==='ostern'){var farben=[['#f28b82','#fff'],['#fbbc04','#fff'],['#81c995','#fff'],['#78d9ec','#fff'],['#c58af9','#fff'],['#fcad70','#fff'],['#f6aea9','#fff']];
+    for(i=0;i<7;i++){e=el('div','ei');e.style.left=(4+i*13.5)+'%';e.style.webkitAnimationDelay=e.style.animationDelay=(i*0.35)+'s';
+      e.innerHTML='<svg viewBox="0 0 44 56" aria-hidden="true"><ellipse cx="22" cy="30" rx="19" ry="25" fill="'+farben[i][0]+'"/><path d="M4 26 Q13 20 22 26 T40 26" fill="none" stroke="'+farben[i][1]+'" stroke-width="3"/><path d="M5 36 Q13 31 22 36 T39 36" fill="none" stroke="'+farben[i][1]+'" stroke-width="2.4" stroke-dasharray="3 3"/></svg>';z.appendChild(e);}
+  } else if(art==='mai'){var so=el('div','sonne');for(i=0;i<12;i++){var r=el('i');r.style.webkitTransform=r.style.transform='rotate('+(i*30)+'deg)';so.appendChild(r);}so.appendChild(el('b'));z.appendChild(so);funkeln(6,'#ffe082');
+  } else if(art==='himmelfahrt'){for(i=0;i<5;i++){var wo=el('div','wolke');wo.style.top=zufall(6,60)+'%';var dd=zufall(35,60);wo.style.webkitAnimationDuration=wo.style.animationDuration=dd+'s';
+      wo.style.webkitAnimationDelay=wo.style.animationDelay=(-zufall(0,dd))+'s';wo.style.webkitTransform='scale('+zufall(.6,1.2)+')';z.appendChild(wo);}
+  } else if(art==='pfingsten'){var welle='<svg viewBox="0 0 800 80" preserveAspectRatio="none" aria-hidden="true"><path d="M0 40 Q50 20 100 40 T200 40 T300 40 T400 40 T500 40 T600 40 T700 40 T800 40 V80 H0z" fill="rgba(255,255,255,.22)"/></svg>';
+    var w1=el('div','welle');w1.innerHTML=welle;var w2=el('div','welle w2');w2.innerHTML=welle;
+    var bo=el('div','boot');bo.innerHTML='<svg viewBox="0 0 60 66" aria-hidden="true"><path d="M30 4 L30 46 L8 46z" fill="#fff"/><path d="M33 12 L33 46 L52 46z" fill="#ffd766"/><rect x="29" y="2" width="2.4" height="46" fill="#3a2410"/><path d="M4 49 H56 L48 60 H12z" fill="#0b2f4a"/></svg>';
+    z.appendChild(bo);z.appendChild(w1);z.appendChild(w2);funkeln(8,'#ffffff');
+  } else if(art==='einheit'){z.appendChild(el('div','band-de'));z.appendChild(el('div','band-de b2'));funkeln(12,'#ffce00');
+  } else if(art==='reformation'){
+    /* zwei Kirchen an den Rändern (frei nach St. Marien und St. Georgen), Fenster leuchten warm */
+    var kirche=function(cls,turmLinks){var k=el('div','kirche '+cls);
+      k.innerHTML='<svg viewBox="0 0 200 260" aria-hidden="true"><g fill="rgba(30,18,6,.6)">'
+        +(turmLinks?'<polygon points="40,10 70,80 70,260 10,260 10,80"/><rect x="70" y="140" width="125" height="120"/><polygon points="70,140 132,95 195,140"/>'
+                   :'<polygon points="160,10 190,80 190,260 130,260 130,80"/><rect x="5" y="140" width="125" height="120"/><polygon points="5,140 67,95 130,140"/>')
+        +'</g><g fill="#ffcf6b">'+(turmLinks?'<rect x="33" y="110" width="14" height="26" rx="7"/><rect x="100" y="175" width="12" height="24" rx="6"/><rect x="150" y="175" width="12" height="24" rx="6"/>'
+                   :'<rect x="153" y="110" width="14" height="26" rx="7"/><rect x="38" y="175" width="12" height="24" rx="6"/><rect x="88" y="175" width="12" height="24" rx="6"/>')
+        +'</g></svg>';return k;};
+    z.appendChild(el('div','boden'));z.appendChild(kirche('links',true));z.appendChild(kirche('rechts',false));funkeln(10,'#ffe7b0');
+  } else if(art==='weihnachten'||art==='ferien-winter'||art==='ferien-weihnachten'){faellt(36,'flocke','❄',null,[1.6,3.6]);funkeln(10,'#ffd766');
+  } else if(art==='ferien-sommer'){return feiertagDeko('mai');
+  } else if(art==='ferien-herbst'){faellt(24,'bluete','',['#ffcf5a','#f08a24','#d9531e','#a8461b']);funkeln(5,'#ffe0a0');
+  } else if(art==='ferien-ostern'){faellt(20,'bluete','',['#ffd0dc','#fff3a8','#c9f0b8','#d8c8ff']);
+  } else if(art==='ferien-pfingsten'){return feiertagDeko('pfingsten');}
+  return z;}
+function qrspalte(qr,text){var c=el('div','qrspalte'),k=el('div','qrkarte'),i=el('img');i.src=qr;i.alt='';k.appendChild(i);c.appendChild(k);if(text)c.appendChild(el('span','',text));return c;}
+function zeile(e){var r=el('div','zeile');r.appendChild(el('span','z zahl',e.zeit));var c=el('span','c');if(farbe(e.farbe))c.style.background=e.farbe;r.appendChild(c);
+  var t=el('span','t',e.titel);if(e.status){var st=el('span','st st-'+e.art,e.status);t.appendChild(st);}
+  if(e.art==='abgesagt')r.className+=' abg';if(e.ort)t.appendChild(el('span','o',e.ort));r.appendChild(t);return r;}
+function baue(f){
+  var d,i,j;
+  if(f.typ==='liste'){
+    d=el('div','folie');kopf(d,f);var anz=0;for(i=0;i<f.gruppen.length;i++)anz+=f.gruppen[i].eintraege.length+(f.gruppen[i].tag?1:0);
+    var box=el('div',anz>7?'spalten':'');
+    for(i=0;i<f.gruppen.length;i++){var gr=f.gruppen[i],g=el('div','gruppe');if(gr.tag)g.appendChild(el('div','tag',gr.tag));
+      for(j=0;j<gr.eintraege.length;j++)g.appendChild(zeile(gr.eintraege[j]));box.appendChild(g);}
+    d.appendChild(box);
+  } else if(f.typ==='termin'){
+    d=el('div','folie termin flex');var b=el('div','bild');
+    if(f.bild){b.style.backgroundImage='url("'+String(f.bild).replace(/["\\]/g,'')+'")';}
+    else{b.className+=' leer';if(farbe(f.farbe))b.style.backgroundColor=f.farbe;b.appendChild(el('div','ersatz',f.kategorie||''));}
+    if(f.art==='abgesagt'){b.appendChild(el('div','schleier'));b.appendChild(el('div','band','Abgesagt'));}
+    var ecke=el('div','ecke'),kal=el('div','kal');kal.appendChild(el('div','n',f.tag_name));kal.appendChild(el('div','d zahl',f.tag_zahl));
+    kal.appendChild(el('div','mo',f.monat));ecke.appendChild(kal);if(f.bald&&!f.countdown)ecke.appendChild(el('span','marke bald',f.bald));b.appendChild(ecke);
+    if(f.countdown){var cd=el('div','countdown');if(f.countdown==='Läuft gerade!')cd.appendChild(el('span','puls'));cd.appendChild(document.createTextNode(f.countdown));b.appendChild(cd);}
+    d.appendChild(b);var t=el('div','text wachsen flex spalte'),inh=el('div','inhalt');
+    if(f.highlight)inh.appendChild(el('div','marke hl','★ '+f.highlight));
+    if(f.kategorie){var ka=el('div','kat');var p=el('i');p.style.background=farbe(f.farbe)||'{{ f.akzent }}';ka.appendChild(p);ka.appendChild(document.createTextNode(f.kategorie));inh.appendChild(ka);}
+    inh.appendChild(el('h3','',f.titel));if(f.teaser)inh.appendChild(el('div','teaser',f.teaser));inh.appendChild(el('div','wann zahl',f.zeit||'ganztägig'));
+    if(f.ort)inh.appendChild(el('div','wo',f.ort));if(f.eintritt)inh.appendChild(el('div','preis',f.eintritt));
+    if(f.status)inh.appendChild(el('div','status st-'+f.art,f.status));
+    t.appendChild(inh);
+    if(f.qr||f.sponsor){var u=el('div','unten flex');
+      if(f.qr){var q=el('div','qrzeile flex'),qk=el('div','qrkarte'),im=el('img');im.src=f.qr;im.alt='';qk.appendChild(im);q.appendChild(qk);q.appendChild(el('span','',f.qr_text));u.appendChild(q);}
+      else u.appendChild(el('span'));
+      if(f.sponsor){var sp=el('div','sponsor');sp.appendChild(el('div','ueberzeile','Mit freundlicher Unterstützung'));
+        if(f.sponsor.logo){var si=el('img');si.src=f.sponsor.logo;si.alt=f.sponsor.name||'';sp.appendChild(si);}else sp.appendChild(el('b','',f.sponsor.name));u.appendChild(sp);}
+      t.appendChild(u);}
+    d.appendChild(t);
+  } else if(f.typ==='eigen_bild'){
+    d=el('div','folie eigen-bild'+(f.einpassen==='fuellen'?' fuellen':''));d.style.backgroundImage='url("'+String(f.bild).replace(/["\\]/g,'')+'")';
+  } else if(f.typ==='eigen_text'){
+    d=el('div','folie flex eigen-text hg-'+(f.hintergrund||'hell'));var w=el('div','wachsen');
+    w.appendChild(el('span','strich'));if(f.titel)w.appendChild(el('h2','',f.titel));if(f.text)w.appendChild(el('p','',f.text));d.appendChild(w);
+    if(f.qr){var qe=el('div','qrkarte'),qi=el('img');qi.src=f.qr;qi.alt='';qe.appendChild(qi);d.appendChild(qe);}
+  } else if(f.typ==='feiertag'){
+    d=el('div','folie flex feiertag ft-'+f.art+(f.zitat?' mit-zitat':'')+(f.liste&&f.liste.length?' mit-liste':''));d.appendChild(feiertagDeko(f.art));var ft=el('div','ft-text');
+    ft.appendChild(el('div','ft-unter',f.unter));ft.appendChild(el('h2','',f.titel));ft.appendChild(el('p','',f.text));if(f.gruss)ft.appendChild(el('div','ft-gruss',f.gruss));
+    if(f.zitat){var zq=el('div','ft-zitat');zq.appendChild(el('q','',f.zitat.text));if(f.zitat.uebersetzung)zq.appendChild(el('span','ue','('+f.zitat.uebersetzung+')'));
+      if(f.zitat.von)zq.appendChild(el('cite','','– '+f.zitat.von));ft.appendChild(zq);}
+    if(f.liste&&f.liste.length){var fl=el('div','ft-liste');if(f.liste_titel)fl.appendChild(el('b','',f.liste_titel));
+      for(var li=0;li<f.liste.length;li++){var lz=el('div','');lz.appendChild(el('span','',f.liste[li].wann));lz.appendChild(document.createTextNode(f.liste[li].titel));fl.appendChild(lz);}
+      ft.appendChild(fl);}
+    d.appendChild(ft);
+    if(f.foto&&f.foto.url){d.className+=' mit-foto';var fb=el('div','ft-foto');fb.style.backgroundImage='url("'+String(f.foto.url).replace(/["\\]/g,'')+'")';
+      if(f.foto.lage)fb.style.backgroundPosition=f.foto.lage;d.appendChild(fb);if(f.foto.nachweis)d.appendChild(el('div','ft-nachweis',f.foto.nachweis));}
+  } else if(f.typ==='gruss'){
+    d=el('div','folie flex spalte gruss');var dk=el('div','deko');dk.appendChild(el('div','kreis'));dk.appendChild(el('div','kreis k2'));d.appendChild(dk);
+    var gu=el('div','ueberzeile',f.unter);gu.style.position='relative';d.appendChild(gu);d.appendChild(el('h2','',f.titel));
+    if(f.wetter)d.appendChild(el('div','wetter',f.wetter));d.appendChild(el('p','',f.text));if(f.heute){var hc=el('div','');hc.style.position='relative';hc.appendChild(el('span','heute-chip',f.heute+' →'));d.appendChild(hc);}
+  } else if(f.typ==='sowars'){
+    d=el('div','folie flex sowars');var sb=el('div','sw-bilder'),n=f.fotos.length;
+    var lagen=n===1?[[0,0,100,100]]:(n===2?[[0,0,100,50],[0,50,100,50]]:[[0,0,62,100],[62,0,38,50],[62,50,38,50]]);
+    for(var fi=0;fi<n&&fi<3;fi++){var fo=el('div','sw-foto'),L=lagen[fi];fo.style.left=L[0]+'%';fo.style.top=L[1]+'%';fo.style.width=L[2]+'%';fo.style.height=L[3]+'%';
+      if(fi>0){fo.style.borderLeft=L[0]>0?'.6vmin solid {{ f.grund }}':'';fo.style.borderTop=L[1]>0?'.6vmin solid {{ f.grund }}':'';}
+      var fim=el('i');fim.style.backgroundImage='url("'+String(f.fotos[fi]).replace(/["\\]/g,'')+'")';fim.style.webkitAnimationDelay=fim.style.animationDelay=(fi*0.8)+'s';fo.appendChild(fim);sb.appendChild(fo);}
+    d.appendChild(sb);var st=el('div','sw-text wachsen flex spalte');st.appendChild(el('div','ueberzeile',f.unter));st.appendChild(el('div','so',"So war's"));
+    st.appendChild(el('h2','',f.titel));st.appendChild(el('p','',f.text));if(f.naechstes){var nw=el('div','');nw.appendChild(el('span','naechstes',f.naechstes));st.appendChild(nw);}d.appendChild(st);
+  } else if(f.typ==='haus' && f.art==='willkommen'){
+    d=el('div','folie flex wk-folie');var wd=el('div','wk-deko'),farben=['{{ f.akzent }}','#f6a623','#3fa16b','#e8336e','#3975b9'];
+    for(var wi=0;wi<5;wi++){var kr2=el('i');var gr=30+wi*9;kr2.style.width=kr2.style.height=gr+'vmin';kr2.style.background=farben[wi];
+      kr2.style.left=[70,-12,82,30,-6][wi]+'%';kr2.style.top=[-18,60,58,-30,-20][wi]+'%';wd.appendChild(kr2);}d.appendChild(wd);
+    var wl=el('div','wachsen'),alle=el('div','wk-alle');wl.style.position='relative';
+    for(var ai=0;ai<f.sprachen.length;ai++){if(ai)alle.appendChild(document.createTextNode('  ·  '));alle.appendChild(el('span','',f.sprachen[ai].gruss.replace(/[!¡]/g,'')));}
+    wl.appendChild(alle);var inh=el('div','wk-inhalt'),wsp=el('div','wk-sprache'),wg=el('div','wk-gruss'),wt=el('div','wk-text');
+    inh.appendChild(wsp);inh.appendChild(wg);inh.appendChild(wt);wl.appendChild(inh);var pk=el('div','wk-punkte');
+    for(var pi2=0;pi2<f.sprachen.length;pi2++)pk.appendChild(el('i'));wl.appendChild(pk);d.appendChild(wl);
+    var qs=qrspalte(f.sprachen[0].qr,f.sprachen[0].qr_text);d.appendChild(qs);var qimg=qs.querySelector('img'),qspan=qs.querySelector('span');
+    var setze=function(i){var w=f.sprachen[i];wsp.textContent=w.sprache;wg.textContent=w.gruss;wt.textContent=w.text;qimg.src=w.qr;if(qspan)qspan.textContent=w.qr_text;
+      inh.lang=w.code;for(var k=0;k<pk.children.length;k++)pk.children[k].className=(k===i?'an':'');
+      for(var k2=0;k2<alle.children.length;k2++){var sp=alle.children[k2];sp.style.color=(k2===i?'{{ f.akzent_schrift }}':'');sp.style.fontWeight=(k2===i?'900':'');}};
+    setze(0);var wn=0,wiv=setInterval(function(){if(!d.parentNode){clearInterval(wiv);return;}inh.className='wk-inhalt weg';
+      setTimeout(function(){wn=(wn+1)%f.sprachen.length;setze(wn);inh.className='wk-inhalt';},450);},4500);
+  } else if(f.typ==='haus' && f.bild){
+    d=el('div','folie flex haus mit-bild '+f.art);var hb=el('div','hbild');hb.style.backgroundImage='url("'+String(f.bild).replace(/["\\]/g,'')+'")';d.appendChild(hb);
+    var ht=el('div','htext wachsen flex spalte');kopf(ht,f);ht.appendChild(el('p','',f.text));if(f.qr)ht.appendChild(qrspalte(f.qr,f.qr_text));d.appendChild(ht);
+  } else if(f.typ==='haus'){
+    d=el('div','folie flex haus '+f.art);
+    if(f.art==='stern')d.appendChild(stern('stern-gross'));
+    var hw=el('div','wachsen');kopf(hw,f);if(f.text)hw.appendChild(el('p','',f.text));
+    if(f.werte&&f.werte.length){var wr=el('div','werte flex');for(var vi=0;vi<f.werte.length;vi++)wr.appendChild(el('span','wert',f.werte[vi]));hw.appendChild(wr);}
+    if(f.fuss)hw.appendChild(el('div','fuss-zeile',f.fuss));
+    if(f.kanaele){var kr=el('div','kanaele flex');for(var ki=0;ki<f.kanaele.length;ki++){var kn=f.kanaele[ki],kd=el('div','kanal'),kq=el('div','qrkarte'),kim=el('img');
+      var kk=el('div','kanal-kopf flex mitte-v');kk.appendChild(kanalIcon(kn.art,ki));kk.appendChild(el('b','',kn.name));kd.appendChild(kk);
+      kim.src=kn.qr;kim.alt='';kq.appendChild(kim);kd.appendChild(kq);kd.appendChild(el('small','',kn.zeile));
+      if(f.art==='social')kd.insertBefore(el('span','tesa'),kd.firstChild);kr.appendChild(kd);}
+    if(f.art==='social'){var h2s=hw.querySelector('h2');if(h2s){var kw=el('span','');kw.innerHTML='<svg class="kringel" viewBox="0 0 120 12" preserveAspectRatio="none" aria-hidden="true"><path d="M2 8 C18 2 30 11 48 6 S80 1 96 7 S112 9 118 5" fill="none" stroke="{{ f.akzent }}" stroke-width="3" stroke-linecap="round"/></svg>';h2s.appendChild(kw.firstChild);}
+      var sh=el('div','scanhinweis');sh.innerHTML='<svg viewBox="0 0 60 45" aria-hidden="true"><path d="M52 40 C46 20 30 8 8 12" fill="none" stroke="{{ f.akzent_schrift }}" stroke-width="2.6" stroke-linecap="round"/><path d="M15 5 L7 12 L16 18" fill="none" stroke="{{ f.akzent_schrift }}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      sh.appendChild(document.createTextNode('Handy drauf – '));sh.appendChild(el('br'));sh.appendChild(document.createTextNode('fertig!'));kr.appendChild(sh);}
+    hw.appendChild(kr);}
+    d.appendChild(hw);if(f.qr)d.appendChild(qrspalte(f.qr,f.qr_text));
+  } else if(f.typ==='lak'){
+    var motiv=function(cls){var mi=el('img','lak-motiv');mi.src=f.logo;mi.alt='Lebendiger Adventskalender';var mw=el('div',cls);mw.appendChild(mi);return mw;};
+    if(f.art==='intro'){
+      d=el('div','folie flex lak lak-intro');d.appendChild(f.logo?motiv('motiv'):stern('lak-stern'));var li=el('div','wachsen');
+      li.appendChild(el('div','lak-ueber',(f.claim?f.claim+' · ':'')+f.jahr));li.appendChild(el('h2','',f.titel));
+      li.appendChild(el('p','',f.text));if(f.unter)li.appendChild(el('div','band-blau',f.unter));d.appendChild(li);d.appendChild(qrspalte(f.qr,f.qr_text));
+    } else if(f.art==='raster'){
+      d=el('div','folie lak lak-raster');var rk=el('div','raster-kopf flex'),rt=el('div','wachsen');
+      rt.appendChild(el('div','lak-ueber',f.ueber||'Lebendiger Adventskalender'));rt.appendChild(el('h2','',f.titel));
+      if(f.gefuehl)rt.appendChild(el('p','gefuehl',f.gefuehl));
+      if(f.zahlen&&f.zahlen.length){var zr=el('div','zahlen flex');for(var zi=0;zi<f.zahlen.length;zi++)zr.appendChild(el('span','zahl-chip',f.zahlen[zi]));rt.appendChild(zr);}
+      rk.appendChild(rt);if(f.logo)rk.appendChild(motiv('motiv-mittel'));d.appendChild(rk);
+      var rs=el('div','raster flex'),nr=0;for(var ti=0;ti<f.tueren.length;ti++){var tu=f.tueren[ti];
+        rs.appendChild(tuerEl(tu.n,(tu.auf?' auf':'')+(tu.heute?' heute oeffnen':'')+(tu.belegt?'':' leer'),tu.auf?(0.5+0.12*(nr++)):(tu.heute?(0.9+0.12*nr):0)));}d.appendChild(rs);
+      if(f.text)d.appendChild(el('div','lak-hinweis',f.text));
+    } else if(f.art==='tuer'){
+      d=el('div','folie flex lak lak-tuer');var se=el('div','seite');
+      if(f.bild)se.style.backgroundImage='url("'+String(f.bild).replace(/["\\]/g,'')+'")';
+      else if(f.logo){se.className+=' motiv-grund';se.style.backgroundImage='url("'+String(f.logo).replace(/["\\]/g,'')+'")';}
+      if(f.nummer)se.appendChild(tuerEl(f.nummer,f.heute?' heute oeffnen':' heute'));d.appendChild(se);
+      var lt=el('div','text wachsen flex spalte'),lin=el('div','inhalt');lin.appendChild(el('div','lak-ueber',f.unter));lin.appendChild(el('h3','',f.titel));
+      if(f.teaser)lin.appendChild(el('div','teaser',f.teaser));lin.appendChild(el('div','wann zahl',f.zeit||'ganztägig'));if(f.ort)lin.appendChild(el('div','wo',f.ort));
+      if(f.status)lin.appendChild(el('div','status st-'+f.statusart,f.status));lt.appendChild(lin);
+      var lu=el('div','unten flex'),lq=el('div','qrzeile flex'),lk=el('div','qrkarte'),lim=el('img');lim.src=f.qr;lim.alt='';lk.appendChild(lim);lq.appendChild(lk);lq.appendChild(el('span','',f.qr_text));lu.appendChild(lq);
+      if(f.sponsor){var ls=el('div','sponsor');ls.appendChild(el('div','ueberzeile','Mit freundlicher Unterstützung'));
+        if(f.sponsor.logo){var lsi=el('img');lsi.src=f.sponsor.logo;lsi.alt=f.sponsor.name||'';ls.appendChild(lsi);}else ls.appendChild(el('b','',f.sponsor.name));lu.appendChild(ls);}
+      lt.appendChild(lu);d.appendChild(lt);
+    } else if(f.art==='geheim'){
+      d=el('div','folie flex lak lak-tuer geheim');var gs=el('div','seite');gs.appendChild(tuerEl(f.nummer,' heute'));gs.appendChild(el('div','fragezeichen','?'));d.appendChild(gs);
+      var gt=el('div','text wachsen flex spalte'),gi=el('div','inhalt');gi.appendChild(el('div','lak-ueber',f.unter));gi.appendChild(el('h3','',f.titel));
+      gi.appendChild(el('p','lak-text',f.text));gt.appendChild(gi);var gq=el('div','unten flex'),gqz=el('div','qrzeile flex'),gk=el('div','qrkarte'),gim=el('img');
+      gim.src=f.qr;gim.alt='';gk.appendChild(gim);gqz.appendChild(gk);gqz.appendChild(el('span','',f.qr_text));gq.appendChild(gqz);gt.appendChild(gq);d.appendChild(gt);
+    } else {
+      d=el('div','folie lak lak-partner');var pk=el('div','raster-kopf flex'),pt=el('div','wachsen');pt.appendChild(el('div','lak-ueber',f.unter));pt.appendChild(el('h2','',f.titel));
+      pk.appendChild(pt);if(f.logo)pk.appendChild(motiv('motiv-klein'));d.appendChild(pk);
+      var lg2=el('div','logos flex');for(var pi=0;pi<f.partner.length;pi++){var pa=f.partner[pi],pd=el('div','logo-p flex mitte-v');
+        if(pa.logo){var pim=el('img');pim.src=pa.logo;pim.alt=pa.name||'';pd.appendChild(pim);}else pd.appendChild(document.createTextNode(pa.name));lg2.appendChild(pd);}
+      d.appendChild(lg2);
+    }
+    zauber(d);
+  } else if(f.typ==='app'){
+    d=el('div','folie flex app-folie');var l=el('div','wachsen');kopf(l,f);l.appendChild(el('p','',f.text));if(WEB)l.appendChild(el('div','web',WEB));d.appendChild(l);
+    var qk2=el('div','qrkarte'),im2=el('img');im2.src=f.qr;im2.alt='';qk2.appendChild(im2);d.appendChild(qk2);
+  } else if(f.typ==='willkommen'){
+    d=el('div','folie flex spalte willkommen');
+    if(LOGO){var lg=el('div','logo-gross'+(KACHEL?' logo-kachel':''));var li=el('img','logo');li.src=LOGO;li.alt='';lg.appendChild(li);d.appendChild(lg);}
+    d.appendChild(el('h2','',f.titel));d.appendChild(el('p','',f.text));
+  } else {
+    d=el('div','folie flex spalte text-folie');kopf(d,f);if(f.text)d.appendChild(el('p','',f.text));
+  }
+  return d;
+}
+function einpassen(d){
+  /* Listen-Folien: passt nicht alles aufs Format, fallen die letzten Zeilen weg – mit Hinweis statt Abschneiden */
+  var zeilen=d.querySelectorAll('.zeile');if(!zeilen.length)return;var weg=0,box=d.querySelector('.spalten')||d;
+  for(var n=zeilen.length-1;n>0&&(d.scrollHeight>d.clientHeight+1||box.scrollWidth>box.clientWidth+1);n--){var z=zeilen[n],g=z.parentNode;
+    g.removeChild(z);weg++;if(g.className==='gruppe'&&!g.querySelector('.zeile')&&g.parentNode)g.parentNode.removeChild(g);}
+  if(weg){var h=el('div','mehr-hinweis','… und '+weg+' weitere '+(weg===1?'Termin':'Termine')+' in der App');d.appendChild(h);
+    var rest=d.querySelectorAll('.zeile');if(d.scrollHeight>d.clientHeight+1&&rest.length>1){rest[rest.length-1].parentNode.removeChild(rest[rest.length-1]);h.textContent='… und '+(weg+1)+' weitere Termine in der App';}}
+}
+function weiter(){
+  clearTimeout(timer);
+  if(neu){folien=neu;neu=null;if(idx>=folien.length)idx=-1;}
+  if(!folien.length){timer=setTimeout(weiter,5000);return;}
+  idx=(idx+1)%folien.length;var f=folien[idx],alt=buehne.lastChild,d=baue(f);
+  buehne.appendChild(d);einpassen(d);
+  setTimeout(function(){d.className+=' zeigen';},30);
+  if(alt){alt.className=alt.className.replace(' zeigen','');setTimeout(function(){if(alt.parentNode)alt.parentNode.removeChild(alt);},1000);}
+  if(STANDBILD){setTimeout(function(){document.body.className+=' standbild';},2600);return;}  /* Vorschaubild: erste Folie, dann stillstehen */
+  var ms=Math.max(5,f.dauer||12)*1000;
+  balken.style.transition=balken.style.webkitTransition='none';balken.style.width='0';
+  setTimeout(function(){balken.style.transition=balken.style.webkitTransition='width '+(ms-400)+'ms linear';balken.style.width='100%';},50);
+  timer=setTimeout(weiter,ms);
+}
+function holen(){
+  var x=new XMLHttpRequest();x.open('GET',QUELLE+(QUELLE.indexOf('?')<0?'?':'&')+'_='+Date.now(),true);
+  x.onreadystatechange=function(){if(x.readyState!==4)return;
+    if(x.status===401){location.reload();return;}
+    if(x.status!==200)return;
+    var j;try{j=JSON.parse(x.responseText);}catch(e){return;}
+    if(j.neu_laden){location.reload();return;}
+    document.getElementById('schwarz').style.display=(j.an&&j.modul)?'none':'block';
+    if(j.folien){if(!folien.length){folien=j.folien;weiter();}else{neu=j.folien;}}
+  };
+  x.send();
+}
+function wach(){try{if(navigator.wakeLock&&document.visibilityState==='visible'){navigator.wakeLock.request('screen')['catch'](function(){});}}catch(e){}}
+document.addEventListener('visibilitychange',wach);wach();
+if(VORSCHAU){window.signageBaue=baue;window.signageEinpassen=einpassen;}  /* nur Vorschau: erlaubt die Prüfung aller Folien auf einen Blick */
+uhr();setInterval(uhr,10000);holen();if(!STANDBILD)setInterval(holen,60000);
+})();
+</script>
+</body>
+</html>

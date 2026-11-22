@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Dateiablage{% endblock %}
+{% macro groesse(b) %}{% if b >= 1073741824 %}{{ (b/1073741824)|round(1) }} GB{% elif b >= 1048576 %}{{ (b/1048576)|round(1) }} MB{% else %}{{ (b/1024)|round|int }} KB{% endif %}{% endmacro %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🗄️ Dateiablage</h1><div class="sub">Vorstand verwaltet · Mitglieder lesen · 🔓/🔒 je Ordner: welche Gruppen ihn sehen</div></div>
+    <form method="get" action="{{ url_for('dms.suche') }}" style="display:flex;gap:6px">
+        <input type="text" name="q" placeholder="🔎 Dateien suchen …" style="min-width:180px">
+        <button class="btn btn-sekundaer">Suchen</button>
+    </form>
+</div>
+
+{% set pct = ((gesamt / quota * 100) if quota else 0) %}
+<div class="karte" style="padding:10px 14px;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:13px;margin-bottom:5px">
+        <span>💾 Speicher {% if quota %}<strong>{{ groesse(gesamt) }}</strong> von {{ groesse(quota) }}{% else %}<strong>{{ groesse(gesamt) }}</strong> belegt · unbegrenzt{% endif %}</span>
+        {% if quota %}<span class="sub" style="{{ 'color:var(--rot);font-weight:700' if pct >= 90 }}">{{ pct|round|int }} %</span>{% endif %}
+    </div>
+    {% if quota %}
+    <div style="height:8px;background:var(--flaeche-3);border-radius:5px;overflow:hidden">
+        <div style="height:100%;width:{{ [pct, 100]|min }}%;background:{{ 'var(--rot)' if pct >= 90 else ('var(--gelb)' if pct >= 75 else 'var(--blau)') }}"></div>
+    </div>
+    {% if pct >= 90 %}<div class="sub" style="color:var(--rot);margin-top:5px">⚠️ Speicher fast voll – bitte alte Dateien löschen oder das Limit in den Einstellungen erhöhen.</div>{% endif %}
+    {% endif %}
+</div>
+
+<div class="karte" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+    <a href="{{ url_for('dms.index', sort=sort) }}" class="btn btn-sekundaer btn-klein">🏠 Start</a>
+    {% for c in crumbs %}<span style="color:var(--text-schwach)">/</span><a href="{{ url_for('dms.index', pfad=c.pfad, sort=sort) }}" class="btn btn-sekundaer btn-klein">{{ c.name }}</a>{% endfor %}
+    <span style="margin-left:auto"></span>
+    {% if relpfad %}<a href="{{ url_for('dms.download_zip', pfad=relpfad) }}" class="btn btn-sekundaer btn-klein">🗜️ Ordner als ZIP</a>{% endif %}
+    <span class="feld-hinweis">Sortieren:</span>
+    <a href="{{ url_for('dms.index', pfad=relpfad, sort='name') }}" class="badge {{ 'badge-aktiv' if sort=='name' else 'badge-gruppe' }}" style="text-decoration:none">Name</a>
+    <a href="{{ url_for('dms.index', pfad=relpfad, sort='datum') }}" class="badge {{ 'badge-aktiv' if sort=='datum' else 'badge-gruppe' }}" style="text-decoration:none">Datum</a>
+    <a href="{{ url_for('dms.index', pfad=relpfad, sort='groesse') }}" class="badge {{ 'badge-aktiv' if sort=='groesse' else 'badge-gruppe' }}" style="text-decoration:none">Größe</a>
+</div>
+
+<div id="drop" class="karte" style="border:2px dashed var(--linie-stark);text-align:center;padding:16px;transition:.15s">
+    <strong>⬆️ Dateien hierher ziehen</strong> oder <label style="color:var(--blau);cursor:pointer;font-weight:600">auswählen<input type="file" id="fileinput" multiple hidden></label>
+    – Upload nach <strong>{{ crumbs[-1].name if crumbs else 'Hauptordner' }}</strong>
+    <div id="progress" style="display:none;height:8px;background:var(--flaeche-3);border-radius:6px;margin-top:10px;overflow:hidden"><div id="bar" style="height:100%;width:0;background:var(--blau)"></div></div>
+</div>
+
+<div class="karte">
+    {% if inhalt.ordner or inhalt.dateien %}
+    <table>
+        <thead><tr><th>Name</th><th>Geändert</th><th>Größe</th><th class="rechts">Aktionen</th></tr></thead>
+        <tbody>
+        {% for o in inhalt.ordner %}
+        <tr>
+            <td><a href="{{ url_for('dms.index', pfad=o.pfad, sort=sort) }}" style="text-decoration:none;font-weight:600">📁 {{ o.name }}</a>
+                {% if o.pfad in zugriff_text %}<div class="sub" style="color:var(--warn-text)">🔒 nur: {{ zugriff_text[o.pfad] }}</div>{% endif %}</td>
+            <td class="sub">{{ o.geaendert }}</td>
+            <td class="sub">{{ o.anzahl }} Einträge</td>
+            <td class="rechts" style="white-space:nowrap">
+                <button type="button" class="btn btn-sekundaer" style="padding:4px 8px" title="Sichtbarkeit für Mitglieder" onclick="zugriffDialog('{{ o.pfad|e }}','{{ o.name|e }}')">{{ '🔒' if o.pfad in zugriff_text else '🔓' }}</button>
+                <a href="{{ url_for('dms.download_zip', pfad=o.pfad) }}" class="btn btn-sekundaer" style="padding:4px 8px" title="Als ZIP">🗜️</a>
+                <button type="button" class="btn btn-sekundaer" style="padding:4px 8px" title="Umbenennen" onclick="umbenennen('{{ o.pfad|e }}','{{ o.name|e }}')">✏️</button>
+                <button type="button" class="btn btn-sekundaer" style="padding:4px 8px" title="Verschieben" onclick="verschieben('{{ o.pfad|e }}')">➡️</button>
+                <form method="post" action="{{ url_for('dms.loeschen') }}" style="display:inline" onsubmit="return confirm('Ordner „{{ o.name }}“ samt Inhalt löschen?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="pfad" value="{{ o.pfad }}"><button class="btn btn-gefahr" style="padding:4px 8px">🗑️</button></form>
+            </td>
+        </tr>
+        {% endfor %}
+        {% for d in inhalt.dateien %}
+        <tr>
+            <td>{{ dms_icon(d.name) }} {% if dms_vorschau(d.name) %}<a href="{{ url_for('dms.vorschau', pfad=d.pfad) }}" target="_blank">{{ d.name }}</a>{% else %}<a href="{{ url_for('dms.download', pfad=d.pfad) }}">{{ d.name }}</a>{% endif %}</td>
+            <td class="sub">{{ d.geaendert }}</td>
+            <td class="sub">{{ groesse(d.groesse) }}</td>
+            <td class="rechts" style="white-space:nowrap">
+                {% if dms_vorschau(d.name) %}<a href="{{ url_for('dms.vorschau', pfad=d.pfad) }}" target="_blank" class="btn btn-sekundaer" style="padding:4px 8px" title="Vorschau">👁️</a>{% endif %}
+                <a href="{{ url_for('dms.download', pfad=d.pfad) }}" class="btn btn-sekundaer" style="padding:4px 8px" title="Herunterladen">⬇️</a>
+                <button type="button" class="btn btn-sekundaer" style="padding:4px 8px" title="Umbenennen" onclick="umbenennen('{{ d.pfad|e }}','{{ d.name|e }}')">✏️</button>
+                <button type="button" class="btn btn-sekundaer" style="padding:4px 8px" title="Verschieben" onclick="verschieben('{{ d.pfad|e }}')">➡️</button>
+                <form method="post" action="{{ url_for('dms.loeschen') }}" style="display:inline" onsubmit="return confirm('Datei löschen?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="pfad" value="{{ d.pfad }}"><button class="btn btn-gefahr" style="padding:4px 8px">🗑️</button></form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="feld-hinweis">Dieser Ordner ist leer – zieh Dateien hier hinein oder lege unten einen Unterordner an.</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('dms.ordner_neu') }}" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="pfad" value="{{ relpfad }}">
+        <span class="feld-hinweis">Neuer Ordner:</span>
+        <input type="text" name="name" placeholder="Ordnername" required style="max-width:200px">
+        <button class="btn btn-sekundaer">📁 Anlegen</button>
+    </form>
+</div>
+
+<form id="rename-form" method="post" action="{{ url_for('dms.rename') }}" style="display:none"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="pfad" id="rn-pfad"><input type="hidden" name="name" id="rn-name"></form>
+
+<dialog id="zugriff-dialog" style="border:none;border-radius:14px;padding:20px;max-width:440px;background:var(--flaeche);color:var(--text);box-shadow:var(--schatten-hoch)">
+    <form method="post" action="{{ url_for('dms.zugriff') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="pfad" id="zg-pfad">
+        <h3 style="margin:0 0 4px">🔐 Sichtbarkeit: <span id="zg-name"></span></h3>
+        <p class="feld-hinweis" style="margin:0 0 12px">Nur die angehakten Gruppen sehen diesen Ordner im Mitglieder-Portal.
+            <strong>Keine Auswahl = alle Mitglieder.</strong> Die Verwaltung (Vorstand) sieht immer alles.</p>
+        {% if gruppen %}
+        <div style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto">
+            {% for g in gruppen %}
+            <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" name="gruppen" value="{{ g.id }}"> {{ g.name }}</label>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="feld-hinweis">Es sind noch keine Gruppen angelegt (Mitglieder → Gruppen).</p>
+        {% endif %}
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+            <button type="button" class="btn btn-sekundaer" onclick="document.getElementById('zugriff-dialog').close()">Abbrechen</button>
+            <button class="btn">Speichern</button>
+        </div>
+    </form>
+</dialog>
+
+<dialog id="move-dialog" style="border:none;border-radius:14px;padding:20px;max-width:420px;background:var(--flaeche);color:var(--text);box-shadow:var(--schatten-hoch)">
+    <form method="post" action="{{ url_for('dms.verschieben') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="pfad" id="mv-pfad">
+        <h3 style="margin:0 0 10px">Verschieben nach …</h3>
+        <select name="ziel" style="width:100%;padding:9px;font-family:monospace">{% for o in ordnerliste %}<option value="{{ o.pfad }}">{{ o.name }}</option>{% endfor %}</select>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+            <button type="button" class="btn btn-sekundaer" onclick="document.getElementById('move-dialog').close()">Abbrechen</button>
+            <button class="btn">Verschieben</button>
+        </div>
+    </form>
+</dialog>
+
+<script>
+function umbenennen(pfad, akt){
+    var n = prompt('Neuer Name:', akt);
+    if(n && n.trim()){ document.getElementById('rn-pfad').value=pfad; document.getElementById('rn-name').value=n.trim(); document.getElementById('rename-form').submit(); }
+}
+function verschieben(pfad){ document.getElementById('mv-pfad').value=pfad; document.getElementById('move-dialog').showModal(); }
+var ZUGRIFF = {
+{%- for pfad, ids in regeln.items() %}
+    {{ pfad|tojson }}: [{{ ids|join(',') }}]{{ ',' if not loop.last }}
+{%- endfor %}
+};
+function zugriffDialog(pfad, name){
+    document.getElementById('zg-pfad').value = pfad;
+    document.getElementById('zg-name').textContent = name;
+    var aktiv = ZUGRIFF[pfad] || [];
+    document.querySelectorAll('#zugriff-dialog input[name=gruppen]').forEach(function (c) {
+        c.checked = aktiv.indexOf(parseInt(c.value, 10)) >= 0;
+    });
+    document.getElementById('zugriff-dialog').showModal();
+}
+
+(function(){
+    var drop=document.getElementById('drop'), prog=document.getElementById('progress'), bar=document.getElementById('bar');
+    function upload(files){
+        if(!files || !files.length) return;
+        var fd=new FormData(); fd.append('csrf_token','{{ csrf_token() }}'); fd.append('pfad','{{ relpfad }}'); fd.append('ajax','1');
+        for(var i=0;i<files.length;i++) fd.append('dateien', files[i]);
+        var xhr=new XMLHttpRequest(); xhr.open('POST','{{ url_for("dms.upload") }}');
+        prog.style.display='block'; bar.style.width='0';
+        xhr.upload.onprogress=function(e){ if(e.lengthComputable) bar.style.width=Math.round(e.loaded/e.total*100)+'%'; };
+        xhr.onload=function(){ location.reload(); };
+        xhr.onerror=function(){ alert('Upload fehlgeschlagen.'); prog.style.display='none'; };
+        xhr.send(fd);
+    }
+    ['dragover','dragenter'].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.style.background='var(--akzent-zart)'; }); });
+    ['dragleave','dragend'].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.style.background=''; }); });
+    drop.addEventListener('drop',function(e){ e.preventDefault(); drop.style.background=''; upload(e.dataTransfer.files); });
+    document.getElementById('fileinput').addEventListener('change',function(){ upload(this.files); });
+})();
+</script>
+{% endblock %}

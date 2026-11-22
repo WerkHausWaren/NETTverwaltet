@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Steuer-Auswertung{% endblock %}
+{% block content %}
+<div class="page-header no-print">
+    <div><h1>🧾 Steuer-Auswertung (Körperschaftsteuer)</h1>
+        <div class="sub">Ergebnis nach steuerlichen Sphären – Vorbereitung für das Finanzamt</div></div>
+    <div class="aktionen">
+        <form method="get" style="display:inline">
+            <select name="jahr" onchange="this.form.submit()">
+                {% for j in jahre %}<option value="{{ j.j }}" {{ 'selected' if j.j == jahr }}>{{ j.label }}</option>{% endfor %}
+            </select>
+        </form>
+        <a href="{{ url_for('finanzen.liste', jahr=jahr) }}" class="btn btn-sekundaer">← Kassenbuch</a>
+        <button class="btn" onclick="window.print()">🖨️ Drucken / Als PDF</button>
+    </div>
+</div>
+
+<div class="hilfe-box no-print">
+    Diese Übersicht fasst deine Buchungen für das Wirtschaftsjahr <strong>{{ wj_label }}</strong> ({{ wj_start | datum_de }} – {{ wj_ende | datum_de }}) nach den vier steuerlichen Bereichen
+    (Sphären) zusammen. Sie hilft dir (oder deiner Steuerberatung) beim Ausfüllen der
+    <strong>Körperschaftsteuererklärung</strong> mit der <strong>Anlage Gem</strong> beim Finanzamt (ELSTER).
+    Wichtig: Dies ist eine <strong>Vorbereitung/Übersicht</strong>, nicht die amtliche Abgabe.
+</div>
+
+<div class="karte">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid var(--text);padding-bottom:8px;margin-bottom:14px">
+        <div><strong style="font-size:18px">{{ einst.vereinsname }}</strong>
+            <div class="feld-hinweis">{{ einst.strasse }}{% if einst.ort %}, {{ einst.plz }} {{ einst.ort }}{% endif %}{% if einst.steuernummer %} · Steuernr. {{ einst.steuernummer }}{% endif %}</div></div>
+        <div style="text-align:right"><strong>Körperschaftsteuer-Übersicht {{ wj_label }}</strong></div>
+    </div>
+
+    <table>
+        <thead><tr><th>Steuerliche Sphäre</th><th class="rechts">Einnahmen</th><th class="rechts">Ausgaben</th><th class="rechts">Ergebnis</th></tr></thead>
+        <tbody>
+        {% for z in zeilen %}
+        <tr>
+            <td>{{ z.label }}</td>
+            <td class="rechts">{{ z.einnahmen | euro }}</td>
+            <td class="rechts">{{ z.ausgaben | euro }}</td>
+            <td class="rechts" style="color:{{ 'var(--gruen)' if z.ergebnis>=0 else 'var(--rot)' }}">{{ z.ergebnis | euro }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr style="font-weight:700;border-top:2px solid var(--text)">
+                <td>Gesamt</td>
+                <td class="rechts">{{ summe_e | euro }}</td>
+                <td class="rechts">{{ summe_a | euro }}</td>
+                <td class="rechts">{{ summe_erg | euro }}</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Steuerpflicht wirtschaftlicher Geschäftsbetrieb</h2>
+    <table style="box-shadow:none">
+        <tr><td>Einnahmen wirtschaftlicher Geschäftsbetrieb {{ wj_label }}</td><td class="rechts"><strong>{{ wg_einnahmen | euro }}</strong></td></tr>
+        <tr><td>Freigrenze (§ 64 Abs. 3 AO)</td><td class="rechts">{{ freigrenze | euro }}</td></tr>
+    </table>
+    {% if wg_ueber %}
+    <div class="flash flash-fehler" style="margin-top:10px">⚠️ Die Einnahmen des wirtschaftlichen Geschäftsbetriebs liegen <strong>über der Freigrenze von {{ freigrenze | euro }}</strong>.
+        Der Gewinn dieses Bereichs ist grundsätzlich körperschaft- und gewerbesteuerpflichtig. Bitte Steuerberatung hinzuziehen.</div>
+    {% else %}
+    <div class="flash flash-erfolg" style="margin-top:10px">✅ Die Einnahmen des wirtschaftlichen Geschäftsbetriebs liegen <strong>unter der Freigrenze von {{ freigrenze | euro }}</strong> –
+        insoweit fällt in der Regel keine Körperschaft-/Gewerbesteuer an.</div>
+    {% endif %}
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Kurz erklärt</h2>
+    <ul style="margin:0 0 0 18px;padding:0;line-height:1.8">
+        <li><strong>Ideeller Bereich</strong> (Beiträge, Spenden, Zuschüsse) – steuerfrei.</li>
+        <li><strong>Vermögensverwaltung</strong> (Zinsen, Miete) – steuerfrei.</li>
+        <li><strong>Zweckbetrieb</strong> (z.B. Kino-/Kultureintritt im Rahmen des Vereinszwecks) – steuerbegünstigt.</li>
+        <li><strong>Wirtschaftlicher Geschäftsbetrieb</strong> (z.B. Getränkeverkauf, Werbung) – steuerpflichtig ab Überschreiten der Freigrenze.</li>
+    </ul>
+    <p class="feld-hinweis" style="margin-top:10px">Hinweis: Diese Auswertung ersetzt keine steuerliche Beratung und keine amtliche Erklärung.
+        Sie dient als geordnete Grundlage für die Körperschaftsteuererklärung (Anlage Gem) bzw. für deine Steuerberatung.</p>
+</div>
+{% endblock %}

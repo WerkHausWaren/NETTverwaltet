@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Kalender exportieren{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>📅 Termine exportieren & abonnieren</h1><div class="sub">In Google, Outlook/Exchange, Apple Kalender einbinden</div></div>
+    <a href="{{ url_for('kalender.index') }}" class="btn btn-sekundaer">← Zurück</a>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">🔗 Kalender abonnieren (empfohlen)</h2>
+    <p class="feld-hinweis">Diese Adresse hält deinen Kalender <strong>automatisch aktuell</strong> – neue oder geänderte Termine erscheinen von selbst. In fast allen Kalender-Apps unter „Kalender abonnieren / per URL hinzufügen" einfügen:</p>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0">
+        <input id="feed" type="text" readonly value="{{ feed }}" style="flex:1;min-width:280px;font-family:monospace;font-size:13px">
+        <button type="button" class="btn" onclick="navigator.clipboard.writeText(document.getElementById('feed').value);this.textContent='✓ Kopiert';">📋 Kopieren</button>
+        <a href="{{ webcal }}" class="btn btn-sekundaer">In Kalender öffnen ↗</a>
+    </div>
+    <ul style="line-height:1.7;color:var(--text);font-size:14px">
+        <li><strong>Google Kalender:</strong> Andere Kalender → ＋ → „Per URL" → Adresse einfügen.</li>
+        <li><strong>Outlook / Exchange:</strong> Kalender hinzufügen → „Aus dem Internet abonnieren" → Adresse einfügen.</li>
+        <li><strong>Apple Kalender (Mac/iPhone):</strong> Ablage → „Neues Kalenderabonnement" → Adresse einfügen.</li>
+    </ul>
+    <p class="feld-hinweis">Die Adresse ist geheim (wie ein Passwort) – nur an vertrauenswürdige Personen weitergeben.</p>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">⬇️ Einmalig als Datei (.ics)</h2>
+    <p class="feld-hinweis">Lädt alle aktuellen Termine als Datei – zum einmaligen Importieren (ohne automatische Aktualisierung).</p>
+    <a href="{{ url_for('kalender.download_ics') }}" class="btn btn-sekundaer">termine.ics herunterladen</a>
+</div>
+{% endblock %}

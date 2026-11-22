@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Nextcloud-Kalender{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>☁️ Nextcloud-Kalender</h1><div class="sub">App und Nextcloud verbinden</div></div>
+    <a href="{{ url_for('kalender.index') }}" class="btn btn-sekundaer">← Zum Kalender</a>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">1) In der App angelegte Termine → Nextcloud</h2>
+    {% if not zugang %}
+    <p class="feld-hinweis">Trage zuerst Server, Benutzer und App-Passwort unter
+        <a href="{{ url_for('einstellungen.index') }}#nextcloud">⚙️ Einstellungen → Nextcloud-Kalender</a> ein.</p>
+    {% else %}
+    <p>Verbindung eingerichtet für <strong>{{ e.ncc_server }}</strong> (Benutzer {{ e.ncc_user }}).
+    {% if e.ncc_url %}<br>Ziel-Kalender: <code>{{ e.ncc_url }}</code>{% endif %}</p>
+    <form method="post" action="{{ url_for('kalender.nextcloud_suchen') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn">🔎 Meine Nextcloud-Kalender suchen</button>
+    </form>
+
+    {% if gefunden is defined %}
+        {% if gefunden %}
+        <h3>Gefundene Kalender – bitte Ziel wählen:</h3>
+        <table>
+            <tbody>
+            {% for k in gefunden %}
+            <tr>
+                <td><strong>{{ k.name }}</strong>{% if e.ncc_url==k.url %} <span class="badge badge-aktiv">aktiv</span>{% endif %}</td>
+                <td class="rechts">
+                    <form method="post" action="{{ url_for('kalender.nextcloud_waehlen') }}" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="url" value="{{ k.url }}">
+                        <button class="btn btn-sekundaer btn-klein">Diesen verwenden</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="feld-hinweis">Keine beschreibbaren Kalender gefunden.</p>
+        {% endif %}
+    {% endif %}
+
+    {% if konfiguriert %}
+    <div style="margin-top:16px">
+        <form method="post" action="{{ url_for('kalender.nextcloud_sync') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sekundaer">🔄 Alle bestehenden Termine jetzt nach Nextcloud übertragen</button>
+        </form>
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">2) Nextcloud-Termine → in der App anzeigen</h2>
+    <p class="feld-hinweis">Füge deinen Nextcloud-Kalender als Abo hinzu, damit dort angelegte Termine
+        auch in der App erscheinen. Den öffentlichen Kalenderlink findest du in Nextcloud unter
+        „Kalender teilen → Link kopieren".</p>
+    <form method="post" action="{{ url_for('kalender.nextcloud_abo') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld"><label>Öffentlicher Kalenderlink</label>
+            <input type="text" name="link" placeholder="https://nextcloud.…/index.php/apps/calendar/p/TOKEN" required></div>
+        <button type="submit" class="btn btn-sekundaer">＋ Als Abo hinzufügen</button>
+    </form>
+</div>
+{% endblock %}

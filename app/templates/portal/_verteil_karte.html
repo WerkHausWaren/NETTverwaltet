@@ -1,0 +1,18 @@
+{# Karte einer Verteilaktion (Startseite + Übersicht). Erwartet `va` aus verteilen.startkarte(). #}
+<a class="mp-karte" href="{{ url_for('portal.verteilen_aktion', aid=va.id) }}" style="display:block;text-decoration:none;color:inherit">
+    <div style="font-weight:700">🚶 {{ va.titel }}</div>
+    {% if va.flyer %}
+    <div style="height:8px;background:var(--linie);border-radius:4px;overflow:hidden;margin:8px 0">
+        <div style="height:100%;width:{{ va.proz }}%;background:var(--gruen)"></div></div>
+    <div class="feld-hinweis">📄 {{ va.proz }} % verteilt
+        {%- if va.meine %} · du hast {{ va.meine }} Straße{{ '' if va.meine == 1 else 'n' }} verteilt 💪{% endif %}
+        {%- if va.route %} · deine Route: {{ va.route }} Straße{{ '' if va.route == 1 else 'n' }}{% endif %}</div>
+    {% endif %}
+    {% if va.zustellungen and va.zust_gesamt %}
+    <div class="feld-hinweis" style="margin-top:4px">📬 {{ va.zust_offen }} von {{ va.zust_gesamt }} Zustellung{{ '' if va.zust_gesamt == 1 else 'en' }} noch offen</div>
+    {% endif %}
+    {% if va.plakate %}
+    <div class="feld-hinweis" style="margin-top:4px">📍 {{ va.plakate_haengen }} Plakat{{ '' if va.plakate_haengen == 1 else 'e' }} hängen</div>
+    {% endif %}
+    <div style="margin-top:8px;font-weight:600;color:var(--blau-text)">{{ 'Weiter verteilen ›' if va.route or va.meine else 'Mitmachen ›' }}</div>
+</a>

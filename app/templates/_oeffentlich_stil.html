@@ -1,0 +1,46 @@
+{# Gemeinsamer Farbsatz für eigenständige öffentliche Seiten (kein base.html,
+   kein portal/_layout.html). Definiert dieselben Variablen wie style.css –
+   hell und, dem Gerät folgend, dunkel. Die Seiten schreiben ihre Stile über
+   Variablen mit hellem Fallback; ohne dieses Include blieben sie dauerhaft hell.
+
+   Einbinden im <head>, VOR dem eigenen <style>-Block der Seite:
+       {% raw %}{% with akzent = (einst.farbe_primaer if einst else '') %}{% include "_oeffentlich_stil.html" %}{% endwith %}{% endraw %}
+   Ohne `akzent` greift die global injizierte Einstellungs-Zeile `design`. #}
+{%- set _akz = ((akzent if akzent is defined else none) or (design.farbe_primaer if design else '') or '#174290') | hexfarbe -%}
+<meta name="color-scheme" content="light dark">
+<style>
+:root {
+    --akz: {{ _akz }};
+    --akz-text: var(--akz);   /* Akzent als Schrift – im Dunkeln aufgehellt */
+    --auf-primaer: {{ _akz | kontrast }};
+    --auf-akz: var(--auf-primaer);
+    --blau: var(--akz);
+    --sidebar: #0f172a;  --auf-sidebar: #cbd5e1;
+    --grund: #f4f6fb;  --flaeche: #ffffff;  --flaeche-2: #f8fafc;  --flaeche-3: #f1f5f9;
+    --linie: #e2e8f0;  --linie-stark: #cbd5e1;
+    --text: #1e293b;  --text-stark: #0f172a;  --text-hell: #64748b;  --text-schwach: #94a3b8;
+    --gruen: #16a34a;  --gut-grund: #dcfce7;   --gut-text: #166534;     --gut-rand: #bbf7d0;
+    --rot: #dc2626;    --fehler-grund: #fee2e2; --fehler-text: #991b1b; --fehler-rand: #fecaca;
+    --gelb: #d97706;   --warn-grund: #fef3c7;   --warn-text: #92400e;   --warn-rand: #fde68a;
+    --info-grund: #dbeafe;   --info-text: #1e40af;   --info-rand: #bfdbfe;
+    --neutral-grund: #f1f5f9; --neutral-text: #475569;
+    --schatten: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    --logo-teller: #ffffff;   /* Teller hinter dem Vereinslogo – bleibt in beiden Modi hell */
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --akz-text: color-mix(in srgb, var(--akz) 45%, #ffffff);
+        --sidebar: #080c14;  --auf-sidebar: #c3cddc;
+        --grund: #0f131c;  --flaeche: #1a2030;  --flaeche-2: #222a3b;  --flaeche-3: #2a3348;
+        --linie: #2f3a4f;  --linie-stark: #3d4a63;
+        --text: #e6ebf4;  --text-stark: #f4f7fb;  --text-hell: #9aa7bc;  --text-schwach: #74829a;
+        --gut-grund: #123021;    --gut-text: #7ee2a8;    --gut-rand: #1d4a33;
+        --fehler-grund: #3a1719; --fehler-text: #ffa3a3; --fehler-rand: #5c2427;
+        --warn-grund: #33260a;   --warn-text: #f2c579;   --warn-rand: #4d3a12;
+        --info-grund: #16243f;   --info-text: #a5c6ff;   --info-rand: #23375c;
+        --neutral-grund: #252d3d; --neutral-text: #aab6c8;
+        --schatten: 0 1px 3px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.4);
+        color-scheme: dark;
+    }
+}
+</style>

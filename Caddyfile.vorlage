@@ -1,0 +1,7 @@
+# Diese Datei wurde von ./einrichten.sh aus der Vorlage erzeugt.
+# Caddy holt und erneuert das HTTPS-Zertifikat automatisch (Let's Encrypt),
+# sobald die Domain auf diesen Server zeigt und Port 80/443 offen sind.
+DOMAIN_HIER {
+    encode gzip
+    reverse_proxy app:8000
+}

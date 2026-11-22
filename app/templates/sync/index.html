@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Synchronisierung{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🔄 Synchronisierung</h1>
+        <div class="sub">Daten der Online-Verwaltung in diese lokale Verwaltung übernehmen – <strong>Online hat Priorität</strong></div></div>
+</div>
+
+<div class="karte" style="border-left:4px solid var(--blau)">
+    <strong>📌 Arbeitsweise:</strong> Beim <strong>online geführten Verein</strong> bitte <strong>nur online</strong> arbeiten
+    (Online-Verwaltung). Diese lokale Verwaltung ist für ihn nur zum <em>Ansehen und Sichern</em> –
+    lokale Änderungen werden bei der nächsten Übernahme vom Online-Stand <strong>überschrieben</strong>.
+    Deine <strong>anderen Vereine</strong> laufen vorerst <strong>nur offline</strong> (ausschließlich hier lokal)
+    und werden nicht synchronisiert.
+</div>
+
+{% if not conf %}
+<div class="karte">
+    <p>Diese Funktion ist nur in der <strong>lokalen Verwaltung</strong> verfügbar und muss einmalig eingerichtet
+       werden (Datei <code>data/sync.json</code> mit Quelle und Token).</p>
+    <p class="feld-hinweis">Auf der Online-Verwaltung wird hier nichts synchronisiert – sie ist die Datenquelle.</p>
+</div>
+{% else %}
+
+<div class="hilfe-box">
+    <strong>So funktioniert's:</strong> Zuerst <em>Vorschau anzeigen</em> – du siehst pro Tabelle den Unterschied
+    zwischen dieser lokalen Verwaltung und online. Mit <em>Von online übernehmen</em> wird die lokale
+    Datenbank des online geführten Vereins (inkl. Fotos & Logo) durch die Online-Version <strong>ersetzt</strong>. Vorher wird
+    automatisch eine <strong>Sicherung</strong> angelegt. Andere lokale Vereine bleiben unberührt.
+</div>
+
+<div class="karte">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+        <div style="flex:1;min-width:200px">
+            <div class="feld-hinweis">Quelle (Online-Verwaltung)</div>
+            <strong>{{ quelle }}</strong>
+        </div>
+        <form method="post" action="{{ url_for('sync.vorschau') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sekundaer">🔍 Vorschau anzeigen</button>
+        </form>
+    </div>
+</div>
+
+{% if diff is not none %}
+<div class="karte">
+    <h2 style="margin-top:0">Vorschau {% if online_stand %}<span class="feld-hinweis" style="font-weight:400">· Online-Stand {{ online_stand }}</span>{% endif %}</h2>
+    {% set geaendert = diff | selectattr('delta', 'ne', 0) | list %}
+    {% if geaendert %}
+    <p>Bei <strong>{{ geaendert|length }}</strong> Tabelle(n) unterscheiden sich die Stände. Nach der Übernahme
+       entspricht die lokale Verwaltung exakt dem Online-Stand.</p>
+    {% else %}
+    <p class="feld-hinweis">Lokal und online sind bereits identisch – nichts zu übernehmen. 🎉</p>
+    {% endif %}
+    <div style="overflow-x:auto">
+    <table>
+        <thead><tr><th>Tabelle</th><th class="rechts">Lokal</th><th class="rechts">Online</th><th class="rechts">Δ</th></tr></thead>
+        <tbody>
+        {% for d in diff %}
+        <tr{% if d.delta != 0 %} style="background:var(--warn-grund)"{% endif %}>
+            <td>{{ d.tabelle }}</td>
+            <td class="rechts">{{ d.lokal }}</td>
+            <td class="rechts"><strong>{{ d.online }}</strong></td>
+            <td class="rechts">{% if d.delta > 0 %}<span style="color:var(--gruen)">+{{ d.delta }}</span>{% elif d.delta < 0 %}<span style="color:var(--rot)">{{ d.delta }}</span>{% else %}·{% endif %}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    <div class="aktionen" style="margin-top:14px">
+        <form method="post" action="{{ url_for('sync.anwenden') }}"
+              onsubmit="return confirm('Lokale Vereinsdaten jetzt durch die Online-Version ersetzen? Vorher wird eine Sicherung angelegt.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn">⬇️ Von online übernehmen</button>
+        </form>
+    </div>
+    <p class="feld-hinweis" style="margin-top:8px">Achtung: Lokale Änderungen an diesem Verein, die online nicht existieren,
+        gehen dabei verloren (Online hat Priorität). Deine anderen lokalen Vereine sind nicht betroffen.</p>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

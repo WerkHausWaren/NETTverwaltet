@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}E-Mail-Vorlagen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>⚙️ Veranstaltungs-Vorlagen & Voucher</h1><div class="sub">Texte für die Teilnehmenden-Kommunikation und die Eintrittskarte – Änderungen gelten für diesen Verein</div></div>
+    <span style="display:flex;gap:8px;flex-wrap:wrap">
+        <a href="{{ url_for('kommunikation.vorlagen') }}" class="btn btn-sekundaer">← Alle Vorlagen</a>
+        <a href="{{ url_for('veranstaltungen.index') }}" class="btn btn-sekundaer">🎟️ Anmeldungen</a>
+    </span>
+</div>
+<div class="hilfe-box" style="margin-bottom:14px">🎨 Alle Veranstaltungs-Mails gehen im
+    <strong>Vereins-Design</strong> raus: Schriftart aus den Einstellungen und – wenn die Signatur
+    aktiviert ist – die Vereins-Signatur mit Logo unter jeder Mail. Hier pflegst du nur die Texte.</div>
+
+<div class="karte" id="vorlagen-uebersicht" style="scroll-margin-top:16px">
+    <h2 style="margin-top:0">📋 Alle Vorlagen</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px">
+        {% for key in vorlagen %}
+        <a href="#vorlage-{{ key }}" style="display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit;padding:7px 10px;border:1px solid var(--grau-linie);border-radius:8px">
+            <span>{{ '⭐' if key in eigene else '📧' }}</span>
+            <span style="flex:1;min-width:0">{{ namen.get(key, key) }}</span>
+            {% if key in eigene %}<span class="badge badge-ehrenmitglied" style="font-size:10px">eigene</span>
+            {% elif key in angepasst %}<span class="badge badge-aktiv" style="font-size:10px">angepasst</span>{% endif %}
+        </a>
+        {% endfor %}
+        <a href="#vorlage-neu" style="display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit;padding:7px 10px;border:1px dashed var(--text-schwach);border-radius:8px">
+            <span>➕</span><span>Neue Vorlage erstellen…</span>
+        </a>
+    </div>
+</div>
+
+<div class="karte">
+    <strong>Platzhalter</strong> – <span id="chip-hinweis" class="feld-hinweis">klicke einen Platzhalter, um ihn in das
+        zuletzt bearbeitete Feld einzufügen</span>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">
+        {% for p in platzhalter %}<button type="button" class="ph-chip" data-ph="{{ '{' ~ p ~ '}' }}"
+            style="border:1px solid var(--grau-linie);background:var(--flaeche-3);color:var(--text);border-radius:999px;padding:4px 12px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;cursor:pointer">{{ '{' ~ p ~ '}' }}</button>{% endfor %}
+    </div>
+    <p class="feld-hinweis" style="margin:10px 0 0">
+        <code>{uhrzeit_teil}</code> und <code>{betrag_teil}</code> sind fertige Satzteile, die leer bleiben, wenn keine Uhrzeit
+        bzw. kein Betrag hinterlegt ist.
+    </p>
+    <div style="margin-top:12px">
+        <strong>✍️ Signatur</strong> <span class="feld-hinweis">– die Vereins-Signatur (mit Logo) hängt
+        automatisch unter jeder Mail, solange sie in den
+        <a href="{{ url_for('einstellungen.index') }}">Einstellungen</a> aktiviert ist</span>
+        {% if signatur_text %}
+        <pre style="margin:8px 0 0;background:var(--flaeche-3);border:1px solid var(--linie);border-radius:8px;padding:10px 12px;white-space:pre-wrap;font-family:inherit;font-size:13px">--
+{{ signatur_text }}</pre>
+        {% else %}
+        <p class="feld-hinweis" style="margin:6px 0 0">Noch keine Signatur hinterlegt.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="karte" id="voucher" style="scroll-margin-top:16px">
+    <h2 style="margin-top:0">🎟️ Voucher / Eintrittskarte</h2>
+    <p class="feld-hinweis" style="margin:0 0 12px">Diese Texte erscheinen unten auf jeder Eintrittskarte
+        (Vorschau: eine Veranstaltung mit Anmeldung öffnen → „Voucher"). Farbe und Logo kommen aus den
+        <a href="{{ url_for('einstellungen.index') }}">Einstellungen</a>.</p>
+    <form method="post" action="{{ url_for('veranstaltungen.voucher_texte_speichern') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld"><label>Einlasshinweis <span class="feld-hinweis">(unter dem QR-Code)</span></label>
+            <input type="text" name="voucher_einlass_text" value="{{ einst.voucher_einlass_text or '' }}"
+                   placeholder="Beim Einlass vorzeigen – ausgedruckt oder auf dem Handy."></div>
+        <div class="feld"><label>Fußzeile <span class="feld-hinweis">(optional, z. B. Hausordnung, Kontakt – mehrzeilig)</span></label>
+            <textarea name="voucher_fusszeile" rows="3" placeholder="z. B. Rückfragen unter … · Einlass ab 30 Min. vor Beginn">{{ einst.voucher_fusszeile or '' }}</textarea></div>
+        <button class="btn">Voucher-Texte speichern</button>
+    </form>
+</div>
+
+<div class="karte" id="vorlage-neu" style="border:1px dashed var(--text-schwach);scroll-margin-top:16px">
+    <h2 style="margin-top:0">➕ Neue Vorlage erstellen</h2>
+    <form method="post" action="{{ url_for('veranstaltungen.mailvorlage_neu') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld"><label>Name der Vorlage *</label>
+            <input type="text" name="name" required placeholder="z. B. Anfahrtsbeschreibung, Materialliste"></div>
+        <div class="feld"><label>Betreff *</label>
+            <input type="text" name="betreff" required placeholder="z. B. Wichtige Infos – {veranstaltung}"></div>
+        <div class="feld"><label>Text *</label>
+            <textarea name="text" rows="6" required placeholder="Hallo {anmelder},&#10;&#10;…&#10;&#10;{vereinsname}"></textarea></div>
+        <button class="btn">＋ Vorlage anlegen</button>
+        <span class="feld-hinweis" style="margin-left:8px">Eigene Vorlagen erscheinen beim Versand in der Vorlagen-Auswahl.</span>
+    </form>
+</div>
+
+{% for key, v in vorlagen.items() %}
+{% set ist_eigen = key in eigene %}
+<div class="karte" id="vorlage-{{ key }}" style="scroll-margin-top:16px">
+    <form method="post" action="{{ url_for('veranstaltungen.mailvorlage_speichern', schluessel=key) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap">
+            <h2 style="margin:0">{{ namen.get(key, key) }}</h2>
+            <span style="display:flex;align-items:baseline;gap:10px">
+                {% if ist_eigen %}<span class="badge badge-ehrenmitglied">eigene Vorlage</span>
+                {% elif key in angepasst %}<span class="badge badge-aktiv">angepasst</span>
+                {% else %}<span class="badge badge-gruppe">Standard</span>{% endif %}
+                <a href="#vorlagen-uebersicht" class="feld-hinweis" style="text-decoration:none;white-space:nowrap">↑ Übersicht</a>
+            </span>
+        </div>
+        {% if ist_eigen %}
+        <div class="feld" style="margin-top:10px"><label>Name</label>
+            <input type="text" name="name" value="{{ namen.get(key, '') }}"></div>
+        {% endif %}
+        <div class="feld" {% if not ist_eigen %}style="margin-top:10px"{% endif %}><label>Betreff</label>
+            <input type="text" name="betreff" value="{{ v[0] }}"></div>
+        <div class="feld"><label>Text</label>
+            <textarea name="text" rows="{{ 4 + v[1].count('\n') }}" style="font-family:inherit">{{ v[1] }}</textarea></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn" name="aktion" value="speichern">Speichern</button>
+            {% if ist_eigen %}
+            <button class="btn btn-gefahr" name="aktion" value="reset"
+                    onclick="return confirm('Diese eigene Vorlage löschen?')">🗑 Löschen</button>
+            {% elif key in angepasst %}
+            <button class="btn btn-sekundaer" name="aktion" value="reset"
+                    onclick="return confirm('Diese Vorlage auf den Standardtext zurücksetzen?')">Auf Standard zurücksetzen</button>
+            {% endif %}
+        </div>
+    </form>
+</div>
+{% endfor %}
+
+<script>
+(function () {
+    // Platzhalter-Chips: fügen den Platzhalter am Cursor des zuletzt
+    // benutzten Betreff-/Textfelds ein (die Seite hat viele Felder).
+    var ziel = null;
+    document.addEventListener('focusin', function (e) {
+        var el = e.target;
+        var passt = el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && el.type === 'text');
+        if (passt && el.name !== 'name' && el.name.indexOf('voucher_') !== 0) ziel = el;
+    });
+    document.querySelectorAll('.ph-chip').forEach(function (chip) {
+        chip.addEventListener('mousedown', function (e) { e.preventDefault(); }); // Fokus im Feld lassen
+        chip.addEventListener('click', function () {
+            var hinweis = document.getElementById('chip-hinweis');
+            if (!ziel) {
+                hinweis.textContent = 'Bitte zuerst in ein Betreff- oder Textfeld klicken – der Chip fügt dann dort ein.';
+                hinweis.style.color = 'var(--warn-text)';
+                return;
+            }
+            var ph = chip.dataset.ph;
+            var s = ziel.selectionStart != null ? ziel.selectionStart : ziel.value.length;
+            var e2 = ziel.selectionEnd != null ? ziel.selectionEnd : s;
+            ziel.value = ziel.value.slice(0, s) + ph + ziel.value.slice(e2);
+            ziel.focus();
+            ziel.selectionStart = ziel.selectionEnd = s + ph.length;
+            hinweis.textContent = ph + ' eingefügt.';
+            hinweis.style.color = '';
+        });
+    });
+})();
+</script>
+{% endblock %}

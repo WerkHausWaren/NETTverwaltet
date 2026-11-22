@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Mitglieder{% endblock %}
+{% block inhalt_breite %}inhalt-breit{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Mitglieder</h1>
+        <div class="sub">Alle Mitglieder deines Vereins verwalten</div>
+    </div>
+    <div class="aktionen">
+        <a href="{{ url_for('mitglieder.nextcloud_abgleich') }}" class="btn btn-sekundaer">☁️ Nextcloud-Abgleich</a>
+        <a href="{{ url_for('mitglieder.import_csv') }}" class="btn btn-sekundaer">⬆️ Import</a>
+        <a href="{{ url_for('mitglieder.export_xlsx') }}" class="btn btn-sekundaer">⬇️ Excel</a>
+        <a href="{{ url_for('mitglieder.export_csv') }}" class="btn btn-sekundaer">⬇️ CSV</a>
+        <a href="{{ url_for('mitglieder.felder') }}" class="btn btn-sekundaer">🧩 Eigene Felder</a>
+        <a href="{{ url_for('mitglieder.neu') }}" class="btn">＋ Neues Mitglied</a>
+    </div>
+</div>
+
+<div class="karten-reihe">
+    <div class="kennzahl"><div class="wert">{{ gesamt }}</div><div class="label">Mitglieder gesamt</div></div>
+    <div class="kennzahl"><div class="wert">{{ aktive }}</div><div class="label">Aktive Mitglieder</div></div>
+    <div class="kennzahl"><div class="wert">{{ beitrag_summe | euro }}</div><div class="label">Beitragsvolumen*</div></div>
+    {% if weitere %}
+    <div class="kennzahl"><div class="wert">{{ weitere }}</div><div class="label">Weitere Personen (Freunde, Externe …)</div></div>
+    {% endif %}
+</div>
+
+{# Gruppen-Filterleiste: ein Klick zeigt nur die jeweilige Gruppe #}
+<div class="gfilter">
+    <a class="gchip {{ 'an' if not gruppe }}"
+       href="{{ url_for('mitglieder.liste', suche=suche or None, status=status or None) }}">Alle <span class="z">{{ alle_personen }}</span></a>
+    {% for g in gruppen %}
+    <a class="gchip {{ 'an' if gruppe == g.id|string }}"
+       href="{{ url_for('mitglieder.liste', gruppe=g.id, suche=suche or None, status=status or None) }}">{{ g.name }} <span class="z">{{ anzahl_je_gruppe.get(g.id, 0) }}</span></a>
+    {% endfor %}
+    {% if ohne_gruppe %}
+    <a class="gchip {{ 'an' if gruppe == 'ohne' }}"
+       href="{{ url_for('mitglieder.liste', gruppe='ohne', suche=suche or None, status=status or None) }}">Ohne Gruppe <span class="z">{{ ohne_gruppe }}</span></a>
+    {% endif %}
+</div>
+
+<form method="get" class="werkzeug">
+    {% if gruppe %}<input type="hidden" name="gruppe" value="{{ gruppe }}">{% endif %}
+    <input class="suche" type="search" name="suche" value="{{ suche }}"
+           placeholder="🔍 Suche nach Name, E-Mail, Ort, Nummer …">
+    <select name="status" onchange="this.form.submit()">
+        <option value="">Alle Status</option>
+        {% for s in status_optionen %}
+        <option value="{{ s }}" {{ 'selected' if status == s }}>{{ s }}</option>
+        {% endfor %}
+    </select>
+    <button class="btn btn-sekundaer" type="submit">Filtern</button>
+    {% if suche or status or gruppe %}
+    <a href="{{ url_for('mitglieder.liste') }}" class="btn btn-sekundaer">Zurücksetzen</a>
+    {% endif %}
+</form>
+
+<style>
+    .gfilter { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 14px; }
+    .gchip { display:inline-flex; align-items:center; gap:7px; padding:7px 13px; border-radius:999px;
+             border:1px solid var(--linie); background:var(--flaeche); color:var(--text-stark); text-decoration:none;
+             font-size:13.5px; font-weight:600; }
+    .gchip:hover { border-color: var(--blau); }
+    .gchip.an { background: var(--blau); border-color: var(--blau); color: var(--auf-primaer, #fff); }
+    .gchip .z { background: var(--flaeche-3); border-radius:999px; padding:1px 8px; font-size:12px; }
+    .gchip.an .z { background: rgba(255,255,255,.25); }
+</style>
+
+{% if mitglieder %}
+<div class="tabellen-scroll">
+<table>
+    <thead>
+        <tr>
+            <th>Nr.</th><th>Name</th><th>Gruppen</th><th>Mobil</th><th>E-Mail</th><th>Ort</th>
+            {% for f in eigene_felder %}<th>{{ f.name }}</th>{% endfor %}
+            <th>Status</th><th class="rechts">Beitrag</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for m in mitglieder %}
+        <tr onclick="window.location='{{ url_for('mitglieder.detail', mid=m.id) }}'" style="cursor:pointer">
+            <td>{{ m.mitgliedsnummer or '' }}</td>
+            <td><strong>{{ m.vorname }} {{ m.nachname }}</strong> {{ abwesend_badge(m) }}{% if design.sprachen_labels and m.sprachen %} {% for s in m.sprachen.split(',') if s.strip() %}<span class="badge badge-gruppe" style="font-size:10px;padding:1px 5px" title="spricht {{ s.strip() }}">{{ sprach_kuerzel(s) }}</span>{% endfor %}{% endif %}{% if m.id in mit_schluessel %} <span title="Hat einen Schlüssel oder Zugangscode">🔑</span>{% endif %}{% if m.firma %}<br><span class="sub">{{ m.firma }}</span>{% endif %}</td>
+            <td>{% for gname in gruppen_je_mitglied.get(m.id, []) %}<span class="badge" style="margin:0 3px 3px 0">{{ gname }}</span>{% endfor %}</td>
+            <td>{{ m.mobil }}</td>
+            <td>{{ m.email }}</td>
+            <td>{{ m.ort }}</td>
+            {% for f in eigene_felder %}<td>{% set w = feldwerte.get(m.id, {}).get(f.id, '') %}{% if f.typ == 'ja_nein' %}{{ '✓' if w == '1' else '' }}{% else %}{{ w }}{% endif %}</td>{% endfor %}
+            <td><span class="badge badge-{{ m.status|lower|replace('ä','ae') }}">{{ m.status }}</span></td>
+            <td class="rechts">{{ m.beitrag | euro }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+<p class="feld-hinweis">* Summe der Jahresbeiträge aktiver Mitglieder (inkl. Ehrenmitglieder).</p>
+{% else %}
+<div class="karte leer">
+    <div class="icon">👥</div>
+    <p>Noch keine Mitglieder{% if suche or status or gruppe %} für diese Filter{% endif %} vorhanden.</p>
+    <a href="{{ url_for('mitglieder.neu') }}" class="btn">＋ Erstes Mitglied anlegen</a>
+</div>
+{% endif %}
+{% endblock %}

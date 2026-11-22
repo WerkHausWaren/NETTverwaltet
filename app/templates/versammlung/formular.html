@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Versammlung bearbeiten' if v else 'Neue Versammlung' }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>{{ '✏️ Versammlung bearbeiten' if v else '🗳️ Neue Versammlung' }}</h1></div>
+    <a href="{{ url_for('versammlung.index') }}" class="btn btn-sekundaer">← Übersicht</a>
+</div>
+<form method="post" class="karte">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="feld-reihe">
+        <div class="feld"><label>Titel</label>
+            <input type="text" name="titel" value="{{ v.titel if v else 'Mitgliederversammlung' }}"></div>
+        <div class="feld" style="max-width:230px"><label>Art</label>
+            <select name="art">{% for k, n in arten %}<option value="{{ k }}" {{ 'selected' if v and v.art==k }}>{{ n }}</option>{% endfor %}</select></div>
+    </div>
+    <div class="feld-reihe">
+        <div class="feld" style="max-width:180px"><label>Datum</label>
+            <input type="date" name="datum" value="{{ v.datum if v else '' }}" required></div>
+        <div class="feld" style="max-width:140px"><label>Uhrzeit</label>
+            <input type="time" name="uhrzeit" value="{{ v.uhrzeit if v else '19:00' }}"></div>
+        <div class="feld"><label>Ort</label>
+            <input type="text" name="ort" value="{{ v.ort if v else '' }}" placeholder="z. B. Vereinsraum, Werderweg 4D"></div>
+    </div>
+    <div class="feld"><label>Tagesordnung</label>
+        <textarea name="tagesordnung" rows="9" style="font-family:inherit">{{ v.tagesordnung if v else
+'1. Begrüßung und Feststellung der Beschlussfähigkeit
+2. Genehmigung des Protokolls der letzten Versammlung
+3. Bericht des Vorstands
+4. Kassenbericht und Bericht der Kassenprüfung
+5. Entlastung des Vorstands
+6. Verschiedenes' }}</textarea>
+        <div class="feld-hinweis">Wird 1:1 in die Einladungsmail übernommen.</div></div>
+    <div class="feld-reihe">
+        <div class="feld" style="max-width:200px"><label>Einladungsfrist (Tage)</label>
+            <input type="number" name="frist_tage" value="{{ v.frist_tage if v else 14 }}" min="1" max="90">
+            <div class="feld-hinweis">laut eurer Satzung</div></div>
+        <div class="feld"><label>Versammlungsleitung</label>
+            <input type="text" name="leitung" value="{{ v.leitung if v else '' }}" placeholder="Name"></div>
+        <div class="feld"><label>Protokollführung</label>
+            <input type="text" name="protokoll_fuehrung" value="{{ v.protokoll_fuehrung if v else '' }}" placeholder="Name"></div>
+    </div>
+    <button class="btn">💾 Speichern</button>
+</form>
+{% endblock %}

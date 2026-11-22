@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Beitragsrechnungen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Beitragsrechnungen per E-Mail</h1><div class="sub">Offene Beiträge automatisch als Rechnung versenden</div></div>
+    <form method="get">
+        <select name="jahr" onchange="this.form.submit()">
+            {% for j in jahre %}<option value="{{ j }}" {{ 'selected' if j==jahr }}>{{ j }}</option>{% endfor %}
+        </select>
+    </form>
+</div>
+
+{% if not smtp_ok %}
+<div class="flash flash-fehler">Bitte zuerst unter <a href="{{ url_for('einstellungen.index') }}">⚙️ Einstellungen</a> die SMTP-Daten eintragen.</div>
+{% endif %}
+
+{% if offene %}
+<form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="jahr" value="{{ jahr }}">
+    <div class="karte">
+        <div class="feld"><label>Betreff</label>
+            <input type="text" name="betreff" value="Beitragsrechnung {jahr} – {vereinsname}"></div>
+        <div class="feld"><label>Nachricht</label>
+            <textarea name="inhalt" style="min-height:200px">Hallo {vorname} {nachname},
+
+für das Jahr {jahr} ist folgender Mitgliedsbeitrag fällig:
+
+  {bezeichnung}: {betrag} €
+  fällig am: {faellig}
+
+Bitte überweise den Betrag auf folgendes Konto:
+  Kontoinhaber: {kontoinhaber}
+  IBAN: {iban}
+  Verwendungszweck: {bezeichnung}
+
+Vielen Dank für deine Unterstützung!
+
+Herzliche Grüße
+{vereinsname}</textarea>
+            <div class="feld-hinweis">Platzhalter: <code>{jahr}</code> <code>{anrede}</code> <code>{vorname}</code> <code>{nachname}</code> <code>{betrag}</code> <code>{bezeichnung}</code> <code>{faellig}</code> <code>{iban}</code> <code>{kontoinhaber}</code> <code>{vereinsname}</code></div>
+        </div>
+    </div>
+
+    <div class="karte">
+        <h2 style="margin-top:0">Empfänger:innen mit offenen Beiträgen ({{ offene|length }})</h2>
+        <div class="feld">
+            <button type="button" class="btn btn-sekundaer btn-klein" onclick="alle(true)">Alle</button>
+            <button type="button" class="btn btn-sekundaer btn-klein" onclick="alle(false)">Keine</button>
+        </div>
+        <table>
+            <thead><tr><th></th><th>Mitglied</th><th>E-Mail</th><th class="rechts">Betrag</th><th>Fällig</th></tr></thead>
+            <tbody>
+            {% for o in offene %}
+            <tr>
+                <td><input type="checkbox" name="empfaenger" value="{{ o.id }}" class="emp" {{ 'checked disabled' if not o.email else 'checked' }}></td>
+                <td>{{ o.vorname }} {{ o.nachname }}</td>
+                <td>{{ o.email or '— keine E-Mail —' }}</td>
+                <td class="rechts">{{ o.betrag | euro }}</td>
+                <td>{{ o.faellig_am | datum_de }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <button type="submit" class="btn" {{ 'disabled' if not smtp_ok }}
+            onclick="return confirm('Beitragsrechnungen jetzt per E-Mail versenden?')">💌 Rechnungen versenden</button>
+</form>
+<script>
+function alle(z){ document.querySelectorAll('.emp').forEach(function(c){ if(!c.disabled) c.checked=z; }); }
+</script>
+{% else %}
+<div class="karte leer"><div class="icon">💌</div>
+    <p>Keine offenen Beiträge für {{ jahr }}. Erzeuge sie zuerst im Bereich
+    <a href="{{ url_for('beitraege.liste', jahr=jahr) }}">Beiträge / SEPA</a>.</p>
+</div>
+{% endif %}
+{% endblock %}

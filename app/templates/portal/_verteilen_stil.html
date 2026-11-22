@@ -1,0 +1,95 @@
+{# Gemeinsame Stile der Verteil-Seiten (Liste + Lauf). Nur Variablen aus style.css. #}
+<link rel="stylesheet" href="{{ url_for('static', filename='leaflet/leaflet.css') }}">
+<style>
+    .vt-balken { height: 10px; background: var(--linie); border-radius: 999px; overflow: hidden; margin: 8px 0; }
+    .vt-balken > div { height: 100%; background: var(--gruen); transition: width .4s ease; }
+    .vt-reihe { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+    .vt-reihe .mp-btn { width: auto; flex: 1 1 auto; padding: 10px 12px; font-size: 15px; }
+    .vt-reihe .mp-btn.vt-k { flex: 0 0 auto; }
+    .mp-btn.sekundaer { background: var(--flaeche); color: var(--text); border: 1px solid var(--linie-stark); }
+    .mp-btn:disabled { opacity: .55; cursor: default; }
+    .vt-foto { position: relative; overflow: hidden; }
+    .vt-foto input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 0; }
+    .vt-ort { border-top: 1px solid var(--linie); }
+    .vt-ort:first-child { border-top: 0; }
+    .vt-ort summary { cursor: pointer; padding: 12px 0; }
+    .vt-zeile { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap;
+                padding: 10px 8px; border-top: 1px solid var(--linie); border-radius: 10px; }
+    .vt-zeile .vt-name { min-width: 0; flex: 1 1 180px; }
+    .vt-zeile .vt-reihe { margin-top: 0; }
+    .vt-zeile.hier { background: var(--info-grund); border-color: var(--info-rand); }
+    .vt-st-verteilt { color: var(--gut-text); font-weight: 700; font-size: 13px; }
+    .vt-st-laeuft { color: var(--warn-text); font-weight: 700; font-size: 13px; }
+    .vt-st-offen { color: var(--text-hell); font-size: 13px; }
+    .vt-hinweis { background: var(--warn-grund); color: var(--warn-text); border-radius: 10px; padding: 8px 10px; margin-top: 8px; font-size: 14px; }
+    .vt-lob { margin-top: 6px; }
+    .vt-vorort { background: var(--info-grund); color: var(--info-text); border-color: var(--info-rand); }
+    .vt-vorort .vt-st-offen { color: var(--info-text); }
+    #vt-karte { position: relative; z-index: 0; height: 52vh; min-height: 300px; border-radius: 14px;
+                border: 1px solid var(--linie); background: var(--flaeche-3); }
+    .vt-legende { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--text-hell); margin-top: 8px; }
+    .vt-legende i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+    .vt-plan { margin: 8px 0 0; padding-left: 22px; }
+    .vt-plan li { padding: 2px 0; }
+    .vt-feld { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
+    .vt-feld label { flex: 1 1 140px; font-size: 13px; color: var(--text-hell); }
+    .vt-feld select, #vt-suche { width: 100%; box-sizing: border-box; padding: 10px; font-size: 16px; border-radius: 10px;
+                     border: 1px solid var(--linie-stark); background: var(--flaeche); color: var(--text); margin-top: 4px; }
+    .vt-nr { background: var(--blau); color: #fff; border: 2px solid #fff; border-radius: 50%; text-align: center;
+             line-height: 18px; font-weight: 800; font-size: 11px; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
+    /* Leaflet an Hell/Dunkel anpassen (die Kacheln selbst bleiben hell) */
+    .leaflet-container { font: inherit; }
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--flaeche); color: var(--text); }
+    .leaflet-popup-content { margin: 12px 14px; min-width: 200px; }
+    .leaflet-container a.leaflet-popup-close-button { color: var(--text-hell); }
+    .leaflet-control-attribution { background: var(--flaeche) !important; color: var(--text-hell); opacity: .9; }
+    .leaflet-control-attribution a { color: var(--blau-text); }
+    .leaflet-bar a { background: var(--flaeche); color: var(--text); border-color: var(--linie); }
+    .vt-popup .vt-reihe .mp-btn { padding: 8px 10px; font-size: 14px; }
+    #vt-toast { position: fixed; left: 50%; bottom: calc(92px + env(safe-area-inset-bottom)); z-index: 1200;
+                transform: translate(-50%, 16px); opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s;
+                background: var(--text-stark); color: var(--flaeche); padding: 11px 16px; border-radius: 12px;
+                font-weight: 600; max-width: min(92vw, 460px); text-align: center; box-shadow: var(--schatten-hoch); }
+    #vt-toast.zeigen { opacity: 1; transform: translate(-50%, 0); }
+    /* Reiter Flyer | Plakate (data-tab am #vt) */
+    #vt[data-tab="flyer"] .vt-nur-plakate, #vt[data-tab="flyer"] .vt-nur-zustellen,
+    #vt[data-tab="plakate"] .vt-nur-flyer, #vt[data-tab="plakate"] .vt-nur-zustellen,
+    #vt[data-tab="zustellen"] .vt-nur-flyer, #vt[data-tab="zustellen"] .vt-nur-plakate { display: none !important; }
+    .vt-tabs { margin-top: 12px; }
+    /* Zustellungen */
+    .vt-zgruppe { border-top: 1px solid var(--linie); padding: 10px 0; }
+    .vt-zgruppe:first-child { border-top: 0; }
+    .vt-zeintrag { display: flex; align-items: center; justify-content: space-between; gap: 6px 10px; flex-wrap: wrap;
+                   border-left: 3px solid var(--linie-stark); padding: 4px 0 4px 8px; margin-top: 6px; }
+    .vt-zeintrag.erledigt { border-left-color: var(--gruen); }
+    .vt-zeintrag.rueck { border-left-color: var(--rot); }
+    .vt-zeintrag .vt-mat-knoepfe .mp-btn { width: auto; }
+    .vt-hnr { display: inline-block; min-width: 2.4em; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .vt-tabs .mp-btn { flex: 1 1 0; white-space: nowrap; padding: 10px 6px; font-size: 14px; }
+    /* Flyer */
+    .vt-flyerbilder { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 8px; }
+    .vt-flyerbilder a { flex: none; width: 96px; text-decoration: none; color: var(--text); font-size: 12px; text-align: center; }
+    .vt-flyerbilder img { width: 96px; height: 120px; object-fit: contain; background: var(--flaeche-3); border-radius: 8px;
+                          border: 1px solid var(--linie); display: block; margin-bottom: 4px; }
+    .vt-mats { margin-top: 6px; display: grid; gap: 6px; }
+    .vt-mat-zeile { display: flex; align-items: center; justify-content: space-between; gap: 6px 10px; flex-wrap: wrap;
+                    border-left: 3px solid var(--linie-stark); padding: 2px 0 2px 8px; }
+    .vt-mat-knoepfe { display: flex; gap: 6px; flex-wrap: wrap; }
+    .vt-mat-knoepfe .mp-btn { width: auto; padding: 6px 10px; font-size: 13px; }
+    .vt-mat-name { font-weight: 600; font-size: 13px; }
+    .vt-mat-wahl-box { margin-top: 12px; }
+    .vt-feld-titel { font-size: 13px; color: var(--text-hell); margin-bottom: 6px; }
+    .vt-mat-wahl { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--linie);
+                   border-radius: 10px; margin-bottom: 6px; cursor: pointer; }
+    .vt-mat-wahl input { width: 20px; height: 20px; flex: none; }
+    .vt-mat-wahl img { width: 36px; height: 46px; object-fit: contain; border-radius: 4px; background: var(--flaeche-3); }
+    .vt-bedarf { background: var(--info-grund); color: var(--info-text); border-radius: 10px; padding: 8px 10px; }
+    /* Plakate */
+    .vt-pzahlen { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+    .vt-pform { display: grid; gap: 8px; margin-top: 12px; padding: 12px; border: 1px solid var(--linie); border-radius: 12px;
+                background: var(--flaeche-2); }
+    .vt-pform input { width: 100%; box-sizing: border-box; padding: 10px; font-size: 16px; border-radius: 10px;
+                      border: 1px solid var(--linie-stark); background: var(--flaeche); color: var(--text); }
+    .vt-pfotos { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+    .vt-pfotos img { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; }
+</style>

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Folie bearbeiten' if r else ('Neue Bild-Folie' if typ == 'bild' else 'Neue Text-Folie') }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ '🖼️' if typ == 'bild' else '📝' }} {{ 'Folie bearbeiten' if r else ('Neue Bild-Folie' if typ == 'bild' else 'Neue Text-Folie') }}</h1>
+        <div class="sub">Eigene Folien laufen auf den Schaufenstern zwischen den Termin-Folien</div>
+    </div>
+    <div class="aktionen">
+        {% if r %}<a href="{{ url_for('signage.folie_vorschau', fid=r.id) }}" target="_blank" rel="noopener" class="btn btn-sekundaer">👁 Vorschau ↗</a>{% endif %}
+        <a href="{{ url_for('signage.verwaltung') }}#folien" class="btn btn-sekundaer">← Zurück</a>
+    </div>
+</div>
+
+<div class="karte">
+<form method="post" enctype="multipart/form-data" action="{{ url_for('signage.folie', fid=r.id) if r else url_for('signage.folie', typ=typ) }}" style="max-width:760px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="typ" value="{{ typ }}">
+    {% if typ == 'bild' %}
+    <div class="feld"><label for="f-bild">Bild {{ '(neues Bild ersetzt das alte)' if werte.bild else '*' }}</label>
+        {% if werte.bild and r %}<img src="{{ url_for('signage.bild', art='folie', bid=r.id, v=werte.bild) }}" alt="Aktuelles Bild"
+             style="display:block;max-width:360px;max-height:200px;border:1px solid var(--linie);border-radius:8px;margin:4px 0 8px">{% endif %}
+        <input type="file" id="f-bild" name="bild" accept="image/jpeg,image/png,image/webp,image/gif" {{ 'required' if not werte.bild }}>
+        <div class="feld-hinweis">Am besten im Querformat 1920 × 1080 (16:9), z. B. aus Canva als PNG exportiert. Große Bilder werden automatisch verkleinert.</div></div>
+    <div class="feld"><label>Darstellung</label>
+        <div style="display:flex;flex-direction:column;gap:4px">
+            <label style="font-weight:400"><input type="radio" name="einpassen" value="ganz" {{ 'checked' if werte.einpassen != 'fuellen' }}> Ganzes Bild zeigen (passt immer, ggf. mit Rand)</label>
+            <label style="font-weight:400"><input type="radio" name="einpassen" value="fuellen" {{ 'checked' if werte.einpassen == 'fuellen' }}> Bildschirm füllen (Ränder werden ggf. abgeschnitten)</label>
+        </div></div>
+    <div class="feld"><label for="f-titel">Name in der Liste <span class="feld-hinweis">(nur für euch, erscheint nicht auf dem Bildschirm)</span></label>
+        <input type="text" id="f-titel" name="titel" maxlength="120" value="{{ werte.titel }}" placeholder="z. B. Plakat Sommerfest"></div>
+    {% else %}
+    <div class="feld"><label for="f-titel">Überschrift</label>
+        <input type="text" id="f-titel" name="titel" maxlength="120" value="{{ werte.titel }}" placeholder="z. B. Wir suchen Helfer:innen fürs Sommerfest"></div>
+    <div class="feld"><label for="f-text">Text <span class="feld-hinweis">(höchstens 600 Zeichen – auf dem Bildschirm wirkt kurz am besten)</span></label>
+        <textarea id="f-text" name="text" rows="5" maxlength="600" placeholder="Zwei, drei kurze Sätze. Zeilenumbrüche bleiben erhalten.">{{ werte.text }}</textarea></div>
+    <div class="feld"><label>Hintergrund</label>
+        <div style="display:flex;gap:6px 18px;flex-wrap:wrap">
+        {% for k, name in hintergruende %}<label style="font-weight:400"><input type="radio" name="hintergrund" value="{{ k }}" {{ 'checked' if (werte.hintergrund or 'hell') == k }}> {{ name }}</label>{% endfor %}
+        </div></div>
+    <div class="feld"><label for="f-link">Link für einen QR-Code <span class="feld-hinweis">(freiwillig, z. B. Anmeldeformular oder Website)</span></label>
+        <input type="url" id="f-link" name="link" maxlength="500" value="{{ werte.link }}" placeholder="https://…"></div>
+    {% endif %}
+
+    <div class="feld-reihe">
+        <div class="feld"><label for="f-von">Zeigen ab</label><input type="date" id="f-von" name="von" value="{{ werte.von }}"></div>
+        <div class="feld"><label for="f-bis">bis einschließlich</label><input type="date" id="f-bis" name="bis" value="{{ werte.bis }}">
+            <div class="feld-hinweis">leer = ohne Ende</div></div>
+        <div class="feld"><label for="f-dauer">Sekunden</label>
+            <input type="number" id="f-dauer" name="dauer" min="0" max="120" value="{{ werte.dauer or '' }}" placeholder="wie Gerät" style="max-width:120px"></div>
+    </div>
+    {% if geraete %}
+    <div class="feld"><label>Auf welchen Bildschirmen?</label>
+        <div style="display:flex;gap:6px 18px;flex-wrap:wrap">
+        {% set gewaehlt = (werte.geraete or '').split(',') %}
+        {% for gr in geraete %}<label style="font-weight:400"><input type="checkbox" name="geraete" value="{{ gr.id }}" {{ 'checked' if gr.id|string in gewaehlt }}> {{ gr.name or 'Gerät' }}</label>{% endfor %}
+        </div>
+        <div class="feld-hinweis">Nichts angehakt = auf allen Schaufenstern.</div></div>
+    {% endif %}
+    <div class="feld"><label style="font-weight:400"><input type="checkbox" name="aktiv" value="1" {{ 'checked' if werte.aktiv }}> Folie ist aktiv</label></div>
+    <button type="submit" class="btn">Speichern</button>
+</form>
+</div>
+{% endblock %}

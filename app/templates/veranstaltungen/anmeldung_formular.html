@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Anmeldung{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>{{ '✏️ Anmeldung bearbeiten' if a else '➕ Anmeldung erfassen' }}</h1>
+        <div class="sub">{{ t.titel }} · {{ t.datum | datum_de }}</div></div>
+    <a href="{{ url_for('veranstaltungen.detail', tid=t.id) }}" class="btn btn-sekundaer">Zurück</a>
+</div>
+
+<form method="post" enctype="multipart/form-data" action="{{ url_for('veranstaltungen.anmeldung_bearbeiten', aid=a.id) if a else url_for('veranstaltungen.anmeldung_neu', tid=t.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="karte">
+        <h2 style="margin-top:0">Anmelder:in (Kontaktperson)</h2>
+        <div class="feld"><label>Name *</label><input type="text" name="anmelder_name" required value="{{ a.anmelder_name if a else '' }}"></div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div class="feld" style="flex:2;min-width:180px"><label>Straße & Nr.</label><input type="text" name="strasse" value="{{ a.strasse if a else '' }}"></div>
+            <div class="feld" style="flex:0 0 90px"><label>PLZ</label><input type="text" name="plz" value="{{ a.plz if a else '' }}"></div>
+            <div class="feld" style="flex:1;min-width:120px"><label>Ort</label><input type="text" name="ort" value="{{ a.ort if a else '' }}"></div>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div class="feld" style="flex:1;min-width:160px"><label>E-Mail</label><input type="email" name="email" value="{{ a.email if a else '' }}"></div>
+            <div class="feld" style="flex:1;min-width:140px"><label>Telefon</label><input type="text" name="telefon" value="{{ a.telefon if a else '' }}"></div>
+            <div class="feld" style="flex:1;min-width:160px"><label>Woher der Kontakt kommt</label><input type="text" name="quelle" value="{{ a.quelle if a else '' }}" placeholder="z. B. Flyer, Freunde, Facebook"></div>
+        </div>
+    </div>
+
+    <div class="karte">
+        <h2 style="margin-top:0">Teilnehmende</h2>
+        <div class="feld"><label>Namen der Teilnehmende (ein Name pro Zeile)</label>
+            <textarea name="teilnehmer_liste" style="min-height:90px" placeholder="Max Mustermann&#10;Erika Mustermann">{% for tn in teilnehmer %}{{ tn.name }}{{ '\n' if not loop.last }}{% endfor %}</textarea></div>
+    </div>
+
+    <div class="karte">
+        <h2 style="margin-top:0">Einwilligungen & Interesse</h2>
+        <label class="einw-zeile" style="display:flex;gap:10px;align-items:center"><input type="checkbox" name="agb_ok" {{ 'checked' if a and a.agb_ok }}> <span>Teilnahmebedingungen akzeptiert</span></label>
+        <div class="feld-reihe" style="margin:8px 0">
+            <div class="feld">
+                <label>📷 Fotos (Vereinsarbeit)</label>
+                <select name="foto_status">
+                    <option value="" {{ 'selected' if not (a and a.foto_status) }}>— noch nicht beantwortet —</option>
+                    <option value="ja" {{ 'selected' if a and a.foto_status == 'ja' }}>Ja, einverstanden</option>
+                    <option value="nein" {{ 'selected' if a and a.foto_status == 'nein' }}>Nein, abgelehnt</option>
+                </select>
+            </div>
+            <div class="feld">
+                <label>📱 Zusätzlich Facebook/Instagram</label>
+                <select name="foto_social">
+                    <option value="" {{ 'selected' if not (a and a.foto_social) }}>— noch nicht beantwortet —</option>
+                    <option value="ja" {{ 'selected' if a and a.foto_social == 'ja' }}>Ja, einverstanden</option>
+                    <option value="nein" {{ 'selected' if a and a.foto_social == 'nein' }}>Nein, abgelehnt</option>
+                </select>
+            </div>
+        </div>
+        <div class="feld-hinweis" style="margin:-4px 0 8px">„Noch nicht beantwortet“ ist KEIN Ja –
+            die Person bleibt in der Nachfrage-Liste. Nutze diese Felder, wenn dir jemand mündlich
+            oder auf dem Papierformular geantwortet hat.</div>
+        {% if a %}
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0">
+            <a class="btn btn-sekundaer btn-klein"
+               href="{{ url_for('veranstaltungen.foto_formular_pdf', aid=a.id) }}">📄 Einwilligung als PDF</a>
+            {% if a.foto_nachweis %}
+            <a class="btn btn-sekundaer btn-klein"
+               href="{{ url_for('veranstaltungen.foto_nachweis', aid=a.id) }}" target="_blank">📎 Nachweis öffnen</a>
+            {% endif %}
+        </div>
+        <div class="feld">
+            <label>Unterschriebenes Formular hochladen <span class="feld-hinweis">(PDF oder Foto)</span></label>
+            <input type="file" name="foto_nachweis_datei" accept=".pdf,.jpg,.jpeg,.png,.heic">
+            {% if a.foto_nachweis %}<div class="feld-hinweis">Bereits abgelegt: {{ a.foto_nachweis }} –
+                eine neue Datei ersetzt den Eintrag.</div>{% endif %}
+        </div>
+        {% endif %}
+        <label class="einw-zeile" style="display:flex;gap:10px;align-items:center"><input type="checkbox" name="infos_ok" {{ 'checked' if a and a.infos_ok }}> <span>Darf weitere Infos erhalten</span></label>
+        <label class="einw-zeile" style="display:flex;gap:10px;align-items:center"><input type="checkbox" name="mitglied_interesse" {{ 'checked' if a and a.mitglied_interesse }}> <span>Interesse an einer Mitgliedschaft</span></label>
+    </div>
+
+    <div class="karte">
+        <h2 style="margin-top:0">Zahlung & Notizen</h2>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div class="feld" style="flex:1;min-width:140px"><label>Bezahlstatus</label>
+                <select name="bezahlstatus">
+                    <option value="offen" {{ 'selected' if not a or a.bezahlstatus=='offen' }}>offen</option>
+                    <option value="bezahlt" {{ 'selected' if a and a.bezahlstatus=='bezahlt' }}>bezahlt</option>
+                    <option value="erlassen" {{ 'selected' if a and a.bezahlstatus=='erlassen' }}>erlassen/frei</option>
+                </select></div>
+            <div class="feld" style="flex:1;min-width:120px"><label>Betrag (€)</label><input type="text" name="betrag" value="{{ '%.2f'|format(a.betrag) if a else '%.2f'|format(t.preis or 0) }}"></div>
+            <div class="feld" style="flex:1;min-width:120px"><label>Spende (€)</label><input type="text" name="spende" value="{{ '%.2f'|format(a.spende) if a else '0.00' }}"></div>
+        </div>
+        <div class="feld"><label>Notizen</label><textarea name="notizen" style="min-height:60px">{{ a.notizen if a else '' }}</textarea></div>
+    </div>
+    <button type="submit" class="btn">💾 Speichern</button>
+</form>
+{% endblock %}

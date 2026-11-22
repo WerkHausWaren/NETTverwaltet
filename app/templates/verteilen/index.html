@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Verteilaktionen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>🗺️ Verteilaktionen</h1>
+        <div class="sub">Flyer, Programmhefte, Einladungen – straßenweise verteilen, gemeinsam mit allen Helfer:innen</div>
+    </div>
+    <div class="aktionen">
+        <a href="{{ url_for('verteilen.strassen') }}" class="btn btn-sekundaer">🏘️ Straßen ({{ stamm }})</a>
+        <a href="{{ url_for('portal.verteilen_start') }}" target="_blank" rel="noopener" class="btn btn-sekundaer">📱 App-Ansicht ↗</a>
+    </div>
+</div>
+
+{% if not stamm %}
+<div class="hilfe-box">
+    <strong>Zuerst die Straßen anlegen.</strong> Eine Verteilaktion arbeitet mit dem Straßenstamm des
+    Vereins (Straße, Haushalte, Lage auf der Karte). Unter
+    <a href="{{ url_for('verteilen.strassen') }}">🏘️ Straßen</a> eine CSV- oder JSON-Datei importieren.
+</div>
+{% endif %}
+
+<div class="karte">
+    <details {{ 'open' if not aktionen }}>
+        <summary class="btn btn-sekundaer" style="list-style:none;cursor:pointer;display:inline-block">➕ Neue Verteilaktion</summary>
+        <form method="post" action="{{ url_for('verteilen.neu') }}" enctype="multipart/form-data" style="margin-top:12px;max-width:720px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="feld"><label for="v-titel">Titel *</label>
+                <input type="text" id="v-titel" name="titel" required maxlength="120" placeholder="z. B. Programmheft Frühjahr 2027"></div>
+            <div class="feld"><label>Was gehört dazu?</label>
+                <div style="display:flex;gap:6px 18px;flex-wrap:wrap">
+                    <label style="font-weight:400"><input type="checkbox" name="mit_flyern" value="1" checked> 📄 Flyer/Postkarten in Briefkästen verteilen</label>
+                    <label style="font-weight:400"><input type="checkbox" name="mit_plakaten" value="1"> 📍 Plakate aufhängen</label>
+                    <label style="font-weight:400"><input type="checkbox" name="mit_zustellungen" value="1"> 📬 Zustellungen an Kontakte</label>
+                </div></div>
+            <div class="feld"><label for="v-was">Was wird zugestellt? <span class="feld-hinweis">(nur bei Zustellungen, z. B. „Einladung Sommerfest“)</span></label>
+                <input type="text" id="v-was" name="zustellung_was" maxlength="120"></div>
+            <div class="feld"><label for="v-bild">Bild des Flyers <span class="feld-hinweis">(freiwillig – weitere Flyer und Postkarten fügst du danach hinzu)</span></label>
+                <input type="file" id="v-bild" name="flyer_bild" accept="image/*"></div>
+            <details style="margin-bottom:10px"><summary class="feld-hinweis" style="cursor:pointer">📍 Regeln für Plakate (nur wenn Plakate aufgehängt werden)</summary>
+                <div class="feld-reihe" style="margin-top:8px">
+                    <div class="feld"><label for="v-kz">Kürzel für Plakat-Nummern</label>
+                        <input type="text" id="v-kz" name="plakat_kuerzel" maxlength="6" placeholder="P" style="max-width:120px">
+                        <div class="feld-hinweis">ergibt P-001, P-002 …</div></div>
+                    <div class="feld"><label for="v-max">Höchstzahl Standorte</label>
+                        <input type="number" id="v-max" name="plakat_max" min="0" placeholder="0 = keine Grenze" style="max-width:160px">
+                        <div class="feld-hinweis">z. B. laut Genehmigung der Stadt</div></div>
+                    <div class="feld"><label for="v-ab">Abhängen bis</label><input type="date" id="v-ab" name="abhaengen_bis"></div>
+                </div></details>
+            <div class="feld"><label for="v-besch">Was wird verteilt? <span class="feld-hinweis">(erscheint bei den Helfer:innen)</span></label>
+                <textarea id="v-besch" name="beschreibung" rows="2" placeholder="z. B. 1 Heft je Briefkasten, Hefte liegen im Vereinsraum"></textarea></div>
+            <div class="feld-reihe">
+                <div class="feld"><label for="v-von">Beginn</label><input type="date" id="v-von" name="von"></div>
+                <div class="feld"><label for="v-bis">Ende</label><input type="date" id="v-bis" name="bis"></div>
+            </div>
+            {% if orte|length > 1 %}
+            <div class="feld"><label>Gebiet <span class="feld-hinweis">(nichts angehakt = alle Orte)</span></label>
+                <div style="display:flex;gap:6px 14px;flex-wrap:wrap">
+                {% for o in orte %}<label style="font-weight:400"><input type="checkbox" name="orte" value="{{ o }}"> {{ o }}</label>{% endfor %}
+                </div></div>
+            {% endif %}
+            <div class="feld-hinweis" style="margin-bottom:8px">Löschfrist: 3 Monate nach dem Ende werden Routen und
+                Namen automatisch entfernt – die Zahlen bleiben für die Statistik.</div>
+            <button type="submit" class="btn">Anlegen</button>
+        </form>
+    </details>
+</div>
+
+{% for x in aktionen %}
+{% set a = x.a %}
+<a class="karte" href="{{ url_for('verteilen.detail', aid=a.id) }}" style="display:block;text-decoration:none;color:inherit{{ ';opacity:.7' if a.archiviert_am }}">
+    <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline">
+        <strong style="font-size:17px">{{ a.titel }}</strong>
+        <span class="feld-hinweis">
+            {% if a.von %}{{ a.von | datum_de }}{% endif %}{% if a.bis %} – {{ a.bis | datum_de }}{% endif %}
+            {% if a.archiviert_am %} · <span class="badge">abgeschlossen</span>{% else %} · <span class="badge badge-gruppe">läuft</span>{% endif %}
+            {% if a.anonymisiert_am %} · Namen entfernt{% endif %}
+        </span>
+    </div>
+    {% if x.f %}
+    <div style="height:10px;background:var(--grau-linie);border-radius:5px;overflow:hidden;margin:8px 0">
+        <div style="height:100%;width:{{ x.f.prozent }}%;background:var(--gruen)"></div></div>
+    <div class="feld-hinweis">📄 {{ x.f.prozent }} % verteilt · {{ x.f.strassen_verteilt }} von {{ x.f.strassen_gesamt }} Straßen komplett
+        {%- if x.f.materialien|length > 1 %} ({{ x.f.materialien|length }} Flyer){% endif %} · {{ x.laeuft }} in Arbeit</div>
+    {% endif %}
+    {% if x.z %}
+    <div class="feld-hinweis" style="margin-top:4px">📍 {{ x.z.haengt }} Plakat{{ '' if x.z.haengt == 1 else 'e' }} hängen
+        {%- if x.z.max %} (erlaubt: {{ x.z.max }}){% endif %} · {{ x.z.geplant }} geplant
+        {%- if x.z.beschaedigt or x.z.weg %} · <span style="color:var(--rot)">{{ x.z.beschaedigt }} beschädigt, {{ x.z.weg }} weg</span>{% endif %}
+        {%- if x.z.abhaengen_bis %} · abhängen bis {{ x.z.abhaengen_bis | datum_de }}{% endif %}</div>
+    {% endif %}
+    {% if x.zu %}
+    <div class="feld-hinweis" style="margin-top:4px">📬 {{ x.zu.zugestellt }} von {{ x.zu.gesamt }} zugestellt
+        {%- if x.zu.laeuft %} · {{ x.zu.laeuft }} in Arbeit{% endif %}
+        {%- if x.zu.nicht_zustellbar %} · <span style="color:var(--rot)">{{ x.zu.nicht_zustellbar }} nicht zustellbar</span>{% endif %}</div>
+    {% endif %}
+</a>
+{% else %}
+<p class="feld-hinweis">Noch keine Verteilaktion angelegt.</p>
+{% endfor %}
+{% endblock %}

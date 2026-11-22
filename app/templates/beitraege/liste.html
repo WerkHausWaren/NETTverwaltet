@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Beiträge{% endblock %}
+{% block inhalt_breite %}inhalt-breit{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Beiträge & SEPA</h1><div class="sub">Mitgliedsbeiträge verwalten und Lastschriften erzeugen</div></div>
+    <div class="aktionen">
+        <form method="get" style="display:inline">
+            <select name="jahr" onchange="this.form.submit()">
+                {% for j in jahre %}<option value="{{ j }}" {{ 'selected' if j==jahr }}>{{ j }}</option>{% endfor %}
+            </select>
+        </form>
+        <form method="post" action="{{ url_for('beitraege.erzeugen') }}" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="jahr" value="{{ jahr }}">
+            <button class="btn" onclick="return confirm('Jahresbeiträge {{ jahr }} für alle aktiven Mitglieder anlegen?')">＋ Beiträge {{ jahr }} erzeugen</button>
+        </form>
+    </div>
+</div>
+
+<div class="karten-reihe">
+    <div class="kennzahl"><div class="wert" style="color:var(--rot)">{{ offen | euro }}</div><div class="label">Offen {{ jahr }}</div></div>
+    <div class="kennzahl"><div class="wert" style="color:var(--gruen)">{{ bezahlt | euro }}</div><div class="label">Bezahlt {{ jahr }}</div></div>
+    <div class="kennzahl"><div class="wert">{{ (offen + bezahlt) | euro }}</div><div class="label">Gesamt {{ jahr }}</div></div>
+</div>
+
+<div class="hilfe-box">
+    <strong>SEPA-Lastschrift:</strong> Die Verwaltung stellt alle offenen Beiträge zusammen, bei denen
+    eine Lastschrift vereinbart ist. Du siehst erst in Ruhe, wer eingezogen wird und bei wem noch
+    etwas fehlt — danach entsteht die Datei, die du im Online-Banking deiner Bank hochlädst.
+    Jeder Einzug bleibt als Lauf gespeichert, damit niemand versehentlich zweimal abgebucht wird.
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+        <form method="post" action="{{ url_for('lastschrift.neu') }}" style="margin:0">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="jahr" value="{{ jahr }}">
+            <button class="btn btn-klein">💶 Einzug vorbereiten ({{ jahr }})</button>
+        </form>
+        <a href="{{ url_for('lastschrift.index') }}" class="btn btn-sekundaer btn-klein">📋 Bisherige Läufe</a>
+    </div>
+</div>
+
+<form method="get" class="werkzeug">
+    <input type="hidden" name="jahr" value="{{ jahr }}">
+    <select name="status" onchange="this.form.submit()">
+        <option value="" {{ 'selected' if nur=='' }}>Alle</option>
+        <option value="offen" {{ 'selected' if nur=='offen' }}>Nur offene</option>
+        <option value="bezahlt" {{ 'selected' if nur=='bezahlt' }}>Nur bezahlte</option>
+    </select>
+</form>
+
+{% if posten %}
+{% set tf_chips = [{'label': 'Offen', 'wert': 'offen'}, {'label': 'Bezahlt', 'wert': 'bezahlt'}] %}
+{% set tf_ziel = '#beitragsliste' %}
+{% include '_tabellen_filter.html' %}
+<div class="tabellen-scroll">
+<table id="beitragsliste">
+    <thead><tr><th>Mitglied</th><th>Bezeichnung</th><th>Zahlungsart</th><th class="rechts">Betrag</th><th>Fällig</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for b in posten %}
+        <tr data-tf="{{ 'bezahlt' if b.bezahlt else 'offen' }}">
+            <td>{{ b.vorname }} {{ b.nachname }}</td>
+            <td>{{ b.bezeichnung }}</td>
+            <td>{{ b.zahlungsart }}</td>
+            <td class="rechts">{{ b.betrag | euro }}</td>
+            <td>{{ b.faellig_am | datum_de }}</td>
+            <td>{% if b.bezahlt %}<span class="badge badge-bezahlt">bezahlt</span>{% else %}<span class="badge badge-offen">offen</span>{% endif %}</td>
+            <td class="rechts">
+                <form method="post" action="{{ url_for('beitraege.umschalten', bid=b.id) }}" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein">{{ 'als offen' if b.bezahlt else 'als bezahlt' }}</button>
+                </form>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<div class="karte leer"><div class="icon">💶</div>
+    <p>Noch keine Beiträge für {{ jahr }}. Lege sie mit „Beiträge {{ jahr }} erzeugen“ an –
+    die Beträge kommen aus den Mitgliederdaten.</p>
+</div>
+{% endif %}
+{% endblock %}

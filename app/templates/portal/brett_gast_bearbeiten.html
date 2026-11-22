@@ -1,0 +1,59 @@
+{% extends "auth/_layout.html" %}
+{% block title %}{{ t('eintrag_bearbeiten') }}{% endblock %}
+{% block inhalt %}
+{% if sprachen_an %}
+<div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+    <select aria-label="{{ t('sprache') }}" onchange="window.location='/sprache/'+this.value"
+            style="border:1px solid var(--linie);border-radius:999px;padding:5px 8px;font-size:13px;background:var(--flaeche);color:var(--text)">
+        {% for code, name in sprachen_liste() %}
+        <option value="{{ code }}" {{ 'selected' if code == sprache_aktuell() }}>{{ name }}</option>
+        {% endfor %}
+    </select>
+</div>
+{% endif %}
+{% if zurueckgezogen %}
+<div class="auth-logo">👋</div>
+<h1 class="auth-titel">{{ t('zurueckgezogen') }}</h1>
+<a class="btn" href="{{ url_for('portal.brett_gast') }}">{{ t('weiterer_eintrag') }}</a>
+{% else %}
+<div class="auth-logo">✏️</div>
+<h1 class="auth-titel">{{ t('eintrag_bearbeiten') }}</h1>
+{% if gespeichert %}<div class="flash flash-erfolg">{{ t('nach_pruefung') }}</div>{% endif %}
+<form method="post" dir="{{ sprache_richtung() }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="feld"><label>{{ t('ich_moechte') }}</label>
+        <select name="typ">
+            <option value="gesuch" {{ 'selected' if e.typ == 'gesuch' }}>{{ t('gast_suchen') }}</option>
+            <option value="angebot" {{ 'selected' if e.typ == 'angebot' }}>{{ t('gast_bieten') }}</option>
+        </select></div>
+    {% if kategorien %}
+    <div class="feld"><label>{{ t('thema') }}</label>
+        <select name="kategorie">
+            <option value="">{{ t('bitte_waehlen') }}</option>
+            {% for k in kategorien %}<option value="{{ k }}" {{ 'selected' if e.kategorie == k }}>{{ tk(k) }}</option>{% endfor %}
+        </select></div>
+    {% endif %}
+    <div class="feld"><label>{{ t('worum') }} *</label>
+        <input type="text" name="titel" required value="{{ e.titel }}"></div>
+    <div class="feld"><label>{{ t('text_label') }}</label>
+        <textarea name="text" rows="3">{{ e.text }}</textarea></div>
+    <div class="feld"><label>{{ t('kontakt_label') }}</label>
+        <input type="text" name="kontakt" value="{{ e.gast_kontakt }}"></div>
+    <div class="feld"><label>{{ t('welche_sprachen') }}</label>
+        <div style="display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:4px">
+        {% for s in sprachen_auswahl %}
+            <label style="display:inline-flex;align-items:center;gap:5px;font-weight:400">
+                <input type="checkbox" name="sprachen" value="{{ s }}"
+                       {{ 'checked' if s in (e.sprachen or '') }}> {{ s }}</label>
+        {% endfor %}
+        </div></div>
+    <button type="submit" class="btn">{{ t('speichern') }}</button>
+</form>
+<form method="post" style="margin-top:10px"
+      onsubmit="return confirm('{{ t('zurueckziehen') }}?')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="aktion" value="zurueckziehen">
+    <button type="submit" class="btn" style="background:transparent;color:var(--text);border:1px solid var(--linie)">{{ t('zurueckziehen') }}</button>
+</form>
+{% endif %}
+{% endblock %}

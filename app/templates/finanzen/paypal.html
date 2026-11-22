@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}PayPal-Umsätze{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🅿️ PayPal-Umsätze verbuchen</h1><div class="sub">CSV-Export aus PayPal übernehmen</div></div>
+    <div class="aktionen"><a href="{{ url_for('finanzen.liste') }}" class="btn btn-sekundaer">← Kassenbuch</a></div>
+</div>
+
+<details class="hilfe-box" style="margin-bottom:20px">
+    <summary style="cursor:pointer;font-weight:600">❓ Wie bekomme ich die PayPal-CSV-Datei?</summary>
+    <ol style="margin:10px 0 0 18px;padding:0;line-height:1.8">
+        <li>Auf <strong>paypal.com</strong> einloggen → <strong>Aktivitäten</strong>.</li>
+        <li>Zeitraum wählen → <strong>Herunterladen</strong> (oben rechts).</li>
+        <li>Format <strong>CSV</strong> wählen und herunterladen.</li>
+        <li>Die heruntergeladene Datei hier unten hochladen.</li>
+    </ol>
+    <div class="feld-hinweis" style="margin-top:8px">Die Datei bleibt nur lokal {{ 'auf diesem Server' if config.PRODUKTION else 'auf deinem Mac' }}. PayPal bietet kein FinTS – der CSV-Export ist der offizielle Weg.</div>
+</details>
+
+<div class="karte" style="border:2px solid var(--blau)">
+    <h2 style="margin-top:0">⚡ Direktabruf (ohne Datei)</h2>
+    {% if pp_zugang_da %}
+    <form method="post" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="aktion" value="api_abruf">
+        <select name="zeitraum" style="padding:9px;border-radius:9px;border:1px solid var(--grau-linie)">
+            <option value="60">letzte 60 Tage</option>
+            <option value="wj">seit Wirtschaftsjahresbeginn</option>
+            <option value="365">letzte 12 Monate</option>
+        </select>
+        <button class="btn">🔄 Umsätze abrufen</button>
+    </form>
+    <span class="feld-hinweis" style="margin-left:8px">Holt die Umsätze direkt von PayPal – wie bei der Sparkasse, nur ohne TAN.</span>
+    {% else %}
+    <p class="feld-hinweis" style="margin:0 0 8px">Einmalig einrichten – dann holst du die Umsätze künftig mit einem Klick:</p>
+    {% endif %}
+    <details style="margin-top:10px" {{ 'open' if not pp_zugang_da }}>
+        <summary style="cursor:pointer;font-weight:600">{{ '⚙️ Zugang ändern' if pp_zugang_da else '⚙️ PayPal-Zugang einrichten' }}</summary>
+        <ol style="margin:10px 0 10px 18px;line-height:1.8">
+            <li><a href="https://developer.paypal.com" target="_blank" rel="noopener">developer.paypal.com</a>
+                mit dem <strong>Vereins-PayPal-Konto</strong> anmelden</li>
+            <li><strong>Apps &amp; Credentials</strong> → oben <strong>„Live"</strong> wählen → <strong>Create App</strong> (Name egal, z. B. „Vereinsverwaltung")</li>
+            <li>In der App unter <strong>Features</strong> den Haken bei <strong>„Transaction Search"</strong> setzen und speichern</li>
+            <li><strong>Client ID</strong> und <strong>Secret</strong> unten eintragen (das Secret erscheint nach Klick auf „Show")</li>
+        </ol>
+        <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="aktion" value="zugang">
+            <div class="feld" style="max-width:520px"><label>Client-ID</label><input type="text" name="client_id" autocomplete="off"></div>
+            <div class="feld" style="max-width:520px"><label>Secret</label><input type="password" name="secret" autocomplete="off"></div>
+            <button class="btn">💾 Zugang speichern</button>
+        </form>
+        <form method="post" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="aktion" value="test">
+            <button class="btn btn-sekundaer" style="margin-top:8px">🧪 Zugang testen</button>
+        </form>
+        </div>
+        <div class="feld-hinweis" style="margin-top:6px">Wird verschlüsselt gespeichert. Hinweis: „Transaction Search" wirkt bei PayPal erst einige Stunden nach dem Aktivieren – „Zugang testen" zeigt dir den Stand.</div>
+    </details>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">CSV-Datei hochladen <span class="feld-hinweis" style="font-weight:400">(Alternative)</span></h2>
+    <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld"><label>PayPal-CSV</label><input type="file" name="csv" accept=".csv,text/csv" required></div>
+        <button class="btn">📤 Einlesen</button>
+    </form>
+</div>
+
+{% if fehler %}<div class="flash flash-fehler">{{ fehler }}</div>{% endif %}
+
+{% if zugeordnet or vorschlaege %}
+<div class="karte" style="border:2px solid var(--gruen)">
+    <h2 style="margin-top:0">🎟️ Zahlungsabgleich Anmeldungen</h2>
+    {% if zugeordnet %}
+    <p style="margin:0 0 6px"><strong>✅ Automatisch als bezahlt verbucht ({{ zugeordnet|length }}):</strong></p>
+    {% for z in zugeordnet %}
+    <div style="padding:6px 0">{{ z.name }} – {{ z.titel }} · {{ '%.2f'|format(z.erhalten)|replace('.', ',') }} €
+        <span class="feld-hinweis">(Zahlcode {{ z.zahlcode }})</span></div>
+    {% endfor %}
+    {% endif %}
+    {% if vorschlaege %}
+    <p style="margin:10px 0 6px"><strong>⚠️ Zahlcode erkannt, Betrag weicht ab – bitte prüfen:</strong></p>
+    {% for z in vorschlaege %}
+    <div style="padding:6px 0">{{ z.name }} – {{ z.titel }}: erhalten {{ '%.2f'|format(z.erhalten)|replace('.', ',') }} €,
+        erwartet {{ '%.2f'|format(z.erwartet)|replace('.', ',') }} €</div>
+    {% endfor %}
+    {% endif %}
+</div>
+{% endif %}
+
+{% if umsaetze %}
+<div class="karte">
+    <h2 style="margin-top:0">Gefundene Umsätze</h2>
+    {% if not pp_konto %}<div class="flash flash-info">Kein PayPal-Geldkonto gefunden – lege es unter „💶 Geldkonten" an.</div>{% endif %}
+    {% set ziel_konto = pp_konto %}
+    {% set zurueck = url_for('finanzen.liste') %}
+    {% include "finanzen/_umsatz_tabelle.html" %}
+</div>
+{% endif %}
+{% endblock %}

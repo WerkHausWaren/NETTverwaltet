@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Redaktionsplan{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>{{ '📰 Pressefach' if typ == 'presse' else '📋 Redaktionsplan' }}</h1>
+        <div class="sub">{{ 'Pressemitteilungen schreiben, freigeben lassen und versenden' if typ == 'presse'
+            else 'Alle Beiträge für Social Media und Presse – mit Freigabe durch den Vorstand' }}</div></div>
+    <div class="aktionen">
+        <a href="{{ url_for('oea.neu', typ=typ or None) }}" class="btn">＋ Neuer {{ 'Pressetext' if typ == 'presse' else 'Beitrag' }}</a>
+    </div>
+</div>
+
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+    {% for w, lbl in [('', 'Alle'), ('social', 'Social Media'), ('presse', 'Presse')] %}
+    <a href="{{ url_for('oea.plan', typ=w or None, status=status or None) }}"
+       class="btn btn-klein {{ '' if typ == w else 'btn-sekundaer' }}">{{ lbl }}</a>
+    {% endfor %}
+    <span style="opacity:.4">|</span>
+    {% for w, lbl in [('', 'Alle Status')] + status_liste %}
+    <a href="{{ url_for('oea.plan', status=w or None, typ=typ or None) }}"
+       class="btn btn-klein {{ '' if status == w else 'btn-sekundaer' }}">{{ lbl }}</a>
+    {% endfor %}
+</div>
+
+{% if beitraege %}
+{% set tf_ziel = '#planliste' %}
+{% include '_tabellen_filter.html' %}
+<table id="planliste" class="tabelle">
+    <thead><tr><th>Geplant</th><th>Beitrag</th><th>Kanal</th><th>Status</th><th class="rechts">Aktionen</th></tr></thead>
+    <tbody>
+    {% for b in beitraege %}
+    <tr>
+        <td>{{ b.geplant_am | datum_de if b.geplant_am else '–' }}</td>
+        <td><a href="{{ url_for('oea.bearbeiten', bid=b.id) }}" style="font-weight:700">{{ b.titel or (b.text or '')[:50] or '(ohne Titel)' }}</a>
+            {% if b.termin_titel %}<br><span class="feld-hinweis">🎪 {{ b.termin_titel }}{% if b.termin_datum %} · {{ b.termin_datum | datum_de }}{% endif %}</span>{% endif %}
+            {% if b.auto_posten %}<br><span class="feld-hinweis" style="color:var(--gruen);font-weight:700">🤖 postet automatisch{{ ' um ' + b.geplant_um + ' Uhr' if b.geplant_um }}</span>{% endif %}
+            {% if b.auto_fehler %}<br><span class="feld-hinweis" style="color:var(--rot);font-weight:700">⚠️ {{ b.auto_fehler }}</span>{% endif %}
+            {% if b.ig_stats_am %}<br><span class="feld-hinweis">📊 {{ b.ig_reichweite }} erreicht · {{ b.ig_likes }} Likes · {{ b.ig_kommentare_n }} Kommentare{% if b.ig_gemerkt %} · {{ b.ig_gemerkt }} gemerkt{% endif %}</span>{% endif %}
+            {% if b.notiz %}<br><span class="feld-hinweis">🗒️ {{ b.notiz }}</span>{% endif %}
+            {% set echo = fundstellen.get(b.id) %}
+            {% if echo %}
+            <details style="margin-top:4px">
+                <summary style="cursor:pointer;color:var(--gruen);font-weight:700;font-size:13px">🔎 {{ echo | length }} Fundstelle{{ 'n' if echo | length != 1 }} im Netz</summary>
+                <ul style="margin:6px 0 0;padding-left:18px;font-size:13px">
+                    {% for f in echo %}
+                    <li style="margin:3px 0"><a href="{{ f.url|sichere_url }}" target="_blank" rel="noopener">{{ f.titel or f.url }}</a>
+                        <span class="feld-hinweis">({{ f.gefunden_am[:10] | datum_de }})</span></li>
+                    {% endfor %}
+                </ul>
+            </details>
+            {% elif b.typ == 'presse' and b.status == 'veroeffentlicht' %}
+            <br><span class="feld-hinweis">🔎 Noch keine Fundstellen – die Suche läuft alle 12 Stunden automatisch.</span>
+            {% endif %}</td>
+        <td>{% if b.typ == 'presse' %}📰 Presse{% else %}{{ formate[b.kanal].symbol + ' ' + formate[b.kanal].label if b.kanal in formate else (b.kanal or '–') }}{% endif %}</td>
+        <td><span class="badge {{ 'badge-bezahlt' if b.status in ('freigegeben','veroeffentlicht') else ('badge-offen' if b.status == 'freigabe' else 'badge-inaktiv') }}">{{ status_namen.get(b.status) or b.status or '–' }}</span>
+            {% if b.freigegeben_von %}<br><span class="feld-hinweis">✓ {{ b.freigegeben_von }}</span>{% endif %}</td>
+        <td class="rechts" style="white-space:nowrap">
+            {% if b.status == 'entwurf' %}
+            <form method="post" action="{{ url_for('oea.status_setzen', bid=b.id) }}" style="display:inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="aktion" value="freigabe_anfordern">
+                <button class="btn btn-sekundaer btn-klein" title="Freigabe beim Vorstand anfragen">⏳ Freigabe anfragen</button>
+            </form>
+            {% endif %}
+            {% if b.status == 'freigabe' and ist_admin %}
+            <form method="post" action="{{ url_for('oea.status_setzen', bid=b.id) }}" style="display:inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="aktion" value="freigeben">
+                <button class="btn btn-klein" title="Als Vorstand freigeben">✅ Freigeben</button>
+            </form>
+            {% endif %}
+            {% if b.typ == 'presse' %}
+            <a href="{{ url_for('oea.presse_pdf_export', bid=b.id) }}" class="btn btn-sekundaer btn-klein" title="Als PDF herunterladen">📄</a>
+            {% if b.status == 'freigegeben' %}
+            <form method="post" action="{{ url_for('oea.presse_senden', bid=b.id) }}" style="display:inline"
+                  onsubmit="return confirm('Pressemitteilung jetzt mit PDF-Anhang an den gesamten Presseverteiler senden?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-klein" title="An den Presseverteiler senden">📤 An Presse senden</button>
+            </form>
+            {% endif %}
+            {% elif b.status == 'freigegeben' %}
+            <form method="post" action="{{ url_for('oea.status_setzen', bid=b.id) }}" style="display:inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="aktion" value="veroeffentlicht">
+                <button class="btn btn-sekundaer btn-klein" title="Als veröffentlicht markieren">🎉 Veröffentlicht</button>
+            </form>
+            {% endif %}
+            <a href="{{ url_for('oea.bearbeiten', bid=b.id) }}" class="btn btn-sekundaer btn-klein" title="Bearbeiten">✏️</a>
+            <form method="post" action="{{ url_for('oea.loeschen', bid=b.id) }}" style="display:inline"
+                  onsubmit="return confirm('Beitrag löschen?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-sekundaer btn-klein" title="Löschen">✕</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="karte leer"><div class="icon">📋</div><p>Noch keine Beiträge{{ ' mit diesem Filter' if status or typ }}.
+    <a href="{{ url_for('oea.werkstatt') }}">In der Werkstatt</a> einen Vorschlag erzeugen oder
+    <a href="{{ url_for('oea.neu') }}">frei schreiben</a>.</p></div>
+{% endif %}
+{% endblock %}

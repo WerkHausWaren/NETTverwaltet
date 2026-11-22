@@ -1,0 +1,40 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Dateien{% endblock %}
+{% block inhalt %}
+<div class="mp-schmal">
+<div class="mp-karte">
+    <h2 style="margin:0 0 8px;font-size:18px">🗄️ {{ t("nav_dateien") }}</h2>
+
+    <form method="get" action="{{ url_for('portal.dateien_suche') }}" style="display:flex;gap:6px;margin-bottom:10px">
+        <input type="text" name="q" placeholder="🔎 suchen …" style="flex:1;padding:9px 11px;border:1px solid var(--linie-stark);border-radius:9px">
+        <button class="mp-btn" style="width:auto;padding:9px 14px">Suchen</button>
+    </form>
+
+    <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:14px;margin-bottom:6px">
+        <a href="{{ url_for('portal.dateien', sort=sort) }}" style="text-decoration:none">🏠</a>
+        {% for c in crumbs %}<span style="color:var(--text-schwach)">/</span><a href="{{ url_for('portal.dateien', pfad=c.pfad, sort=sort) }}" style="text-decoration:none">{{ c.name }}</a>{% endfor %}
+        <span style="margin-left:auto;font-size:12px;color:var(--text-schwach)">Sortieren:</span>
+        <a href="{{ url_for('portal.dateien', pfad=relpfad, sort='name') }}" style="text-decoration:none;{{ 'font-weight:700' if sort=='name' }}">Name</a>·
+        <a href="{{ url_for('portal.dateien', pfad=relpfad, sort='datum') }}" style="text-decoration:none;{{ 'font-weight:700' if sort=='datum' }}">Datum</a>
+    </div>
+
+    {% if inhalt.ordner or inhalt.dateien %}
+    <div style="display:flex;flex-direction:column">
+        {% for o in inhalt.ordner %}
+        <a href="{{ url_for('portal.dateien', pfad=o.pfad, sort=sort) }}" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 2px;border-bottom:1px solid var(--linie);text-decoration:none;color:inherit">
+            <span><strong>📁 {{ o.name }}</strong></span><span style="color:var(--text-schwach);font-size:13px">{{ o.anzahl }} ›</span>
+        </a>
+        {% endfor %}
+        {% for d in inhalt.dateien %}
+        <a href="{{ url_for('portal.ansehen', was='datei', pfad=d.pfad) if dms_vorschau(d.name) else url_for('portal.dateien_download', pfad=d.pfad) }}" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 2px;border-bottom:1px solid var(--linie);text-decoration:none;color:inherit">
+            <span>{{ dms_icon(d.name) }} {{ d.name }}<br><span style="color:var(--text-schwach);font-size:12px">{{ d.geaendert }}</span></span>
+            <span style="color:var(--text-schwach);font-size:13px">{% if dms_vorschau(d.name) %}👁️{% else %}⬇️{% endif %}</span>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="feld-hinweis">Dieser Ordner ist leer.</p>
+    {% endif %}
+</div>
+</div>
+{% endblock %}

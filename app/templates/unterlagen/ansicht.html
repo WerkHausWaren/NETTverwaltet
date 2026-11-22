@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="de" data-modus="{{ aussehen_modus }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ d.titel or d.original_name }}</title>
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>{{ aussehen_css | safe }}</style>
+    <style>
+        html, body { margin: 0; height: 100%; }
+        body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+               display: flex; flex-direction: column; height: 100vh; background: #33383d; }
+        .vbar { display: flex; align-items: center; gap: 8px; background: var(--flaeche, #fff); border-bottom: 1px solid var(--linie, #e5e7eb); padding: 10px 14px; }
+        .vbar .titel { flex: 1; min-width: 0; font-weight: 600; font-size: 15px; color: var(--text, #1b2a34);
+                       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .vbtn { border: 1px solid var(--linie, #d3dbe3); background: var(--flaeche, #fff); color: var(--text, #1b2a34); border-radius: 9px;
+                padding: 8px 13px; font-size: 14px; cursor: pointer; text-decoration: none;
+                display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+        .vbtn:hover { background: var(--flaeche-3, #eef2f7); }
+        .vbtn.close { background: var(--blau, #2563eb); color: var(--auf-primaer, #fff); border-color: var(--blau, #2563eb); }
+        .vinhalt { flex: 1; min-height: 0; }
+        .vinhalt iframe, .vinhalt img { width: 100%; height: 100%; border: 0; display: block; background: #33383d; }
+        .vinhalt img { object-fit: contain; }
+        .fallback { color: #fff; text-align: center; padding: 48px 20px; }
+        .fallback .vbtn { margin-top: 14px; }
+        @media print { .vbar { display: none; } body { background: #fff; height: auto; } .vinhalt img { height: auto; } }
+    </style>
+</head>
+<body>
+    <div class="vbar">
+        <a class="vbtn close" href="{{ url_for('unterlagen.index') }}">✕ Schließen</a>
+        <span class="titel">{{ d.titel or d.original_name }}</span>
+        <button class="vbtn" type="button" onclick="teilen()">📤 Teilen</button>
+        <button class="vbtn" type="button" onclick="drucken()">🖨️ Drucken</button>
+    </div>
+    <div class="vinhalt">
+        {% if ist_bild %}
+        <img id="doc" src="{{ url_for('unterlagen.oeffnen', did=d.id) }}" alt="{{ d.titel or d.original_name }}">
+        {% elif ist_pdf %}
+        <iframe id="doc" src="{{ url_for('unterlagen.oeffnen', did=d.id) }}" title="{{ d.titel or d.original_name }}"></iframe>
+        {% else %}
+        <div class="fallback">
+            <p>Für diesen Dateityp gibt es keine Vorschau.</p>
+            <a class="vbtn" href="{{ url_for('unterlagen.oeffnen', did=d.id) }}" download>⬇️ Herunterladen</a>
+        </div>
+        {% endif %}
+    </div>
+    <script>
+        var DOC_URL = "{{ url_for('unterlagen.oeffnen', did=d.id, _external=True) }}";
+        var DOC_NAME = {{ (d.titel or d.original_name or 'Dokument') | tojson }};
+        async function teilen() {
+            try {
+                if (navigator.canShare) {
+                    var resp = await fetch(DOC_URL);
+                    var blob = await resp.blob();
+                    var file = new File([blob], (DOC_NAME || "Dokument"), { type: blob.type });
+                    if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: DOC_NAME }); return; }
+                }
+                if (navigator.share) { await navigator.share({ title: DOC_NAME, url: DOC_URL }); return; }
+            } catch (e) { if (e && e.name === "AbortError") return; }
+            window.open(DOC_URL, "_blank");
+        }
+        function drucken() {
+            var el = document.getElementById("doc");
+            try { if (el && el.tagName === "IFRAME" && el.contentWindow) { el.contentWindow.focus(); el.contentWindow.print(); return; } } catch (e) {}
+            window.print();
+        }
+    </script>
+</body>
+</html>

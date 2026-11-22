@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Sparkassen-Umsätze (Datei){% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🏦 Sparkassen-Umsätze verbuchen (Datei)</h1><div class="sub">CSV-Export aus dem Online-Banking übernehmen</div></div>
+    <div class="aktionen">
+        <a href="{{ url_for('bank.index') }}" class="btn btn-sekundaer">↔ Direktabruf (FinTS)</a>
+        <a href="{{ url_for('finanzen.liste') }}" class="btn btn-sekundaer">← Kassenbuch</a>
+    </div>
+</div>
+
+<details class="hilfe-box" style="margin-bottom:20px">
+    <summary style="cursor:pointer;font-weight:600">❓ Wie bekomme ich die CSV-Datei aus dem Sparkassen-Banking?</summary>
+    <ol style="margin:10px 0 0 18px;padding:0;line-height:1.8">
+        <li>Im <strong>Sparkassen-Online-Banking</strong> einloggen → <strong>Umsätze</strong> deines Kontos öffnen.</li>
+        <li>Zeitraum wählen → <strong>Export / Herunterladen</strong>.</li>
+        <li>Format <strong>„CSV-CAMT"</strong> (oder einfach „CSV") wählen und speichern.</li>
+        <li>Die Datei hier unten hochladen.</li>
+    </ol>
+    <div class="feld-hinweis" style="margin-top:8px">Sicher und ohne Sperr-Risiko – die Datei bleibt lokal {{ 'auf diesem Server' if config.PRODUKTION else 'auf deinem Mac' }}. Ideal, solange der Direktabruf (FinTS) noch nicht freigeschaltet ist.</div>
+</details>
+
+<div class="karte">
+    <h2 style="margin-top:0">CSV-Datei hochladen</h2>
+    <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld"><label>Sparkassen-CSV</label><input type="file" name="csv" accept=".csv,text/csv" required></div>
+        <button class="btn">📤 Einlesen</button>
+    </form>
+</div>
+
+{% if fehler %}<div class="flash flash-fehler">{{ fehler }}</div>{% endif %}
+
+{% if zugeordnet or vorschlaege %}
+<div class="karte" style="border:2px solid var(--gruen)">
+    <h2 style="margin-top:0">🎟️ Zahlungsabgleich Anmeldungen</h2>
+    {% if zugeordnet %}
+    <p style="margin:0 0 6px"><strong>✅ Automatisch als bezahlt verbucht ({{ zugeordnet|length }}):</strong></p>
+    {% for z in zugeordnet %}
+    <div style="padding:6px 0;{{ '' if loop.last and not vorschlaege else 'border-bottom:1px solid var(--grau-linie)' }}">
+        {{ z.name }} – {{ z.titel }} · {{ '%.2f'|format(z.erhalten)|replace('.', ',') }} €
+        <span class="feld-hinweis">(Zahlcode {{ z.zahlcode }})</span>
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% if vorschlaege %}
+    <p style="margin:10px 0 6px"><strong>⚠️ Zahlcode erkannt, Betrag weicht ab – bitte prüfen:</strong></p>
+    {% for z in vorschlaege %}
+    <div style="padding:6px 0">
+        {{ z.name }} – {{ z.titel }}: erhalten {{ '%.2f'|format(z.erhalten)|replace('.', ',') }} €,
+        erwartet {{ '%.2f'|format(z.erwartet)|replace('.', ',') }} €
+        <a href="{{ url_for('veranstaltungen.index') }}" class="feld-hinweis">→ Anmeldungen öffnen</a>
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+{% endif %}
+
+{% if umsaetze %}
+<div class="karte">
+    <h2 style="margin-top:0">Gefundene Umsätze</h2>
+    {% if not bank_konto %}<div class="flash flash-info">Kein Bank-Geldkonto gefunden – lege es unter „💶 Geldkonten" an.</div>{% endif %}
+    {% set ziel_konto = bank_konto %}
+    {% set zurueck = url_for('finanzen.liste') %}
+    {% include "finanzen/_umsatz_tabelle.html" %}
+</div>
+{% endif %}
+{% endblock %}

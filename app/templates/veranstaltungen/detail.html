@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}{{ t.titel }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🎟️ {{ t.titel }}</h1>
+        <div class="sub">{{ t.datum | datum_wt }}{% if t.uhrzeit %} · {{ t.uhrzeit }} Uhr{% endif %}{% if t.ort %} · {{ t.ort }}{% endif %}
+            {% if t.preis %} · {{ t.preis | euro }}{% endif %}</div></div>
+    <div class="aktionen">
+        <a href="{{ url_for('termine.detail', tid=t.id) }}" class="btn btn-sekundaer">← Zur Veranstaltung</a>
+        <a href="{{ url_for('termine.bearbeiten', tid=t.id) }}" class="btn btn-sekundaer">✏️ Bearbeiten</a>
+    </div>
+</div>
+
+{% if t.bild %}
+<div class="karte" style="padding:0;overflow:hidden;position:relative">
+    <img src="{{ url_for('termine.bild', tid=t.id, v=t.bild) }}" alt="{{ t.titel }}"
+         style="width:100%;max-height:300px;object-fit:cover;display:block">
+    {% if t.abgesagt %}<span style="position:absolute;top:14px;left:14px;background:var(--fehler-grund);color:var(--fehler-text);border-radius:999px;padding:5px 14px;font-weight:800">⛔ Abgesagt</span>{% endif %}
+    {% if t.trailer_url %}<a href="{{ t.trailer_url|sichere_url }}" target="_blank" rel="noopener" title="Trailer abspielen"
+        style="position:absolute;right:14px;bottom:14px;background:rgba(23,35,58,.85);color:#fff;border-radius:999px;padding:8px 16px;font-weight:700;text-decoration:none">▶ Trailer</a>{% endif %}
+</div>
+{% elif t.trailer_url %}
+<div class="karte"><a href="{{ t.trailer_url|sichere_url }}" target="_blank" rel="noopener" class="btn" style="background:var(--rot)">▶ Trailer abspielen</a></div>
+{% endif %}
+
+<div class="karten-reihe" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:14px">
+    <div class="karte" style="text-align:center"><div style="font-size:26px;font-weight:800">{{ stand.teilnehmer }}{% if t.max_teilnehmer %}<span style="font-size:16px;color:var(--text-hell)"> / {{ t.max_teilnehmer }}</span>{% endif %}</div><div class="feld-hinweis">Teilnehmende{% if t.min_teilnehmer %} (min. {{ t.min_teilnehmer }}{% if stand.teilnehmer >= t.min_teilnehmer %} ✓{% endif %}){% endif %}</div></div>
+    <div class="karte" style="text-align:center"><div style="font-size:26px;font-weight:800">{{ stand.anmeldungen }}</div><div class="feld-hinweis">Anmeldungen{% if stand.warteliste %} · {{ stand.warteliste }} Warteliste{% endif %}</div></div>
+    {% if einlass_gesamt %}
+    <div class="karte" style="text-align:center"><div style="font-size:26px;font-weight:800">{{ einlass_da }}<span style="font-size:15px;font-weight:400;color:var(--text-hell)"> / {{ einlass_gesamt }}</span></div><div class="feld-hinweis">🎫 erschienen</div></div>
+    {% endif %}
+    <div class="karte" style="text-align:center"><div style="font-size:26px;font-weight:800">{{ stand.bezahlt | euro }}</div><div class="feld-hinweis">bezahlt{% if stand.offen %} · <span style="color:var(--rot)">{{ stand.offen | euro }} offen</span>{% endif %}</div></div>
+    {% if stand.spenden %}<div class="karte" style="text-align:center"><div style="font-size:26px;font-weight:800">{{ stand.spenden | euro }}</div><div class="feld-hinweis">Spenden</div></div>{% endif %}
+</div>
+
+{% if link %}
+<div class="karte" style="border:1px solid var(--info-rand);background:var(--info-grund)">
+    <strong>🔗 Öffentlicher Anmelde-Link</strong>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px">
+        <input id="anmeldelink" type="text" readonly value="{{ link }}" style="flex:1;min-width:280px;font-family:monospace;font-size:13px">
+        <button type="button" class="btn" onclick="navigator.clipboard.writeText(document.getElementById('anmeldelink').value);this.textContent='✓ Kopiert';">📋 Kopieren</button>
+        <a href="{{ link }}" target="_blank" class="btn btn-sekundaer">Öffnen ↗</a>
+    </div>
+</div>
+{% endif %}
+
+<div class="karte" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <strong style="margin-right:6px">Aktionen:</strong>
+    <a href="{{ url_for('veranstaltungen.anmeldung_neu', tid=t.id) }}" class="btn">+ Anmeldung erfassen</a>
+    <a href="{{ url_for('veranstaltungen.mailen', tid=t.id) }}" class="btn btn-sekundaer">✉️ Info/Voucher senden</a>
+    <a href="{{ url_for('veranstaltungen.einlass', tid=t.id) }}" class="btn btn-sekundaer">🎫 Einlass (QR-Scan)</a>
+    <a href="{{ url_for('veranstaltungen.einlass_bericht', tid=t.id) }}" class="btn btn-sekundaer">📊 Einlass-Bericht</a>
+    <a href="{{ url_for('veranstaltungen.liste_druck', tid=t.id) }}" target="_blank" class="btn btn-sekundaer">📋 Teilnehmendenliste</a>
+    <a href="{{ url_for('veranstaltungen.unterschriften', tid=t.id) }}" target="_blank" class="btn btn-sekundaer">✍️ Unterschriftenliste</a>
+    <a href="{{ url_for('veranstaltungen.export_xlsx', tid=t.id) }}" class="btn btn-sekundaer">⬇️ Excel</a>
+    {% if t.feedback_aktiv %}<a href="{{ url_for('veranstaltungen.feedback_auswertung', tid=t.id) }}" class="btn btn-sekundaer">⭐ Feedback</a>{% endif %}
+    {% set foto_offen = anmeldungen | rejectattr('storniert') | selectattr('foto_status', 'equalto', '') | list | length %}
+    {% if foto_offen %}
+    <form method="post" action="{{ url_for('veranstaltungen.foto_anfragen', tid=t.id) }}" style="margin:0"
+          onsubmit="return confirm('Foto-Anfrage per E-Mail an alle schicken, die noch nicht geantwortet haben?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-sekundaer" title="{{ foto_offen }} Person(en) haben die Fotofrage noch nicht beantwortet">
+            📷 Foto-Erlaubnis erfragen ({{ foto_offen }})</button>
+    </form>
+    <a href="{{ url_for('veranstaltungen.foto_formular', tid=t.id) }}" target="_blank"
+       class="btn btn-sekundaer" title="Vorausgefüllte Einwilligungserklärungen zum Unterschreiben">🖨️ Foto-Formular</a>
+    {% endif %}
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Anmeldungen</h2>
+    {% if anmeldungen %}
+    {% if ueberfaellig %}
+    <div style="background:var(--warn-grund);border:1px solid var(--gelb);border-radius:9px;padding:9px 12px;margin-bottom:10px;font-size:14px">
+        ⏰ <strong>{{ ueberfaellig|length }}</strong> Anmeldung{{ 'en warten' if ueberfaellig|length != 1 else ' wartet' }}
+        seit mindestens 7 Tagen auf den Zahlungseingang (unten orange markiert).
+    </div>
+    {% endif %}
+    {# Suche: Name (Anmelder:in + Teilnehmende) und freie Suche über alle Angaben – filtert sofort beim Tippen #}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <input type="search" id="such-name" placeholder="🔍 Name (Anmelder:in/Teilnehmende)"
+               style="flex:1;min-width:180px;padding:8px 10px;border:1px solid var(--grau-linie);border-radius:8px">
+        <input type="search" id="such-frei" placeholder="🔎 Freie Suche (E-Mail, Ort, Notiz, Betrag …)"
+               style="flex:1;min-width:200px;padding:8px 10px;border:1px solid var(--grau-linie);border-radius:8px">
+        <label style="display:inline-flex;gap:6px;align-items:center;font-size:13.5px;cursor:pointer">
+            <input type="checkbox" id="such-offen" style="width:auto"> nur offene Zahlungen
+        </label>
+        <span id="such-treffer" class="feld-hinweis"></span>
+    </div>
+    <table id="anmelde-tabelle">
+        <thead><tr><th>Anmelder:in / Teilnehmende</th><th>Kontakt</th><th>Quelle</th><th>Zahlung</th><th class="rechts">Aktionen</th></tr></thead>
+        <tbody>
+        {% for a in anmeldungen %}
+        <tr style="{{ 'opacity:.55;' if a.storniert }}{{ 'background:var(--warn-grund);' if a.id in ueberfaellig }}"
+            data-name="{{ (a.anmelder_name or '') | lower }} {% for tn in teilnehmer[a.id] %}{{ (tn.name or '') | lower }} {% endfor %}"
+            data-offen="{{ '1' if (not a.storniert and a.bezahlstatus == 'offen' and (a.betrag or 0) > 0) else '' }}">
+            <td>
+                <strong>{{ a.anmelder_name }}</strong>
+                {% if a.warteliste %}<span class="badge badge-inaktiv" style="font-size:11px">Warteliste</span>{% endif %}
+                {% if a.gutschein_code %}<span class="badge badge-gruppe" style="font-size:11px" title="Gutschein eingelöst">🎟️ {{ a.gutschein_code }}</span>{% endif %}
+                {% if a.storniert %}<span class="badge badge-inaktiv" style="font-size:11px">storniert</span>{% endif %}
+                {% if a.herkunft=='online' %}<span class="badge badge-gruppe" style="font-size:11px">online</span>{% endif %}
+                {% if a.id in ueberfaellig %}<span class="badge" style="font-size:11px;background:var(--fehler-grund);color:var(--fehler-text);border:1px solid var(--fehler-rand)" title="Anmeldung vom {{ a.erstellt_am[:10] | datum_de }}">⏰ {{ ueberfaellig[a.id] }} Tage ohne Zahlung</span>{% endif %}
+                <br><span class="sub">{% for tn in teilnehmer[a.id] %}{{ tn.name }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
+                {% if a.foto_status == 'ja' %}<span title="Fotos erlaubt (Vereinsarbeit){{ ' + Facebook/Instagram' if a.foto_social == 'ja' }}">📷{{ '📱' if a.foto_social == 'ja' }}</span>
+                {% elif a.foto_status == 'nein' %}<span title="Fotos ausdrücklich abgelehnt – nicht erkennbar fotografieren!">🚫📷</span>
+                {% else %}<a class="feld-hinweis" style="text-decoration:none"
+                    href="{{ url_for('veranstaltungen.foto_formular_pdf', aid=a.id) }}"
+                    title="Fotoerlaubnis unbeantwortet – Klick lädt die Einwilligung als PDF zum Unterschreiben">📷?⬇️</a>{% endif %}
+                {% if a.foto_nachweis %}<a href="{{ url_for('veranstaltungen.foto_nachweis', aid=a.id) }}"
+                    target="_blank" style="text-decoration:none" title="Unterschriebenes Formular öffnen">📎</a>{% endif %}
+                {% if a.mitglied_interesse %}<span title="Interesse an Mitgliedschaft">🤝</span>{% endif %}
+                {% if a.stern_interesse %}<span title="Möchte regelmäßig unterstützen (WerkHausStern/Förderung)">⭐</span>{% endif %}
+                {% if a.zahlcode %}<span class="feld-hinweis" style="font-family:ui-monospace,Menlo,monospace;font-size:11px" title="Zahlcode – Verwendungszweck für Überweisungen (wird beim Bankabruf automatisch zugeordnet)">{{ a.zahlcode }}</span>{% endif %}
+                {% if a.notizen %}<br><span class="sub">📝 {{ a.notizen }}</span>{% endif %}
+            </td>
+            <td class="sub">{% if a.email %}{{ a.email }}<br>{% endif %}{{ a.telefon }}{% if a.ort %}<br>{{ a.plz }} {{ a.ort }}{% endif %}
+                {% if mails.get(a.id) %}<br><span class="badge badge-gruppe" style="font-size:11px" title="zuletzt: „{{ mails[a.id].letzte }}“ am {{ mails[a.id].wann[:10] | datum_de }}">✉️ {{ mails[a.id].n }} Mail(s)</span>{% endif %}</td>
+            <td class="sub">{{ a.quelle }}</td>
+            <td>
+                <form method="post" action="{{ url_for('veranstaltungen.anmeldung_zahlung', aid=a.id) }}" style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <select name="bezahlstatus" style="padding:3px">
+                        {% for w,b in bezahlstatus %}<option value="{{ w }}" {{ 'selected' if a.bezahlstatus==w }}>{{ b }}</option>{% endfor %}
+                    </select>
+                    <input type="text" name="betrag" value="{{ '%.2f'|format(a.betrag or 0) }}" style="width:64px;padding:3px" title="Betrag €">
+                    <button class="btn btn-sekundaer" style="padding:3px 8px">✓</button>
+                </form>
+                {% if a.spende %}<span class="sub" title="Freiwillige Zusatzspende – im Betrag enthalten">💛 inkl. {{ a.spende | euro }} Spende</span>{% endif %}
+                {% if not a.storniert and a.bezahlstatus == 'offen' and (a.betrag or 0) > 0 and a.email %}
+                <form method="post" action="{{ url_for('veranstaltungen.anmeldung_zahlungserinnerung', aid=a.id) }}"
+                      style="margin-top:5px" onsubmit="return confirm('Zahlungserinnerung an {{ a.anmelder_name }} ({{ a.email }}) senden?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn {{ '' if a.id in ueberfaellig else 'btn-sekundaer' }}" style="padding:3px 8px;font-size:12.5px"
+                            title="Personalisierte Zahlungserinnerung per E-Mail (Vorlage „Zahlungserinnerung“)">💶✉️ Erinnern</button>
+                </form>
+                {% endif %}
+            </td>
+            <td class="rechts" style="white-space:nowrap">
+                <a href="{{ url_for('veranstaltungen.anmeldung_bearbeiten', aid=a.id) }}" class="btn btn-sekundaer" style="padding:4px 8px">✏️</a>
+                <a href="{{ url_for('veranstaltungen.voucher', token=a.token) }}" target="_blank" class="btn btn-sekundaer" style="padding:4px 8px" title="Voucher">🎫</a>
+                <a href="{{ url_for('veranstaltungen.quittung', aid=a.id) }}" target="_blank" class="btn btn-sekundaer" style="padding:4px 8px" title="Quittung">🧾</a>
+                <form method="post" action="{{ url_for('veranstaltungen.anmeldung_storno', aid=a.id) }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sekundaer" style="padding:4px 8px" title="Stornieren/Reaktivieren">⏸️</button></form>
+                <form method="post" action="{{ url_for('veranstaltungen.anmeldung_loeschen', aid=a.id) }}" style="display:inline" onsubmit="return confirm('Anmeldung löschen?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-gefahr" style="padding:4px 8px">🗑️</button></form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <script>
+    (function () {
+        var name = document.getElementById('such-name');
+        var frei = document.getElementById('such-frei');
+        var offen = document.getElementById('such-offen');
+        var treffer = document.getElementById('such-treffer');
+        var zeilen = document.querySelectorAll('#anmelde-tabelle tbody tr');
+        function filtern() {
+            var qn = name.value.trim().toLowerCase();
+            var qf = frei.value.trim().toLowerCase();
+            var n = 0;
+            zeilen.forEach(function (z) {
+                var ok = true;
+                if (qn && (z.dataset.name || '').indexOf(qn) === -1) ok = false;
+                if (ok && qf && z.textContent.toLowerCase().indexOf(qf) === -1) ok = false;
+                if (ok && offen.checked && !z.dataset.offen) ok = false;
+                z.style.display = ok ? '' : 'none';
+                if (ok) n++;
+            });
+            treffer.textContent = (qn || qf || offen.checked) ? n + ' von ' + zeilen.length : '';
+        }
+        [name, frei].forEach(function (el) { el.addEventListener('input', filtern); });
+        offen.addEventListener('change', filtern);
+    })();
+    </script>
+    {% else %}
+    <p class="feld-hinweis">Noch keine Anmeldungen.</p>
+    {% endif %}
+</div>
+{% endblock %}

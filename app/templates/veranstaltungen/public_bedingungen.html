@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="{{ sprache_aktiv }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ ue('tb_titel') }} – {{ einst.vereinsname }}</title>
+{% with akzent = (einst.farbe_primaer if einst else '') %}{% include "_oeffentlich_stil.html" %}{% endwith %}
+<style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; color: var(--text, #1e293b); margin: 0; background: var(--grund, #eef1f5); }
+    .wrap { max-width: 620px; margin: 0 auto; padding: 0 14px 40px; }
+    .kopf { background: var(--flaeche, #fff); color: var(--text, #1b2a34); padding: calc(14px + env(safe-area-inset-top)) 16px 16px;
+            border-radius: 0 0 22px 22px; border-bottom: 1px solid var(--linie, #eceff3);
+            box-shadow: 0 2px 10px rgba(20,40,70,.05); display: flex; align-items: center; gap: 14px; }
+    .kopf img { height: 72px; width: auto; max-width: 44%; object-fit: contain; flex: none;
+                background: var(--logo-teller, transparent); border-radius: 8px; }
+    .kopf .vn { font-weight: 800; font-size: 21px; line-height: 1.1; min-width: 0; }
+    .karte { background: var(--flaeche, #fff); border-radius: 14px; padding: 20px; margin-top: 16px; box-shadow: 0 3px 14px rgba(0,0,0,.05); }
+    h1 { font-size: 22px; margin: 0 0 8px; }
+    h2 { font-size: 16px; margin: 18px 0 6px; }
+    p, li { font-size: 14.5px; line-height: 1.65; margin: 6px 0; }
+    a { color: var(--akz-text, var(--akz)); }
+</style>
+</head>
+<body>
+<div class="kopf">
+    <a href="{{ url_for('portal.home') }}" title="Zur Startseite" style="display:contents;color:inherit;text-decoration:none">
+        {% if einst.logo_dateiname %}<img src="{{ url_for('einstellungen.logo', verein_id=einst.id) }}" alt="{{ einst.vereinsname }}">{% endif %}
+        <span class="vn">{{ einst.vereinsname }}</span>
+    </a>
+    <span style="margin-left:auto;font-size:13px;white-space:nowrap">
+        {% for code, name in SPRACHEN.items() %}{% if not loop.first %} · {% endif %}<a href="?lang={{ code }}"
+            style="text-decoration:none;font-weight:{{ '800' if code == sprache_aktiv else '400' }};color:var(--text, #1b2a34)">{{ name }}</a>{% endfor %}
+    </span>
+</div>
+<div class="wrap">
+    <div class="karte">
+        <h1>{{ ue('tb_titel') }}</h1>
+        <p>{{ ue('tb_intro') }} {{ einst.vereinsname }}.</p>
+        {% for i in [1, 2, 3, 4, 5, 6] %}
+        <h2>{{ ue('tb_' ~ i ~ 't') }}</h2>
+        <p>{{ ue('tb_' ~ i) }}</p>
+        {% endfor %}
+        <h2>{{ ue('tb_7t') }}</h2>
+        <p>{{ ue('tb_7') }} <a href="{{ url_for('einstellungen.rechtliches') }}">{{ ue('tb_ds') }}</a>.</p>
+        <p style="color:var(--text-hell, #64748b);margin-top:16px">{{ ue('tb_fragen') }}{% if einst.email %}
+        <a href="mailto:{{ einst.email }}">{{ einst.email }}</a>{% endif %} {{ ue('tb_hilfe') }}</p>
+    </div>
+</div>
+</body>
+</html>

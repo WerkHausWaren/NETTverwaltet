@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Fristen-Radar{% endblock %}
+{% macro zeile(f) %}
+<tr style="{{ 'background:var(--fehler-grund)' if f.ampel == 'rot' }}">
+    <td>
+        <span title="{{ {'rot':'überfällig','gelb':'wird bald fällig','gruen':'alles im grünen Bereich','grau':'ohne Datum'}[f.ampel] }}"
+              style="display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:7px;background:{{ {'rot':'var(--rot)','gelb':'var(--gelb)','gruen':'var(--gruen)','grau':'var(--text-schwach)'}[f.ampel] }}"></span>
+        <strong>{{ f.titel }}</strong>
+        {% if f.partner %}<br><span class="feld-hinweis" style="margin-left:17px">{{ f.partner }}</span>{% endif %}
+        {% if f.notiz %}<br><span class="feld-hinweis" style="margin-left:17px">{{ f.notiz }}</span>{% endif %}
+    </td>
+    <td><span class="badge badge-gruppe">{{ arten_namen.get(f.art, f.art) }}</span></td>
+    <td>{{ f.ablauf_am | datum_de if f.ablauf_am else '–' }}
+        {% if f.betrag %}<br><span class="feld-hinweis">{{ f.betrag | euro }}{% if f.intervall %} / {{ f.intervall }}{% endif %}</span>{% endif %}</td>
+    <td>
+        {% if f.kuendigungsfrist_tage and f.kuendigen_bis %}
+            <strong>{{ f.kuendigen_bis | datum_de }}</strong><br>
+            <span class="feld-hinweis">{{ f.kuendigungsfrist_tage }} Tage Frist</span>
+        {% else %}<span class="feld-hinweis">keine Kündigungsfrist</span>{% endif %}
+    </td>
+    <td style="white-space:nowrap">
+        {% if f.tage is none %}<span class="feld-hinweis">–</span>
+        {% elif f.tage < 0 %}<span style="color:var(--fehler-text);font-weight:700">seit {{ -f.tage }} Tagen fällig!</span>
+        {% elif f.tage == 0 %}<span style="color:var(--fehler-text);font-weight:700">heute!</span>
+        {% else %}<span style="{{ 'color:var(--warn-text);font-weight:700' if f.ampel == 'gelb' }}">in {{ f.tage }} Tagen</span>{% endif %}
+    </td>
+    <td class="rechts" style="white-space:nowrap">
+        {% if not f.erledigt %}
+        <form method="post" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="aktion" value="verlaengern"><input type="hidden" name="id" value="{{ f.id }}">
+            <button class="btn btn-sekundaer btn-klein" title="Läuft ein weiteres Jahr – Datum um 1 Jahr verschieben">↻ +1 Jahr</button>
+        </form>
+        <form method="post" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="aktion" value="erledigt"><input type="hidden" name="id" value="{{ f.id }}">
+            <button class="btn btn-sekundaer btn-klein" title="Erledigt / nicht mehr relevant">✓</button>
+        </form>
+        {% else %}
+        <form method="post" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="aktion" value="wieder"><input type="hidden" name="id" value="{{ f.id }}">
+            <button class="btn btn-sekundaer btn-klein" title="Wieder aktiv setzen">↩</button>
+        </form>
+        {% endif %}
+        <form method="post" style="display:inline" onsubmit="return confirm('Eintrag löschen?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="aktion" value="loeschen"><input type="hidden" name="id" value="{{ f.id }}">
+            <button class="btn btn-sekundaer btn-klein">✕</button>
+        </form>
+    </td>
+</tr>
+{% endmacro %}
+{% block content %}
+<div class="page-header">
+    <div><h1>⏰ Fristen-Radar</h1>
+        <div class="sub">Verträge, Versicherungen, Bescheide und Amtszeiten – nichts läuft mehr unbemerkt ab</div></div>
+</div>
+
+{% if dringend %}
+<div class="karte" style="border:2px solid {{ 'var(--rot)' if dringend | selectattr('ampel','equalto','rot') | list else 'var(--gelb)' }};background:var(--warn-grund)">
+    <h2 style="margin-top:0">🔔 Das braucht deine Aufmerksamkeit</h2>
+    <ul style="margin:0">
+        {% for f in dringend %}
+        <li style="margin:4px 0"><strong>{{ f.titel }}</strong>
+            {% if f.tage is not none and f.tage < 0 %}<span style="color:var(--fehler-text)"> – seit {{ -f.tage }} Tagen überfällig</span>
+            {% elif f.tage is not none %}<span style="color:var(--warn-text)"> – in {{ f.tage }} Tagen{% if f.kuendigungsfrist_tage %} muss gekündigt sein{% endif %}</span>{% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<div class="hilfe-box" style="margin-bottom:14px">💡 <strong>So hilft dir der Radar:</strong> Trage ein, wann etwas
+    abläuft und wie lange die Kündigungsfrist ist – die App rechnet aus, bis wann ihr spätestens handeln müsst,
+    und erinnert euch automatisch per E-Mail und Push. Besonders wichtig: der <strong>Freistellungsbescheid</strong>
+    des Finanzamts (alle 3 Jahre) und die <strong>Amtszeit des Vorstands</strong> – beides wird gern übersehen.</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Laufende Fristen</h2>
+    {% if offen %}
+    <div class="tabellen-scroll">
+    <table class="tabelle">
+        <thead><tr><th>Was</th><th>Art</th><th>Läuft ab</th><th>Kündigen bis</th><th>Verbleibend</th><th class="rechts"></th></tr></thead>
+        <tbody>{% for f in offen %}{{ zeile(f) }}{% endfor %}</tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="feld-hinweis">Noch nichts erfasst. Trage unten euren ersten Vertrag oder den Freistellungsbescheid ein.</p>
+    {% endif %}
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">＋ Frist erfassen</h2>
+    <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld-reihe">
+            <div class="feld"><label>Was ist es? *</label>
+                <input type="text" name="titel" required placeholder="z. B. Freistellungsbescheid Finanzamt"></div>
+            <div class="feld" style="max-width:250px"><label>Art</label>
+                <select name="art" id="art-select" onchange="artHinweis()">
+                    {% for k, n, h in arten %}<option value="{{ k }}" data-hilfe="{{ h }}">{{ n }}</option>{% endfor %}
+                </select>
+                <div class="feld-hinweis" id="art-hinweis">{{ arten[0][2] }}</div></div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Vertragspartner / Behörde</label>
+                <input type="text" name="partner" placeholder="z. B. Finanzamt Waren, Stadtwerke"></div>
+            <div class="feld" style="max-width:180px"><label>Läuft ab am</label>
+                <input type="date" name="ablauf_am"></div>
+            <div class="feld" style="max-width:180px"><label>Kündigungsfrist (Tage)</label>
+                <input type="number" name="kuendigungsfrist_tage" value="0" min="0" max="730">
+                <div class="feld-hinweis">z. B. 90 = 3 Monate</div></div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld" style="max-width:180px"><label>Vorwarnung (Tage)</label>
+                <input type="number" name="vorwarnung_tage" value="30" min="1" max="365">
+                <div class="feld-hinweis">so früh melden wir uns</div></div>
+            <div class="feld" style="max-width:150px"><label>Kosten (optional)</label>
+                <input type="text" name="betrag" inputmode="decimal" placeholder="0,00"></div>
+            <div class="feld" style="max-width:170px"><label>Zahlweise</label>
+                <input type="text" name="intervall" placeholder="z. B. jährlich"></div>
+            <div class="feld"><label>Notiz</label>
+                <input type="text" name="notiz" placeholder="z. B. Vertragsnummer, Ansprechpartner"></div>
+        </div>
+        <button class="btn">⏰ Frist speichern</button>
+    </form>
+</div>
+
+{% if erledigt %}
+<details class="karte">
+    <summary style="cursor:pointer;font-weight:600">📁 Erledigt ({{ erledigt | length }})</summary>
+    <div class="tabellen-scroll">
+    <table class="tabelle no-sort" style="margin-top:10px">
+        <thead><tr><th>Was</th><th>Art</th><th>Lief ab</th><th>Kündigen bis</th><th>Verbleibend</th><th class="rechts"></th></tr></thead>
+        <tbody>{% for f in erledigt %}{{ zeile(f) }}{% endfor %}</tbody>
+    </table>
+    </div>
+</details>
+{% endif %}
+
+<script>
+function artHinweis() {
+    var s = document.getElementById('art-select');
+    document.getElementById('art-hinweis').textContent = s.options[s.selectedIndex].dataset.hilfe;
+}
+</script>
+{% endblock %}

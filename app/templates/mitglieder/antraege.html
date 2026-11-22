@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}Mitgliedschaft{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🤝 Mitgliedschaft</h1>
+        <div class="sub">Eintritte und Austritte an einem Ort – vom Antrag bis zur Kündigung</div></div>
+    <a href="{{ url_for('mitglieder.liste') }}" class="btn btn-sekundaer">← Alle Mitglieder</a>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px">
+    {% for wert, titel, hinweis, farbe in [
+        (antraege | length, 'Offene Anträge', 'warten auf Entscheidung', 'var(--blau)'),
+        (kuendigungen | length, 'Angekündigte Austritte', 'Frist läuft', 'var(--rot)'),
+        (eintritte, 'Eintritte ' ~ jahr, 'in diesem Jahr', 'var(--gruen)'),
+        (austritte, 'Austritte ' ~ jahr, 'in diesem Jahr', 'var(--text-hell)')] %}
+    <div class="karte" style="margin:0;padding:14px">
+        <div class="feld-hinweis" style="text-transform:uppercase;letter-spacing:.5px;font-size:11px">{{ titel }}</div>
+        <div style="font-size:25px;font-weight:800;color:{{ farbe if wert else 'var(--text-schwach)' }}">{{ wert }}</div>
+        <div class="feld-hinweis">{{ hinweis }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+{# ── Offene Anträge ─────────────────────────────────────────────────── #}
+<h2 style="font-size:18px;margin:0 0 10px">📥 Offene Beitrittsanträge</h2>
+{% if antraege %}
+{% for a in antraege %}
+<div class="karte">
+    <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div>
+            <strong style="font-size:17px">{{ a.anrede }} {{ a.vorname }} {{ a.nachname }}</strong>
+            <span class="badge badge-gruppe">{{ a.mitgliedsart or 'Mitglied' }}</span>
+            {% if a.iban and a.sepa_ok %}<span class="badge badge-bezahlt">🏦 SEPA erteilt</span>{% endif %}
+            <div class="feld-hinweis" style="margin-top:4px">
+                {% if a.geburtsdatum %}🎂 {{ a.geburtsdatum | datum_de }} · {% endif %}
+                {% if a.strasse %}{{ a.strasse }}, {{ a.plz }} {{ a.ort }} · {% endif %}
+                {% if a.email %}✉️ {{ a.email }} · {% endif %}{% if a.telefon %}📞 {{ a.telefon }}{% endif %}</div>
+            {% if a.bemerkung %}<div style="margin-top:6px;font-size:14px">💬 {{ a.bemerkung }}</div>{% endif %}
+            <div class="feld-hinweis" style="margin-top:4px">Eingegangen {{ a.erstellt_am[:10] | datum_de }}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-start">
+            <form method="post" action="{{ url_for('mitglieder.antrag_entscheiden', aid=a.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="entscheidung" value="annehmen">
+                <button class="btn" onclick="return confirm('{{ a.vorname }} {{ a.nachname }} als Mitglied aufnehmen?')">✅ Aufnehmen</button>
+            </form>
+            <form method="post" action="{{ url_for('mitglieder.antrag_entscheiden', aid=a.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="entscheidung" value="ablehnen">
+                <button class="btn btn-sekundaer" onclick="return confirm('Antrag ablehnen?')">Ablehnen</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="karte" style="padding:16px"><p class="feld-hinweis" style="margin:0">
+    Zurzeit keine offenen Anträge. Über den Link weiter unten kann jede:r online beitreten.</p></div>
+{% endif %}
+
+{# ── Angekündigte Austritte ─────────────────────────────────────────── #}
+<h2 style="font-size:18px;margin:24px 0 10px">👋 Angekündigte Austritte</h2>
+{% if kuendigungen %}
+<div class="karte" style="padding:0">
+    <div class="tabellen-scroll">
+    <table class="tabelle no-sort" style="margin:0">
+        <thead><tr><th>Mitglied</th><th>Gekündigt am</th><th>Austritt zum</th><th>Noch</th><th>Grund</th><th></th></tr></thead>
+        <tbody>
+        {% for m in kuendigungen %}
+        <tr>
+            <td><a href="{{ url_for('mitglieder.detail', mid=m.id) }}"><strong>{{ m.vorname }} {{ m.nachname }}</strong></a></td>
+            <td>{{ m.kuendigung_am | datum_de if m.kuendigung_am else '–' }}</td>
+            <td>{{ m.austrittsdatum | datum_de if m.austrittsdatum else '–' }}</td>
+            <td>{% if m.tage is none %}<span class="feld-hinweis">–</span>
+                {% elif m.tage < 0 %}<span style="color:var(--rot);font-weight:700">überfällig</span>
+                {% else %}{{ m.tage }} Tage{% endif %}</td>
+            <td class="feld-hinweis">{{ m.kuendigung_grund or '–' }}</td>
+            <td class="rechts"><a href="{{ url_for('mitglieder.austritt', mid=m.id) }}"
+                   class="btn btn-sekundaer btn-klein">Bearbeiten</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+<p class="feld-hinweis" style="margin:8px 0 0">Die Beitragspflicht läuft bis zum Austrittsdatum weiter –
+    erst danach endet die Mitgliedschaft wirklich.</p>
+{% else %}
+<div class="karte" style="padding:16px"><p class="feld-hinweis" style="margin:0">
+    Zurzeit hat niemand gekündigt. Eine Kündigung trägst du auf der Seite des Mitglieds
+    unter <strong>👋 Austritt</strong> ein – sie erscheint dann hier.</p></div>
+{% endif %}
+
+{# ── Kürzlich ausgetreten ───────────────────────────────────────────── #}
+{% if ausgetreten %}
+<details class="karte" style="padding:0;margin-top:16px">
+    <summary style="padding:16px;cursor:pointer;font-weight:600">
+        📋 In den letzten 12 Monaten ausgetreten ({{ ausgetreten | length }})</summary>
+    <div style="padding:0 16px 16px">
+        <table class="tabelle no-sort">
+            <thead><tr><th>Name</th><th>Ausgetreten am</th><th>Grund</th></tr></thead>
+            <tbody>
+            {% for m in ausgetreten %}
+            <tr>
+                <td><a href="{{ url_for('mitglieder.detail', mid=m.id) }}">{{ m.vorname }} {{ m.nachname }}</a></td>
+                <td>{{ m.austrittsdatum | datum_de if m.austrittsdatum else '–' }}</td>
+                <td class="feld-hinweis">{{ m.kuendigung_grund or '–' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <p class="feld-hinweis" style="margin:8px 0 0">Für Kassenbericht und Mitgliederversammlung –
+            in der normalen Mitgliederliste tauchen diese Personen nicht mehr auf.</p>
+    </div>
+</details>
+{% endif %}
+
+{# ── Antragslink zum Teilen ─────────────────────────────────────────── #}
+<h2 style="font-size:18px;margin:24px 0 10px">🔗 So wird man Mitglied</h2>
+<div class="karte">
+    <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">
+        <div style="flex:1 1 320px;min-width:0">
+            <p style="margin:0 0 10px">Dieser Link führt direkt zum Beitrittsformular – ohne Login,
+                in zwei Minuten ausgefüllt. Eingegangene Anträge landen oben auf dieser Seite.</p>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <input id="antragLink" type="text" readonly value="{{ antrag_url }}"
+                       style="flex:1;min-width:240px;font-family:ui-monospace,Menlo,monospace;font-size:13px"
+                       onclick="this.select()">
+                <button class="btn btn-sekundaer btn-klein" onclick="linkKopieren(this)">📋 Kopieren</button>
+                <a class="btn btn-sekundaer btn-klein" href="{{ antrag_url }}" target="_blank" rel="noopener">↗ Ansehen</a>
+            </div>
+            <p class="feld-hinweis" style="margin:10px 0 0">In der Mitglieder-App steht der Knopf
+                „🤝 Jetzt Mitglied werden" bereits unter <strong>Über uns</strong> – dort finden Gäste ihn.</p>
+        </div>
+        {% if qr %}
+        <div style="text-align:center">
+            <img src="{{ qr }}" alt="QR-Code zum Beitrittsformular" style="width:150px;height:150px">
+            <div class="feld-hinweis" style="margin-top:4px">Für Aushang<br>und Flyer</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function linkKopieren(knopf) {
+    var feld = document.getElementById('antragLink');
+    feld.select();
+    try {
+        if (navigator.clipboard) { navigator.clipboard.writeText(feld.value); }
+        else { document.execCommand('copy'); }
+    } catch (e) { /* Auswahl bleibt – dann von Hand kopieren */ }
+    var alt = knopf.textContent;
+    knopf.textContent = '✓ Kopiert';
+    setTimeout(function () { knopf.textContent = alt; }, 1600);
+}
+</script>
+{% endblock %}

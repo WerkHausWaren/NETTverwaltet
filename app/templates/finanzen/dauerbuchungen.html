@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Wiederkehrende Buchungen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🔁 Wiederkehrende Buchungen</h1><div class="sub">Miete, Versicherung, Beiträge &amp; Co. – einmal anlegen, per Klick verbuchen</div></div>
+    <div class="aktionen"><a href="{{ url_for('finanzen.liste') }}" class="btn btn-sekundaer">← Kassenbuch</a></div>
+</div>
+
+<div class="hilfe-box" style="margin-bottom:20px">
+    Hier legst du regelmäßige Zahlungen einmalig an (z.B. Miete monatlich). Ist eine fällig, erscheint sie
+    auf dem <strong>Dashboard</strong> und du buchst sie mit einem Klick – die App merkt sich die nächste Fälligkeit.
+    So wird nichts vergessen.
+</div>
+
+{% macro konto_select(sel) %}
+<select name="konto_id">
+    <option value="">— ohne Kategorie —</option>
+    {% for skey, sname in sphaeren_namen.items() %}
+    {% set kk = konten | selectattr('sphaere','equalto',skey) | list %}
+    {% if kk %}<optgroup label="{{ sname }}">
+        {% for k in kk %}<option value="{{ k.id }}" {{ 'selected' if k.id==sel }}>{{ k.name }} ({{ 'E' if k.typ=='einnahme' else 'A' }})</option>{% endfor %}
+    </optgroup>{% endif %}
+    {% endfor %}
+</select>
+{% endmacro %}
+{% macro gk_select(sel) %}
+<select name="geldkonto_id">
+    <option value="">— Geldkonto —</option>
+    {% for g in geldkonten %}<option value="{{ g.id }}" {{ 'selected' if g.id==sel }}>{{ g.name }}</option>{% endfor %}
+</select>
+{% endmacro %}
+{% macro intervall_select(sel) %}
+<select name="intervall">
+    {% for ikey, iname in intervalle.items() %}<option value="{{ ikey }}" {{ 'selected' if ikey==sel }}>{{ iname }}</option>{% endfor %}
+</select>
+{% endmacro %}
+
+{% for d in liste %}
+<div class="karte" {{ 'style=opacity:.55' if not d.aktiv }}>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <h2 style="margin:0">{{ '⏸️ ' if not d.aktiv }}{{ d.name }}
+            <span style="color:{{ 'var(--gruen)' if d.typ=='einnahme' else 'var(--rot)' }}">{{ '+' if d.typ=='einnahme' else '−' }} {{ d.betrag | euro }}</span></h2>
+        <div class="feld-hinweis">{{ intervalle.get(d.intervall, d.intervall) }} · nächste Fälligkeit: <strong>{{ d.naechste_faellig | datum_de }}</strong></div>
+    </div>
+    <div class="feld-hinweis" style="margin-top:2px">
+        {{ d.konto_name or '(ohne Kategorie)' }}{% if d.geldkonto_name %} · {{ d.geldkonto_name }}{% endif %}{% if d.beschreibung %} · {{ d.beschreibung }}{% endif %}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        {% if d.aktiv %}
+        <form method="post" action="{{ url_for('finanzen.dauer_verbuchen', did=d.id) }}" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-klein">✅ Jetzt verbuchen</button>
+        </form>
+        {% endif %}
+        <form method="post" action="{{ url_for('finanzen.dauer_umschalten', did=d.id) }}" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sekundaer btn-klein">{{ '⏸️ Pausieren' if d.aktiv else '▶️ Aktivieren' }}</button>
+        </form>
+        <details style="display:inline-block">
+            <summary class="btn btn-sekundaer btn-klein" style="display:inline-block">✏️ Ändern</summary>
+            <form method="post" action="{{ url_for('finanzen.dauer_speichern', did=d.id) }}" style="margin-top:10px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="feld-reihe">
+                    <div class="feld"><label>Name</label><input type="text" name="name" value="{{ d.name }}"></div>
+                    <div class="feld"><label>Betrag (€)</label><input type="text" name="betrag" value="{{ '%.2f'|format(d.betrag)|replace('.',',') }}"></div>
+                    <div class="feld"><label>Intervall</label>{{ intervall_select(d.intervall) }}</div>
+                    <div class="feld"><label>Nächste Fälligkeit</label><input type="date" name="naechste_faellig" value="{{ d.naechste_faellig }}"></div>
+                </div>
+                <div class="feld-reihe">
+                    <div class="feld"><label>Kategorie</label>{{ konto_select(d.konto_id) }}</div>
+                    <div class="feld"><label>Geldkonto</label>{{ gk_select(d.geldkonto_id) }}</div>
+                    <div class="feld"><label>Notiz</label><input type="text" name="beschreibung" value="{{ d.beschreibung }}"></div>
+                </div>
+                <button class="btn btn-sekundaer btn-klein">💾 Speichern</button>
+            </form>
+        </details>
+        <form method="post" action="{{ url_for('finanzen.dauer_loeschen', did=d.id) }}" onsubmit="return confirm('Wirklich löschen?')" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sekundaer btn-klein">✕ Löschen</button>
+        </form>
+    </div>
+</div>
+{% else %}
+<div class="karte leer"><div class="icon">🔁</div><p>Noch keine wiederkehrenden Buchungen.</p></div>
+{% endfor %}
+
+<div class="karte">
+    <h2 style="margin-top:0">➕ Neue wiederkehrende Buchung</h2>
+    <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld-reihe">
+            <div class="feld"><label>Name</label><input type="text" name="name" placeholder="z.B. Miete Vereinsraum" required></div>
+            <div class="feld"><label>Betrag (€)</label><input type="text" name="betrag" placeholder="0,00" required></div>
+            <div class="feld"><label>Intervall</label>{{ intervall_select('monatlich') }}</div>
+            <div class="feld"><label>Nächste Fälligkeit</label><input type="date" name="naechste_faellig"></div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Kategorie (bestimmt Einnahme/Ausgabe)</label>{{ konto_select(none) }}</div>
+            <div class="feld"><label>Geldkonto</label>{{ gk_select(none) }}</div>
+            <div class="feld"><label>Notiz (optional)</label><input type="text" name="beschreibung"></div>
+        </div>
+        <button class="btn">＋ Anlegen</button>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ausweis prüfen – {{ einst.vereinsname }}</title>
+{% include "_oeffentlich_stil.html" %}
+<style>
+    body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; margin: 0; background: var(--grund, #eef1f5);
+           color: var(--text, #1e293b); display: grid; place-items: center; min-height: 100vh; padding: 20px; }
+    .karte { background: var(--flaeche, #fff); border-radius: 16px; padding: 30px 26px; max-width: 380px; width: 100%;
+             text-align: center; box-shadow: 0 8px 26px rgba(20,40,70,.14); }
+    .zeichen { font-size: 54px; line-height: 1; }
+    h1 { font-size: 20px; margin: 10px 0 4px; }
+    .name { font-size: 22px; font-weight: 800; margin-top: 12px; }
+    .hinweis { color: var(--text-hell, #64748b); font-size: 13px; margin-top: 12px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="karte">
+    {% if gueltig %}
+    <div class="zeichen">✅</div>
+    <h1 style="color:var(--gut-text, #157347)">Gültiger Mitgliedsausweis</h1>
+    <div class="name">{{ m.vorname }} {{ m.nachname }}</div>
+    {% if m.mitgliedsnummer %}<div class="hinweis" style="font-family:ui-monospace,Menlo,monospace">Nr. {{ m.mitgliedsnummer }}</div>{% endif %}
+    <div class="hinweis">Mitglied bei <strong>{{ einst.vereinsname }}</strong><br>Gültig für {{ jahr }}</div>
+    {% else %}
+    <div class="zeichen">❌</div>
+    <h1 style="color:var(--fehler-text, #c0392b)">Ausweis nicht gültig</h1>
+    <div class="hinweis">Dieser Code konnte nicht bestätigt werden. Er ist abgelaufen, gehört nicht zu
+        diesem Verein oder die Mitgliedschaft besteht nicht mehr.</div>
+    {% endif %}
+    <div class="hinweis" style="margin-top:18px;padding-top:12px;border-top:1px solid var(--linie, #eef1f5)">
+        {{ einst.vereinsname }}</div>
+</div>
+</body>
+</html>

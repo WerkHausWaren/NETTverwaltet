@@ -1,0 +1,108 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Mein Beitrag{% endblock %}
+{% block inhalt %}
+<p style="margin:14px 0 0"><a href="{{ url_for('portal.home') }}" style="text-decoration:none;color:var(--mp);font-weight:600">‹ Start</a></p>
+{# Desktopversion: Karten fließen mehrspaltig (.mp-fluss) – mobil unverändert #}
+<div class="mp-fluss">
+
+<div class="mp-karte">
+    <h2 style="margin:0 0 4px;font-size:18px">💶 {{ t("k_beitrag") }}</h2>
+    {% if not mitglied %}
+    <p class="feld-hinweis" style="margin:0">Wir konnten dich noch keinem Mitglied zuordnen (siehe „Ich").</p>
+    {% else %}
+        {% if mitglied.beitrag %}<p style="margin:4px 0 0">Dein Beitrag: <strong>{{ '%.2f'|format(mitglied.beitrag)|replace('.',',') }} €</strong>{% if mitglied.zahlungsweise %} ({{ mitglied.zahlungsweise }}){% endif %}{% if mitglied.zahlungsart %} · {{ mitglied.zahlungsart }}{% endif %}</p>{% endif %}
+        {% if offen %}
+        <div style="margin-top:10px;background:var(--fehler-grund);border:1px solid var(--fehler-rand);color:var(--fehler-text);border-radius:10px;padding:10px 12px;font-weight:700">Offen: {{ '%.2f'|format(offen)|replace('.',',') }} €</div>
+        {% else %}
+        <div style="margin-top:10px;background:var(--gut-grund);border:1px solid var(--gut-rand);color:var(--gut-text);border-radius:10px;padding:10px 12px;font-weight:700">✓ Alles bezahlt – danke!</div>
+        {% endif %}
+    {% endif %}
+</div>
+
+{% if rows %}
+<div class="mp-karte">
+    <h3 style="margin:0 0 6px;font-size:16px">Übersicht</h3>
+    {% for r in rows %}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}">
+        <div>
+            <div style="font-weight:600">{{ r.bezeichnung or ('Beitrag ' ~ r.jahr) }}</div>
+            <div class="feld-hinweis">{{ r.jahr }}{% if r.faellig_am %} · fällig {{ r.faellig_am[8:10] }}.{{ r.faellig_am[5:7] }}.{{ r.faellig_am[0:4] }}{% endif %}</div>
+        </div>
+        <div style="text-align:right">
+            <div style="font-weight:700">{{ '%.2f'|format(r.betrag or 0)|replace('.',',') }} €</div>
+            {% if r.bezahlt %}<span class="voll-badge">✓ bezahlt</span>{% else %}<span class="offen-badge">offen</span>{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if spenden %}
+<div class="mp-karte">
+    <h3 style="margin:0 0 6px;font-size:16px">💝 Meine Spenden</h3>
+    {% for s in spenden %}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}">
+        <div>
+            <div style="font-weight:600">{{ s.zweck or 'Spende' }}{% if s.art == 'sach' %} <span class="feld-hinweis">(Sachspende)</span>{% endif %}</div>
+            <div class="feld-hinweis">{{ s.datum | datum_de }}</div>
+        </div>
+        <div style="font-weight:700">{{ '%.2f'|format(s.betrag or 0)|replace('.',',') }} €</div>
+    </div>
+    {% endfor %}
+    <div style="display:flex;justify-content:space-between;padding-top:10px;margin-top:4px;border-top:1px solid var(--linie);font-weight:700">
+        <span>Summe</span><span>{{ '%.2f'|format(spenden_summe)|replace('.',',') }} €</span>
+    </div>
+    <p class="feld-hinweis" style="margin:8px 0 0">Danke für deine Unterstützung! 💚 Für Spendenbescheinigungen melde dich beim Vorstand.</p>
+</div>
+{% endif %}
+
+{# Spendenkarte mit dem PayPal-Konto des Vereins (Einstellungen → PayPal.me) #}
+{% if design and design.paypal_me %}
+{% set pp = design.paypal_me.replace('https://','').replace('http://','').lstrip('@') if 'paypal.me' in design.paypal_me else 'paypal.me/' ~ design.paypal_me.strip('/') %}
+<div class="mp-karte" style="text-align:center;background:linear-gradient(160deg,var(--flaeche),var(--fehler-grund))">
+    <div style="font-size:28px">❤️</div>
+    <div style="font-weight:700;margin:4px 0">Projekte unterstützen</div>
+    <p class="feld-hinweis" style="margin:0 0 10px">Jeder Beitrag hilft den gemeinnützigen Projekten von {{ (design.vereinsname or 'unserem Verein') | replace(' e. V.', '') | replace(' e.V.', '') }}.</p>
+    <a class="mp-btn" href="https://{{ pp }}" target="_blank" rel="noopener" style="background:var(--rot)">Jetzt spenden</a>
+</div>
+{% endif %}
+
+{% if schichten_an and ea_anzahl %}
+<div class="mp-karte">
+    <h3 style="margin:0 0 6px;font-size:16px">🕐 Mein Ehrenamt</h3>
+    <div style="display:flex;gap:10px;text-align:center">
+        <div style="flex:1;background:var(--flaeche-3);border-radius:12px;padding:10px">
+            <div style="font-weight:800;font-size:20px">{{ ea_anzahl }}</div>
+            <div class="feld-hinweis">Schichten</div></div>
+        <div style="flex:1;background:var(--flaeche-3);border-radius:12px;padding:10px">
+            <div style="font-weight:800;font-size:20px">{{ ('%g'|format(ea_stunden))|replace('.',',') }}</div>
+            <div class="feld-hinweis">Stunden gesamt</div></div>
+        <div style="flex:1;background:var(--flaeche-3);border-radius:12px;padding:10px">
+            <div style="font-weight:800;font-size:20px">{{ ('%g'|format(ea_jahr))|replace('.',',') }}</div>
+            <div class="feld-hinweis">Stunden dieses Jahr</div></div>
+    </div>
+    <p class="feld-hinweis" style="margin:8px 0 0">Danke für deinen Einsatz! Details und Abzeichen findest du unter
+        <a href="{{ url_for('portal.schichten') }}">Schichten</a>.</p>
+    {% if ea_jahr >= 200 %}
+    <div style="margin-top:10px;background:linear-gradient(160deg,var(--flaeche),var(--warn-grund));border:1px solid var(--gelb);border-radius:12px;padding:10px 12px;font-size:13.5px;line-height:1.5">
+        🎖️ <strong>Über 200 Stunden dieses Jahr:</strong> Du kannst die
+        <a href="https://www.ehrenamtskarte-mv.de/" target="_blank" rel="noopener"><strong>Ehrenamtskarte MV</strong></a>
+        beantragen – der Verein bestätigt dein Engagement gern.
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="mp-karte" style="background:var(--flaeche-2)">
+    <p class="feld-hinweis" style="margin:0">💡 <strong>Steuer-Tipp:</strong> Mitgliedsbeiträge und Spenden bis
+        300&nbsp;€ pro Zahlung erkennt das Finanzamt schon mit dem <strong>Kontoauszug</strong> als Nachweis an
+        (vereinfachter Zuwendungsnachweis, §&nbsp;50 Abs.&nbsp;4 EStDV) – eine extra Spendenbescheinigung ist
+        dafür nicht nötig.</p>
+</div>
+</div>
+
+<style>
+    .voll-badge { background:var(--gut-grund); color:var(--gut-text); border:1px solid var(--gut-rand); border-radius:999px; padding:2px 9px; font-size:12px; font-weight:600; }
+    .offen-badge { background:var(--fehler-grund); color:var(--fehler-text); border:1px solid var(--fehler-rand); border-radius:999px; padding:2px 9px; font-size:12px; font-weight:700; }
+</style>
+{% endblock %}

@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Kontakte{% endblock %}
+{% macro seiten_link(nr, text=None, aktiv=False) %}
+<a href="{{ url_for('kontakte.index', q=q or None, kategorie=kategorie or None, seite=nr if nr > 1 else None) }}"
+   class="btn btn-klein {{ '' if aktiv else 'btn-sekundaer' }}"
+   {{ 'aria-current=page' if aktiv }}>{{ text or nr }}</a>
+{% endmacro %}
+{% block content %}
+<div class="page-header">
+    <div><h1>📇 Kontakte</h1><div class="sub">Firmen, Sponsoren, Saalmieter &amp; Co. – Rechnungsempfänger füllen sich hier automatisch</div></div>
+    <div class="aktionen">
+        <a href="{{ url_for('kontakte.import_start') }}" class="btn btn-sekundaer">⬆️ Importieren</a>
+        <a href="{{ url_for('kontakte.export_csv', q=q or None, kategorie=kategorie or None) }}"
+           class="btn btn-sekundaer" title="Als CSV herunterladen">⬇️ CSV</a>
+        <a href="{{ url_for('kontakte.export_xlsx', q=q or None, kategorie=kategorie or None) }}"
+           class="btn btn-sekundaer" title="Als Excel-Datei herunterladen">⬇️ Excel</a>
+        <a href="{{ url_for('kontakte.neu') }}" class="btn">＋ Neuer Kontakt</a>
+    </div>
+</div>
+
+{% if rueckgaengig_anzahl %}
+<div class="karte" style="border-left:4px solid var(--gelb);background:var(--warn-grund);color:var(--warn-text);padding:14px;
+     display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between">
+    <span>📥 <strong>{{ rueckgaengig_anzahl }}</strong> Kontakt{{ 'e' if rueckgaengig_anzahl != 1 }}
+        aus dem letzten Import. Sieht etwas nicht richtig aus?</span>
+    <form method="post" action="{{ url_for('kontakte.import_rueckgaengig') }}"
+          onsubmit="return confirm('Alle Kontakte aus diesem Import wieder entfernen? Von Hand angelegte Kontakte bleiben erhalten.')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-sekundaer btn-klein">↩ Diesen Import rückgängig machen</button>
+    </form>
+</div>
+{% endif %}
+
+{% if alle_gesamt %}
+<div class="karte" style="padding:14px;margin-bottom:12px">
+    <form method="get" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+        <div style="flex:1 1 260px">
+            <label for="q">Suchen</label>
+            <input id="q" type="search" name="q" value="{{ q }}" autofocus
+                   placeholder="Name, Ort, E-Mail, Telefon, Notiz …">
+        </div>
+        <div style="flex:0 1 210px">
+            <label for="kategorie">Kategorie</label>
+            <select id="kategorie" name="kategorie" onchange="this.form.submit()">
+                <option value="">alle Kategorien</option>
+                {% for kat in kategorien %}
+                <option value="{{ kat }}" {{ 'selected' if kat == kategorie }}>{{ kat }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <button class="btn">🔍 Suchen</button>
+            {% if q or kategorie %}
+            <a href="{{ url_for('kontakte.index') }}" class="btn btn-sekundaer">✕ Zurücksetzen</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<div id="ergebnis">
+{% if alle_gesamt %}
+<p class="feld-hinweis" style="margin:-4px 0 10px">
+    {% if q or kategorie %}
+        <strong>{{ gesamt }}</strong> von {{ alle_gesamt }} Kontakten gefunden
+        {%- if q %} für „{{ q }}"{% endif %}
+        {%- if kategorie %} in „{{ kategorie }}"{% endif %}.
+        Die Suche geht durch <em>alle</em> Seiten.
+    {% else %}
+        {{ alle_gesamt }} Kontakt{{ 'e' if alle_gesamt != 1 }} insgesamt.
+        Mehrere Wörter grenzen weiter ein – „waren presse" findet nur Presse in Waren.
+    {% endif %}
+</p>
+{% endif %}
+{% if kontakte %}
+<div class="tabellen-scroll">
+<table class="tabelle no-sort" id="kontaktliste">
+    <thead><tr><th>Name</th><th>Kategorie</th><th>Ansprechpartner:in</th><th>Ort</th><th>Kontakt</th><th></th></tr></thead>
+    <tbody>
+    {% for k in kontakte %}
+    <tr>
+        <td><a href="{{ url_for('kontakte.detail', kid=k.id) }}"><strong>{{ k.name }}</strong></a></td>
+        <td>{% if k.kategorie %}<a href="{{ url_for('kontakte.index', kategorie=k.kategorie) }}"
+                class="badge badge-gruppe" style="text-decoration:none">{{ k.kategorie }}</a>
+            {% else %}<span class="feld-hinweis">–</span>{% endif %}</td>
+        <td>{{ k.ansprechpartner }}</td>
+        <td class="feld-hinweis">{{ k.plz }} {{ k.ort }}</td>
+        <td class="feld-hinweis">{% if k.email %}✉️ {{ k.email }}{% endif %}{% if k.telefon %} · 📞 {{ k.telefon }}{% endif %}</td>
+        <td class="rechts"><a href="{{ url_for('kontakte.detail', kid=k.id) }}" class="btn btn-sekundaer btn-klein">Öffnen</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+
+{% if seiten > 1 %}
+<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:12px">
+    {% if seite > 1 %}{{ seiten_link(seite - 1, '‹ Zurück') }}{% endif %}
+    {# Seitenzahlen: erste, letzte und die Nachbarschaft der aktuellen Seite #}
+    {% set nachbarn = [] %}
+    {% for n in range(1, seiten + 1) %}
+        {% if n == 1 or n == seiten or (n >= seite - 2 and n <= seite + 2) %}
+            {% if nachbarn.append(n) %}{% endif %}
+        {% endif %}
+    {% endfor %}
+    {% set vorher = namespace(n=0) %}
+    {% for n in nachbarn %}
+        {% if n > vorher.n + 1 %}<span class="feld-hinweis">…</span>{% endif %}
+        {{ seiten_link(n, aktiv=(n == seite)) }}
+        {% set vorher.n = n %}
+    {% endfor %}
+    {% if seite < seiten %}{{ seiten_link(seite + 1, 'Weiter ›') }}{% endif %}
+    <span class="feld-hinweis" style="margin-left:8px">Seite {{ seite }} von {{ seiten }}
+        · zeigt {{ (seite - 1) * pro_seite + 1 }}–{{ [seite * pro_seite, gesamt] | min }} von {{ gesamt }}</span>
+</div>
+{% endif %}
+
+{% elif alle_gesamt %}
+<div class="karte leer"><div class="icon">🔍</div>
+    <p>Kein Kontakt gefunden{% if q %} für „{{ q }}"{% endif %}{% if kategorie %} in „{{ kategorie }}"{% endif %}.</p>
+    <p class="feld-hinweis"><a href="{{ url_for('kontakte.index') }}">Suche zurücksetzen</a></p></div>
+{% else %}
+<div class="karte leer"><div class="icon">📇</div><p>Noch keine Kontakte.
+    Kontakte entstehen automatisch beim Rechnungsschreiben – oder
+    <a href="{{ url_for('kontakte.neu') }}">von Hand anlegen</a> bzw.
+    <a href="{{ url_for('kontakte.import_start') }}">aus einer Datei importieren</a>.</p></div>
+{% endif %}
+</div>
+
+<script>
+/* Suche schon beim Tippen: holt das Ergebnis vom Server (also über ALLE Seiten,
+   nicht nur die angezeigte) und tauscht nur den Ergebnisteil aus. Der Cursor
+   bleibt im Feld, die Adresszeile wandert mit – Zurück-Taste funktioniert. */
+(function () {
+    var feld = document.getElementById('q');
+    if (!feld || !window.fetch) { return; }          // ohne JS bleibt der Suchen-Knopf
+    var form = feld.form, bereich = document.getElementById('ergebnis');
+    var warten = null, laeuft = null, zuletzt = feld.value;
+
+    function hole(sofort) {
+        var wert = feld.value;
+        if (wert === zuletzt && !sofort) { return; }
+        zuletzt = wert;
+        var ziel = form.action.split('?')[0] + '?' + new URLSearchParams(
+            {q: wert, kategorie: form.kategorie.value}).toString();
+        if (laeuft) { laeuft.abort(); }
+        laeuft = new AbortController();
+        bereich.style.opacity = '.55';
+        fetch(ziel, {signal: laeuft.signal, headers: {'X-Requested-With': 'fetch'}})
+            .then(function (a) { return a.text(); })
+            .then(function (html) {
+                var neu = new DOMParser().parseFromString(html, 'text/html')
+                                         .getElementById('ergebnis');
+                if (neu) { bereich.innerHTML = neu.innerHTML; }
+                bereich.style.opacity = '';
+                history.replaceState(null, '', ziel);
+            })
+            .catch(function (e) { if (e.name !== 'AbortError') { bereich.style.opacity = ''; } });
+    }
+
+    feld.addEventListener('input', function () {
+        clearTimeout(warten);
+        warten = setTimeout(hole, 250);              // kurz warten, sonst eine Abfrage je Tastendruck
+    });
+    form.addEventListener('submit', function (e) {   // Enter soll die Seite nicht neu laden
+        e.preventDefault();
+        clearTimeout(warten);
+        hole(true);
+    });
+})();
+</script>
+{% endblock %}

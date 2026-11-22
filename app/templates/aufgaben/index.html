@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}Aufgaben{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>✅ Aufgaben</h1><div class="sub">Einmalige &amp; wiederkehrende Aufgaben – an Mitglieder delegierbar</div></div>
+    <a href="{{ url_for('aufgaben.export') }}" class="btn btn-sekundaer">📤 Exportieren / Abo</a>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">➕ Neue Aufgabe</h2>
+    <form method="post" action="{{ url_for('aufgaben.neu') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld"><label>Titel</label><input type="text" name="titel" required placeholder="z. B. Getränke nachbestellen"></div>
+        <div class="feld"><label>Beschreibung (optional)</label><textarea class="mention" name="beschreibung" rows="2" placeholder="… tippe @ um jemanden zu erwähnen"></textarea></div>
+        <script>window.MENTION_USERS = {{ mention_users | tojson }};</script>
+        <div class="feld-reihe">
+            <div class="feld"><label>Fällig am</label><input type="date" name="faellig_am" value="{{ heute_iso }}"></div>
+            <div class="feld"><label>Uhrzeit (optional)</label><input type="time" name="faellig_zeit"></div>
+            <div class="feld"><label>Wiederholung</label>
+                <select name="wiederholung">{% for k, txt in wiederholungen %}<option value="{{ k }}">{{ txt }}</option>{% endfor %}</select>
+            </div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Benachrichtigung vorher</label>
+                <select name="vorlauf_min">{% for m, txt in vorlauf_optionen %}<option value="{{ m }}" {{ 'selected' if m == 60 }}>{{ txt }}</option>{% endfor %}</select>
+            </div>
+            <div class="feld"><label>Zuweisen an</label>
+                <select name="mitglied_id">
+                    <option value="">— Vorstand (alle) —</option>
+                    <option value="alle">— 👥 Alle Mitglieder —</option>
+                    {% for m in mitglieder %}<option value="{{ m.id }}">{{ m.nachname }}, {{ m.vorname }}{{ ' 🌴 (abwesend)' if ist_abwesend(m) }}</option>{% endfor %}
+                </select>
+            </div>
+        </div>
+        <button type="submit" class="btn">＋ Aufgabe anlegen</button>
+        <div class="feld-hinweis" style="margin-top:6px">Die zugewiesene Person (bzw. der Vorstand) bekommt vor der Fälligkeit eine Push-Benachrichtigung. „Alle Mitglieder“ zeigt die Aufgabe jedem Mitglied in der App – wer sie zuerst abhakt, erledigt sie für alle.</div>
+    </form>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Offene Aufgaben</h2>
+    {% if offen %}
+{% set tf_ziel = '#aufgabenliste' %}
+{% include '_tabellen_filter.html' %}
+    <div class="tabellen-scroll">
+    <table id="aufgabenliste">
+        <thead><tr><th></th><th>Aufgabe</th><th>Fällig</th><th>Wiederholung</th><th>Zuständig</th><th></th></tr></thead>
+        <tbody>
+        {% for a in offen %}
+        <tr class="{{ 'ueberfaellig' if a.faellig_am and a.faellig_am < heute_iso }}">
+            <td>
+                <form method="post" action="{{ url_for('aufgaben.erledigt', aid=a.id) }}" style="margin:0">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="haken" title="Als erledigt markieren">☐</button>
+                </form>
+            </td>
+            <td><strong>{{ a.titel }}</strong>{% if a.beschreibung %}<div class="feld-hinweis">{{ a.beschreibung }}</div>{% endif %}</td>
+            <td class="num">{{ a.faellig_am | datum_de }}{% if a.faellig_zeit %} · {{ a.faellig_zeit }}{% endif %}{% if a.faellig_am and a.faellig_am < heute_iso %} <span class="badge badge-offen">überfällig</span>{% endif %}</td>
+            <td>{% if a.wiederholung and a.wiederholung != 'einmalig' %}<span class="badge badge-gruppe">🔁 {{ a.wiederholung }}</span>{% else %}einmalig{% endif %}</td>
+            <td>{% if a.vorname %}{{ a.vorname }} {{ a.nachname }} {{ abwesend_badge(a) }}{% elif a.zielgruppe == 'mitglieder' %}<span class="badge badge-gruppe">👥 Alle Mitglieder</span>{% else %}<span class="feld-hinweis">Vorstand</span>{% endif %}</td>
+            <td class="rechts" style="white-space:nowrap">
+                <button type="button" class="btn btn-sekundaer btn-klein" title="Bearbeiten" onclick="aufgabeBearbeiten({{ a.id }})">✏️</button>
+                <form method="post" action="{{ url_for('aufgaben.kopieren', aid=a.id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein" title="Aufgabe kopieren">📋</button>
+                </form>
+                <form method="post" action="{{ url_for('aufgaben.loeschen', aid=a.id) }}" style="display:inline" onsubmit="return confirm('Aufgabe löschen?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein" title="Löschen">✕</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}<p class="feld-hinweis">Keine offenen Aufgaben. 🎉</p>{% endif %}
+</div>
+
+{% if erledigt %}
+<div class="karte">
+    <h2 style="margin-top:0">Zuletzt erledigt</h2>
+    <table>
+        <tbody>
+        {% for a in erledigt %}
+        <tr>
+            <td style="width:30px">
+                <form method="post" action="{{ url_for('aufgaben.erledigt', aid=a.id) }}" style="margin:0">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="haken erledigt" title="Wieder öffnen">☑</button>
+                </form>
+            </td>
+            <td><span style="text-decoration:line-through;color:var(--text-hell)">{{ a.titel }}</span></td>
+            <td class="feld-hinweis">{% if a.vorname %}{{ a.vorname }} {{ a.nachname }}{% elif a.zielgruppe == 'mitglieder' %}👥 Alle Mitglieder{% else %}Vorstand{% endif %}</td>
+            <td class="rechts">
+                <form method="post" action="{{ url_for('aufgaben.kopieren', aid=a.id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein" title="Als Vorlage kopieren">📋</button>
+                </form>
+                <form method="post" action="{{ url_for('aufgaben.loeschen', aid=a.id) }}" style="display:inline"
+                      onsubmit="return confirm('Aufgabe löschen?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein" title="Löschen">✕</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<dialog id="aufgabe-dialog" style="border:none;border-radius:14px;padding:22px;max-width:520px;width:92vw;background:var(--flaeche);color:var(--text);box-shadow:var(--schatten-hoch)">
+    <form method="post" id="ab-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <h3 style="margin:0 0 12px">✏️ Aufgabe bearbeiten</h3>
+        <div class="feld"><label>Titel</label><input type="text" name="titel" id="ab-titel" required></div>
+        <div class="feld"><label>Beschreibung (optional)</label><textarea class="mention" name="beschreibung" id="ab-beschreibung" rows="2"></textarea></div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Fällig am</label><input type="date" name="faellig_am" id="ab-faellig_am"></div>
+            <div class="feld"><label>Uhrzeit (optional)</label><input type="time" name="faellig_zeit" id="ab-faellig_zeit"></div>
+            <div class="feld"><label>Wiederholung</label>
+                <select name="wiederholung" id="ab-wiederholung">{% for k, txt in wiederholungen %}<option value="{{ k }}">{{ txt }}</option>{% endfor %}</select>
+            </div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Benachrichtigung vorher</label>
+                <select name="vorlauf_min" id="ab-vorlauf">{% for m, txt in vorlauf_optionen %}<option value="{{ m }}">{{ txt }}</option>{% endfor %}</select>
+            </div>
+            <div class="feld"><label>Zuweisen an</label>
+                <select name="mitglied_id" id="ab-mitglied">
+                    <option value="">— Vorstand (alle) —</option>
+                    <option value="alle">— 👥 Alle Mitglieder —</option>
+                    {% for m in mitglieder %}<option value="{{ m.id }}">{{ m.nachname }}, {{ m.vorname }}{{ ' 🌴 (abwesend)' if ist_abwesend(m) }}</option>{% endfor %}
+                </select>
+            </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+            <button type="button" class="btn btn-sekundaer" onclick="document.getElementById('aufgabe-dialog').close()">Abbrechen</button>
+            <button class="btn">Speichern</button>
+        </div>
+    </form>
+</dialog>
+
+<script>
+var AUFGABEN = {
+{%- for a in offen %}
+    "{{ a.id }}": { titel: {{ a.titel|tojson }}, beschreibung: {{ (a.beschreibung or '')|tojson }},
+                    faellig_am: {{ (a.faellig_am or '')|tojson }}, faellig_zeit: {{ (a.faellig_zeit or '')|tojson }},
+                    wiederholung: {{ (a.wiederholung or 'einmalig')|tojson }}, vorlauf: {{ a.vorlauf_min if a.vorlauf_min is not none else 60 }},
+                    mitglied: {{ a.mitglied_id or 0 }}, zielgruppe: {{ (a.zielgruppe or '')|tojson }} }{{ ',' if not loop.last }}
+{%- endfor %}
+};
+var AB_URL = {{ url_for('aufgaben.bearbeiten', aid=0)|tojson }};
+function aufgabeBearbeiten(id){
+    var a = AUFGABEN[id];
+    if (!a) return;
+    document.getElementById('ab-form').action = AB_URL.replace('/0/', '/' + id + '/');
+    document.getElementById('ab-titel').value = a.titel;
+    document.getElementById('ab-beschreibung').value = a.beschreibung;
+    document.getElementById('ab-faellig_am').value = a.faellig_am;
+    document.getElementById('ab-faellig_zeit').value = a.faellig_zeit;
+    document.getElementById('ab-wiederholung').value = a.wiederholung;
+    document.getElementById('ab-vorlauf').value = a.vorlauf;
+    document.getElementById('ab-mitglied').value = a.zielgruppe === 'mitglieder' ? 'alle' : (a.mitglied || '');
+    document.getElementById('aufgabe-dialog').showModal();
+}
+</script>
+
+<style>
+    .haken { background:none; border:none; cursor:pointer; font-size:20px; line-height:1; padding:0; color:var(--blau); }
+    .haken.erledigt { color:var(--gruen); }
+    tr.ueberfaellig td { background:var(--fehler-grund); }
+</style>
+{% endblock %}

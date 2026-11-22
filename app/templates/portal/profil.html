@@ -1,0 +1,294 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Meine Daten{% endblock %}
+{% set labels = {'email':'E-Mail','telefon':'Telefon','mobil':'Mobil','strasse':'Straße & Nr.','plz':'PLZ','ort':'Ort'} %}
+{% set einw_labels = {
+    'sepa_ok': 'SEPA-Lastschrift – der Verein darf fällige Beiträge von meinem Konto einziehen.',
+    'dsgvo_ok': 'Datenschutz (DSGVO) – ich bin mit der Speicherung meiner Daten für die Vereinsarbeit einverstanden.',
+    'kontakt_ok': 'Kontaktaufnahme – der Verein darf mich per E-Mail / Telefon kontaktieren.',
+    'geb_sichtbar': 'Meinen Geburtstag anderen Mitgliedern in der App zeigen.'
+} %}
+{% block inhalt %}
+{# Desktopversion: Kacheln rechts, Datenformular links (.mp-neben neben-zuerst) – mobil unverändert. #}
+<div class="mp-neben neben-zuerst" style="--mp-neben:340px">
+<div>
+<a href="{{ url_for('portal.app_installieren') }}" class="mp-karte" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;margin-top:16px">
+    <div style="font-size:26px">📲</div>
+    <div style="flex:1"><div style="font-weight:700">{{ t("k_app_install") }}</div>
+        <div class="feld-hinweis">Anleitung &amp; QR-Code zum Weitergeben</div></div>
+    <div style="color:var(--text-schwach)">›</div>
+</a>
+<a href="{{ url_for('portal.aussehen') }}" class="mp-karte" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit">
+    <span style="font-size:28px">🎨</span>
+    <span><b>Aussehen</b><br>
+        <span style="color:var(--text-hell);font-size:13px">Farben, hell oder dunkel, Textgröße – nur für dich.</span></span>
+</a>
+
+<a href="{{ url_for('portal.hilfe') }}" class="mp-karte" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit">
+    <div style="font-size:26px">❓</div>
+    <div style="flex:1"><div style="font-weight:700">{{ t("k_hilfe") }}</div>
+        <div class="feld-hinweis">Kurze Anleitung für die Mitglieder-App</div></div>
+    <div style="color:var(--text-schwach)">›</div>
+</a>
+<div class="mp-karte" style="text-align:center">
+    <a href="{{ url_for('portal.ausweis') }}" class="mp-btn" style="width:100%">💳 Mitgliedsausweis anzeigen</a>
+    <p class="feld-hinweis" style="margin:8px 0 0">Dein digitaler Ausweis fürs Handy – mit Prüf-QR-Code.</p>
+</div>
+
+{# Face ID / Touch ID / Fingerabdruck (20.11.2026) – Geräte einrichten und entfernen #}
+{% if not config.DEMO_LOGIN %}
+<div class="mp-karte" id="faceid" style="scroll-margin-top:70px">
+    <div style="display:flex;align-items:center;gap:12px">
+        <div style="font-size:26px">🙂</div>
+        <div style="flex:1"><div style="font-weight:700">Face ID / Fingerabdruck</div>
+            <div class="feld-hinweis">Schneller anmelden – ohne Passwort, mit Face ID, Touch ID oder Fingerabdruck.</div></div>
+    </div>
+    {% if passkeys %}
+    <ul style="list-style:none;padding:0;margin:10px 0 0">
+        {% for p in passkeys %}
+        <li style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--linie)">
+            <span style="flex:1"><b>{{ p.name or 'Gerät' }}</b><br>
+                <span class="feld-hinweis">eingerichtet {{ (p.erstellt_am or '')[:10] }}{% if p.zuletzt_am %} · zuletzt {{ p.zuletzt_am[:10] }}{% endif %}</span></span>
+            <form method="post" action="{{ url_for('auth.passkey_entfernen', pid=p.id) }}"
+                  data-frage="Face ID auf „{{ p.name or 'Gerät' }}“ wirklich entfernen?" onsubmit="return confirm(this.dataset.frage)">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="mp-btn" style="background:var(--flaeche);color:var(--rot);border:1px solid var(--linie-stark);padding:5px 10px;font-size:13px">Entfernen</button>
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {% if faceid_nc_frist %}
+    <p class="feld-hinweis" style="margin:10px 0 0">Deine letzte Anmeldung über Nextcloud ist über 90 Tage her. Melde dich einmal über Nextcloud an, dann funktioniert Face ID wieder.</p>
+    {% endif %}
+    <div id="faceid-neu" hidden style="margin-top:10px">
+        <button type="button" id="faceid-einrichten" class="mp-btn" style="width:100%">Auf diesem Gerät einrichten</button>
+    </div>
+    <p id="faceid-nicht" class="feld-hinweis" style="margin:10px 0 0">Dieses Gerät oder dieser Browser unterstützt Face ID / Fingerabdruck für die Anmeldung nicht.</p>
+    <p id="faceid-meldung" class="feld-hinweis" style="margin:8px 0 0" role="status"></p>
+    {% if current_user.nc_benutzer %}
+    <p class="feld-hinweis" style="margin:8px 0 0">Hinweis: Mindestens alle 90 Tage einmal über Nextcloud anmelden, damit deine Rechte aktuell bleiben.</p>
+    {% endif %}
+</div>
+<script src="{{ url_for('static', filename='faceid.js') }}?v=1"></script>
+<script>
+(function () {
+    if (!window.FaceID) return;
+    FaceID.verfuegbar().then(function (ja) {
+        document.getElementById("faceid-neu").hidden = !ja;
+        document.getElementById("faceid-nicht").hidden = ja;
+    });
+    document.getElementById("faceid-einrichten").addEventListener("click", function () {
+        var knopf = this, meldung = document.getElementById("faceid-meldung");
+        knopf.disabled = true; meldung.textContent = "";
+        FaceID.einrichten().then(function (r) {
+            if (r.ok) { location.hash = "faceid"; location.reload(); return; }
+            knopf.disabled = false;
+            meldung.textContent = r.fehler || "Das hat nicht geklappt.";
+            if (r.neu_anmelden) {
+                var a = document.createElement("a");
+                a.href = "{{ url_for('auth.logout') }}"; a.textContent = " Jetzt abmelden und neu anmelden ›";
+                a.style.fontWeight = "600"; meldung.appendChild(a);
+            }
+        });
+    });
+})();
+</script>
+{% endif %}
+</div>
+
+<div class="mp-karte">
+    <h2 style="margin:0 0 4px;font-size:18px">👤 {{ t("k_daten") }}</h2>
+    {% if mitglied %}
+        <form method="post" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div style="display:flex;align-items:center;gap:14px;margin:6px 0 14px">
+                <div class="avatar-kreis">
+                    {% if mitglied.avatar_dateiname %}<img src="{{ url_for('portal.avatar', mid=mitglied.id) }}?v={{ mitglied.avatar_dateiname }}" alt="">
+                    {% else %}<span>{{ (mitglied.vorname or ' ')[:1] }}{{ (mitglied.nachname or ' ')[:1] }}</span>{% endif %}
+                </div>
+                <div>
+                    <div style="font-weight:700;font-size:16px">{{ mitglied.vorname }} {{ mitglied.nachname }}
+                        {%- if abzeichen %} <span style="font-size:15px;letter-spacing:2px">
+                        {%- for k, ic, tx in abzeichen %}<span title="{{ tx }}">{{ ic }}</span>{% endfor %}</span>{% endif %}</div>
+                    {% if abzeichen %}<div class="feld-hinweis">🏅 {{ abzeichen|map(attribute=2)|join(' · ') }}</div>{% endif %}
+                    {% if mitglied.geburtsdatum %}
+                    <div class="feld-hinweis">🎂 {{ mitglied.geburtsdatum | datum_de }}{% if nc_verein %} · aus Nextcloud übernommen{% endif %}</div>
+                    {% endif %}
+                    <label class="avatar-btn">📷 Foto ändern
+                        <input type="file" name="avatar" accept="image/*" style="display:none" onchange="this.form.querySelector('.avatar-hint').textContent=this.files[0]?('Neues Bild: '+this.files[0].name):''">
+                    </label>
+                    <div class="avatar-hint feld-hinweis" style="margin-top:2px"></div>
+                </div>
+            </div>
+
+            {% for f in felder if f not in ('plz', 'ort') %}
+            <div class="feld"><label>{{ labels.get(f, f) }}{% if f == 'email' %}
+                <span class="feld-hinweis">(Hauptadresse – nur hierhin schickt der Verein Rundmails)</span>{% endif %}</label>
+                <input type="{{ 'email' if f=='email' else 'text' }}" name="{{ f }}" value="{{ mitglied[f] or '' }}"></div>
+            {% if f == 'email' and mitglied.email_weitere %}
+            {% set weitere = mitglied.email_weitere.splitlines() | map('trim') | reject('equalto', '') | list %}
+            {% if weitere %}
+            <div class="feld" style="margin-top:-4px">
+                <label>📮 Welche ist deine Hauptadresse?</label>
+                {% for adr in [mitglied.email] + weitere if adr %}
+                <label class="einw-zeile" style="display:flex;gap:10px;align-items:center">
+                    <input type="radio" name="hauptadresse" value="{{ adr }}" style="width:auto"
+                           {{ 'checked' if loop.first }}> <span>{{ adr }}{% if loop.first %}
+                        <span class="feld-hinweis">(aktuell)</span>{% endif %}</span>
+                </label>
+                {% endfor %}
+                <div class="feld-hinweis">Rundmails und Einladungen gehen nur an die Hauptadresse.
+                    Deine weiteren Adressen bleiben als Kontaktinfo gespeichert.</div>
+            </div>
+            {% endif %}
+            {% endif %}
+            {% endfor %}
+            {% if 'plz' in felder or 'ort' in felder %}
+            <div style="display:flex;gap:10px">
+                {% if 'plz' in felder %}<div class="feld" style="flex:0 0 34%"><label>PLZ</label>
+                    <input type="text" name="plz" inputmode="numeric" value="{{ mitglied['plz'] or '' }}"></div>{% endif %}
+                {% if 'ort' in felder %}<div class="feld" style="flex:1"><label>Ort</label>
+                    <input type="text" name="ort" value="{{ mitglied['ort'] or '' }}"></div>{% endif %}
+            </div>
+            {% endif %}
+
+            {% if komm_felder %}
+            {% set genutzt = (mitglied.komm_genutzt or '').split(',') %}
+            {% set erlaubt = (mitglied.komm_erlaubt or '').split(',') %}
+            <div style="margin-top:8px;padding-top:12px;border-top:1px solid var(--linie)">
+                <div style="font-weight:700;font-size:14px;margin-bottom:8px">📨 {{ t("k_kommwege") }}</div>
+                <table style="width:100%;box-shadow:none;font-size:14px">
+                    <thead><tr><th style="text-align:left">Weg</th>
+                        {% if 'komm_genutzt' in komm_felder %}<th style="text-align:center">nutze ich<br><label style="font-weight:400;font-size:11px;cursor:pointer" title="Wählt alle Wege, für die du Daten hinterlegt hast"><input type="checkbox" onclick="kommAlle('komm_genutzt', this.checked)" style="accent-color:var(--mp)"> vorhandene</label></th>{% endif %}
+                        {% if 'komm_erlaubt' in komm_felder %}<th style="text-align:center">erlaubt<br><label style="font-weight:400;font-size:11px;cursor:pointer" title="Wählt alle Wege, für die du Daten hinterlegt hast"><input type="checkbox" onclick="kommAlle('komm_erlaubt', this.checked)" style="accent-color:var(--mp)"> vorhandene</label></th>{% endif %}
+                    </tr></thead>
+                    <tbody>
+                    {% for w in komm_wege %}
+                    <tr>
+                        <td>{{ w }}</td>
+                        {% if 'komm_genutzt' in komm_felder %}<td style="text-align:center"><input type="checkbox" name="komm_genutzt" value="{{ w }}" style="accent-color:var(--mp)" {{ 'checked' if w in genutzt }}></td>{% endif %}
+                        {% if 'komm_erlaubt' in komm_felder %}<td style="text-align:center"><input type="checkbox" name="komm_erlaubt" value="{{ w }}" style="accent-color:var(--mp)" {{ 'checked' if w in erlaubt }}></td>{% endif %}
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                <div class="feld-hinweis" style="margin-top:4px">„nutze ich" = worüber du erreichbar bist. „erlaubt" = worüber der Verein dich kontaktieren darf – damit erteilst du zugleich deine Kontakt-Einwilligung.</div>
+            </div>
+            {% endif %}
+
+            {% if design and design.sprachen_labels %}
+            <div style="margin-top:8px;padding-top:12px;border-top:1px solid var(--linie)">
+                <div style="font-weight:700;font-size:14px;margin-bottom:8px">🌐 {{ t("welche_sprachen") }}</div>
+                <input type="hidden" name="sprachen_dabei" value="1">
+                {% set meine_sprachen = (mitglied.sprachen or '').split(',') %}
+                <div style="display:flex;flex-wrap:wrap;gap:8px 14px">
+                {% for s in sprachen_auswahl %}
+                    <label style="display:inline-flex;align-items:center;gap:5px;font-weight:400">
+                        <input type="checkbox" name="sprachen" value="{{ s }}" style="accent-color:var(--mp)"
+                               {{ 'checked' if s in meine_sprachen }}> {{ s }}</label>
+                {% endfor %}
+                </div>
+                {% set weitere = meine_sprachen | reject('in', sprachen_auswahl) | select | join(', ') %}
+                <input type="text" name="sprachen" value="{{ weitere }}"
+                       placeholder="{{ t('weitere_sprache') }}" style="margin-top:8px;width:100%;box-sizing:border-box">
+            </div>
+            {% endif %}
+
+            {% if mandat_da %}
+            <div style="margin-top:8px;padding-top:12px;border-top:1px solid var(--linie)">
+                <div style="font-weight:700;font-size:14px;margin-bottom:8px">💶 {{ t("k_mandat") }}</div>
+                <label class="einw-zeile"><input type="checkbox" name="mandat_vorhanden" {{ 'checked' if mitglied.mandat_vorhanden }}> <span>Ich erteile dem Verein ein SEPA-Lastschriftmandat – fällige Beiträge dürfen von meinem Konto eingezogen werden.</span></label>
+                {% if mandat_upload %}
+                <div class="feld" style="margin-top:8px">
+                    <label>Unterschriebenes Mandat hochladen (PDF oder Foto)</label>
+                    {% if mandat_datei %}<div style="font-size:13px;margin-bottom:6px">✅ Hinterlegt – <a href="{{ url_for('portal.mandat') }}" target="_blank">ansehen</a>. Neue Datei ersetzt die alte.</div>{% endif %}
+                    <input type="file" name="mandat_datei" accept="application/pdf,image/*">
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% if schichten_an %}
+            <div id="gesundheitszeugnis" style="margin-top:8px;padding-top:12px;border-top:1px solid var(--linie);scroll-margin-top:16px">
+                <div style="font-weight:700;font-size:14px;margin-bottom:8px">🩺 Gesundheitszeugnis</div>
+                {% if gz_datei %}
+                <div style="font-size:13px;margin-bottom:6px">✅ Hinterlegt{% if gz_am %} am {{ gz_am[:10] | datum_de }}{% endif %} –
+                    <a href="{{ url_for('portal.gesundheitszeugnis') }}" target="_blank">ansehen</a>. Neue Datei ersetzt die alte.</div>
+                {% else %}
+                <div class="feld-hinweis" style="margin-bottom:6px">Für die Übernahme von Schichten wird ein
+                    Gesundheitszeugnis (Belehrung nach § 43 IfSG) benötigt – bitte als PDF oder Foto hochladen.</div>
+                {% endif %}
+                <div class="feld"><input type="file" name="gz_datei" accept="application/pdf,image/*"></div>
+            </div>
+            {% endif %}
+
+            {% if einw %}
+            <div style="margin-top:8px;padding-top:12px;border-top:1px solid var(--linie)">
+                <div style="font-weight:700;font-size:14px;margin-bottom:8px">🔒 {{ t("k_datenschutz") }}</div>
+                {% for e in einw %}
+                <label class="einw-zeile">
+                    <input type="checkbox" name="{{ e }}" {{ 'checked' if mitglied[e] }}>
+                    <span>{{ einw_labels.get(e, e) }}</span>
+                </label>
+                {% endfor %}
+                <a href="{{ url_for('portal.fotoerlaubnis') }}" class="einw-zeile"
+                   style="display:flex;gap:10px;align-items:center;text-decoration:none;color:inherit">
+                    <span>📷</span><span>Meine Fotoerlaubnisse zu Veranstaltungen ansehen und ändern ›</span></a>
+                <a href="{{ url_for('portal.mitteilungen') }}" class="einw-zeile"
+                   style="display:flex;gap:10px;align-items:center;text-decoration:none;color:inherit">
+                    <span>🔔</span><span>Meine Mitteilungen – wählen, worüber die App dich benachrichtigt ›</span></a>
+            </div>
+            {% endif %}
+
+            <div style="margin-top:8px;padding-top:12px;border-top:1px solid var(--linie)">
+                <div style="font-weight:700;font-size:14px;margin-bottom:8px">🌴 Abwesenheit {{ abwesend_badge(mitglied, gross=True) }}</div>
+                <label class="einw-zeile"><input type="checkbox" name="abwesend" {{ 'checked' if mitglied.abwesend }}> <span>Ich bin abwesend – anderen anzeigen.</span></label>
+                <div class="feld"><label>Abwesend von (optional)</label><input type="date" name="abwesend_von" value="{{ mitglied.abwesend_von or '' }}"></div>
+                <div class="feld"><label>Abwesend bis (optional)</label><input type="date" name="abwesend_bis" value="{{ mitglied.abwesend_bis or '' }}"></div>
+                <div class="feld"><label>Notiz (optional)</label><input type="text" name="abwesend_notiz" placeholder="z. B. im Urlaub" value="{{ mitglied.abwesend_notiz or '' }}"></div>
+            </div>
+
+            <button type="submit" class="mp-btn" style="margin-top:12px">💾 Speichern</button>
+        </form>
+        <p class="feld-hinweis" style="margin-top:12px">Weitere Änderungen (z. B. Name, Beitrag) nimmt der Vorstand vor.</p>
+    {% else %}
+        <p>Wir konnten dich noch keinem Mitglied zuordnen.</p>
+        <p class="feld-hinweis">Das passiert automatisch, wenn deine E-Mail-Adresse ({{ current_user.email or '—' }}) beim Verein hinterlegt ist. Bitte melde dich beim Vorstand, damit deine Daten verknüpft werden.</p>
+        <a href="{{ url_for('portal.mitteilungen') }}" class="einw-zeile"
+           style="display:flex;gap:10px;align-items:center;text-decoration:none;color:inherit;margin-top:10px">
+            <span>🔔</span><span>Meine Mitteilungen – wählen, worüber die App dich benachrichtigt ›</span></a>
+    {% endif %}
+</div>
+</div>
+
+<script>
+    // Feldbewusstes „auf einmal auswählen": nur Wege, für die passende Daten hinterlegt sind.
+    function _kf(n){ var el = document.querySelector('[name="'+n+'"]'); return el ? (el.value||'').trim() : ''; }
+    function kommMoeglich(weg){
+        var email=_kf('email'), tel=_kf('telefon'), mob=_kf('mobil'), str=_kf('strasse'), ort=_kf('ort');
+        switch(weg){
+            case 'E-Mail': case 'Nextcloud': return !!email;
+            case 'Telefon': return !!(tel || mob);
+            case 'WhatsApp': case 'Signal': return !!(mob || tel);
+            case 'Post': return !!(str && ort);
+            default: return false;
+        }
+    }
+    function kommAlle(name, on){
+        document.querySelectorAll('input[name="'+name+'"]').forEach(function(c){
+            c.checked = on ? kommMoeglich(c.value) : false;
+        });
+    }
+</script>
+<style>
+    .avatar-kreis { width:74px; height:74px; border-radius:50%; overflow:hidden; flex:none;
+                    background:var(--mp); color:var(--auf-primaer); display:grid; place-items:center;
+                    font-size:26px; font-weight:800; text-transform:uppercase; }
+    .avatar-kreis img { width:100%; height:100%; object-fit:cover; }
+    .avatar-btn { display:inline-block; margin-top:6px; font-size:13px; font-weight:600; color:var(--mp);
+                  border:1px solid var(--mp); border-radius:9px; padding:5px 11px; cursor:pointer; }
+    .einw-zeile { display:flex; gap:10px; align-items:flex-start; padding:7px 0; font-size:14px; cursor:pointer; }
+    .einw-zeile input { margin-top:3px; width:18px; height:18px; flex:none; accent-color:var(--mp); }
+</style>
+{% endblock %}

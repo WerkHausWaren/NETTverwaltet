@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% block title %}Mein Aussehen{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h1>🎨 Mein Aussehen</h1>
+        <div class="sub">
+            {% if angemeldet %}Gilt nur für dich – niemand sonst sieht etwas davon.
+            {% else %}Ohne Anmeldung gilt das für diese Installation.{% endif %}
+        </div>
+    </div>
+    <div class="aktionen">
+        <button type="submit" form="aussehenform" class="btn">Speichern</button>
+    </div>
+</div>
+
+<div class="hilfe-box">
+    <strong>Wie das zusammenspielt.</strong>
+    Der Verein legt ein Aussehen fest – Farben, Schrift, Logo. Das ist die Vorgabe,
+    und wer nichts ändert, sieht sie. Auf dieser Seite darfst du davon abweichen,
+    für dich allein. Deine Wahl gilt auf jedem Gerät, an dem du dich anmeldest,
+    und niemand sonst bemerkt sie. Mit <b>Auf Vereinsfarben zurücksetzen</b> gibst
+    du deine Abweichung wieder auf.
+    {% if eigen_gesetzt %}
+    <br><br>Du weichst gerade von der Vereinsvorgabe ab.
+    {% endif %}
+</div>
+
+<form method="post" id="aussehenform">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+<div class="karte">
+    <h2 style="margin-top:0">Farbschema</h2>
+    <p class="feld-hinweis" style="margin-top:0">
+        Ein Schema setzt Akzent- und Seitenleistenfarbe auf einen Schlag. Du kannst
+        danach immer noch einzelne Farben ändern – deine eigene Farbe schlägt das Schema.
+    </p>
+    <div class="schema-liste">
+        {% for schluessel, s in schemata.items() %}
+        <label class="schema {{ 'an' if werte.schema == schluessel }}">
+            <input type="radio" name="schema" value="{{ schluessel }}"
+                   {{ 'checked' if werte.schema == schluessel }}
+                   onchange="schemaGewaehlt(this)"
+                   data-akzent="{{ s.werte.akzent or vereinsvorgabe.akzent or '' }}"
+                   data-sidebar="{{ s.werte.sidebar or vereinsvorgabe.sidebar or '' }}">
+            <span class="proben">
+                <span class="probe" style="background:{{ s.werte.sidebar or vereinsvorgabe.sidebar or 'var(--sidebar)' }}"></span>
+                <span class="probe" style="background:{{ s.werte.akzent or vereinsvorgabe.akzent or 'var(--blau)' }}"></span>
+            </span>
+            <span class="txt">
+                <b>{{ s.name }}</b>
+                <span class="feld-hinweis">{{ s.beschreibung }}</span>
+            </span>
+        </label>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Hell oder dunkel</h2>
+    <div class="tag-auswahl" style="gap:10px">
+        {% for schluessel, name in modi %}
+        <label class="knopfwahl {{ 'an' if werte.modus == schluessel }}">
+            <input type="radio" name="modus" value="{{ schluessel }}"
+                   {{ 'checked' if werte.modus == schluessel }} onchange="vorschau()">
+            {{ name }}
+        </label>
+        {% endfor %}
+    </div>
+    <p class="feld-hinweis">
+        <b>Wie das Gerät es einstellt</b> heißt: Abends dunkel, tagsüber hell –
+        gesteuert von Handy oder Rechner, nicht von uns.
+    </p>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Eigene Farben</h2>
+    <div class="feld-reihe">
+        <div class="feld">
+            <label for="akzent">Akzentfarbe</label>
+            <div class="farbzeile">
+                <input type="color" id="akzent" name="akzent"
+                       value="{{ werte.akzent or '#2563eb' }}" oninput="vorschau()">
+                <button type="button" class="btn btn-sekundaer btn-klein"
+                        onclick="farbeLeeren('akzent')">Vereinsfarbe</button>
+            </div>
+            <div class="feld-hinweis">Knöpfe, Verweise, ausgewählte Menüpunkte.</div>
+        </div>
+        <div class="feld">
+            <label for="sidebar">Seitenleiste</label>
+            <div class="farbzeile">
+                <input type="color" id="sidebar" name="sidebar"
+                       value="{{ werte.sidebar or '#0f172a' }}" oninput="vorschau()">
+                <button type="button" class="btn btn-sekundaer btn-klein"
+                        onclick="farbeLeeren('sidebar')">Vereinsfarbe</button>
+            </div>
+            <div class="feld-hinweis">
+                Die Schriftfarbe darin wählt die App selbst – hell auf dunkel, dunkel auf hell.
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Schrift und Form</h2>
+    <div class="feld-reihe">
+        <div class="feld">
+            <label for="schriftart">Schriftart</label>
+            <select id="schriftart" name="schriftart" onchange="vorschau()">
+                <option value="">Wie der Verein</option>
+                {% for s in schriftarten %}
+                <option value="{{ s }}" {{ 'selected' if werte.schriftart == s }}>{{ s }}</option>
+                {% endfor %}
+            </select>
+            <div class="feld-hinweis">
+                <b>Gut lesbar (Atkinson)</b> ist für Menschen mit Sehschwäche gemacht.
+            </div>
+        </div>
+        <div class="feld">
+            <label for="schriftgroesse">Textgröße</label>
+            <select id="schriftgroesse" name="schriftgroesse" onchange="vorschau()">
+                {% for schluessel, name, faktor in groessen %}
+                <option value="{{ schluessel }}" data-faktor="{{ faktor }}"
+                        {{ 'selected' if werte.schriftgroesse == schluessel }}>{{ name }}</option>
+                {% endfor %}
+            </select>
+            <div class="feld-hinweis">Wirkt auf Listen, Tabellen und das Menü.</div>
+        </div>
+        <div class="feld">
+            <label for="ecken">Ecken</label>
+            <select id="ecken" name="ecken" onchange="vorschau()">
+                {% for schluessel, name, radius in ecken %}
+                <option value="{{ schluessel }}" data-radius="{{ radius }}"
+                        {{ 'selected' if werte.ecken == schluessel }}>{{ name }}</option>
+                {% endfor %}
+            </select>
+            <div class="feld-hinweis">Wie rund Karten und Knöpfe sind.</div>
+        </div>
+    </div>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Damit es leichter fällt</h2>
+    <div class="feld">
+        <label style="font-weight:500;display:flex;gap:10px;align-items:flex-start">
+            <input type="checkbox" name="kontrast" value="1" style="width:auto;margin-top:3px"
+                   {{ 'checked' if werte.kontrast }} onchange="vorschau()">
+            <span>
+                <b>Kontrast verstärken</b>
+                <span class="feld-hinweis">Schwarze Schrift, kräftigere Ränder, unterstrichene Verweise.</span>
+            </span>
+        </label>
+    </div>
+    <div class="feld" style="margin-bottom:0">
+        <label style="font-weight:500;display:flex;gap:10px;align-items:flex-start">
+            <input type="checkbox" name="bewegung" value="0" style="width:auto;margin-top:3px"
+                   {{ '' if werte.bewegung else 'checked' }} onchange="vorschau()">
+            <span>
+                <b>Bewegung reduzieren</b>
+                <span class="feld-hinweis">Schaltet Ein- und Ausblendungen ab. Hilft bei Schwindel und Migräne.</span>
+            </span>
+        </label>
+    </div>
+</div>
+
+<div class="aktionen" style="margin-bottom:30px">
+    <button type="submit" class="btn">Speichern</button>
+    <button type="submit" name="zuruecksetzen" value="1" class="btn btn-sekundaer"
+            onclick="return confirm('Deine eigenen Farben verwerfen und wieder die Vereinsfarben verwenden?')">
+        Auf Vereinsfarben zurücksetzen
+    </button>
+    <span class="feld-hinweis">Du siehst die Änderung sofort – gespeichert ist sie erst nach dem Klick.</span>
+</div>
+</form>
+
+<style>
+    .schema-liste { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+    .schema { display: flex; gap: 12px; align-items: center; cursor: pointer;
+              border: 2px solid var(--linie); border-radius: var(--radius);
+              padding: 12px 14px; background: var(--flaeche); margin: 0; font-weight: 500; }
+    .schema:hover { border-color: var(--linie-stark); }
+    .schema.an { border-color: var(--blau); background: var(--akzent-zart); }
+    .schema input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .schema .proben { display: flex; flex: none; }
+    .schema .probe { width: 22px; height: 34px; border: 1px solid var(--linie); }
+    .schema .probe:first-child { border-radius: 6px 0 0 6px; border-right: none; }
+    .schema .probe:last-child { border-radius: 0 6px 6px 0; }
+    .schema .txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .schema .feld-hinweis { margin: 0; }
+    .knopfwahl { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;
+                 border: 2px solid var(--linie); border-radius: 20px; padding: 8px 16px;
+                 background: var(--flaeche); font-weight: 500; }
+    .knopfwahl.an { border-color: var(--blau); background: var(--akzent-zart); }
+    .knopfwahl input { width: auto; }
+    .farbzeile { display: flex; gap: 10px; align-items: center; }
+    .farbzeile input[type=color] { width: 64px; height: 40px; padding: 2px; cursor: pointer; }
+</style>
+
+<script>
+/* Sofortvorschau: setzt dieselben Variablen, die app/design.py später speichert.
+   Bewusst nur die sichtbaren – der Rest kommt beim Neuladen aus dem Stylesheet. */
+/* Spiegel von design.kontrastfarbe (app/design.py) – Schwelle dort gepflegt. */
+function kontrastfarbe(hex) {
+    if (!/^#[0-9a-f]{6}$/i.test(hex)) return '#ffffff';
+    const k = i => { const c = parseInt(hex.substr(i, 2), 16) / 255;
+                     return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+    return (0.2126 * k(1) + 0.7152 * k(3) + 0.0722 * k(5)) > 0.33 ? '#0f172a' : '#ffffff';
+}
+function dunkler(hex, anteil) {
+    if (!/^#[0-9a-f]{6}$/i.test(hex)) return hex;
+    let aus = '#';
+    for (let i = 1; i < 7; i += 2) {
+        aus += Math.max(0, Math.round(parseInt(hex.substr(i, 2), 16) * (1 - anteil)))
+                   .toString(16).padStart(2, '0');
+    }
+    return aus;
+}
+function feld(id) { return document.getElementById(id); }
+
+function vorschau() {
+    const w = document.documentElement.style;
+    document.documentElement.dataset.modus =
+        document.querySelector('input[name=modus]:checked').value;
+
+    const akzent = feld('akzent').dataset.leer ? '' : feld('akzent').value;
+    if (akzent) {
+        w.setProperty('--blau', akzent);
+        w.setProperty('--blau-dunkel', dunkler(akzent, 0.22));
+        w.setProperty('--auf-primaer', kontrastfarbe(akzent));
+        const r = parseInt(akzent.substr(1, 2), 16), g = parseInt(akzent.substr(3, 2), 16),
+              b = parseInt(akzent.substr(5, 2), 16);
+        w.setProperty('--akzent-zart', `rgba(${r}, ${g}, ${b}, 0.12)`);
+    } else {
+        ['--blau', '--blau-dunkel', '--auf-primaer', '--akzent-zart'].forEach(v => w.removeProperty(v));
+    }
+
+    const leiste = feld('sidebar').dataset.leer ? '' : feld('sidebar').value;
+    if (leiste) {
+        w.setProperty('--sidebar', leiste);
+        w.setProperty('--auf-sidebar', kontrastfarbe(leiste));
+    } else {
+        w.removeProperty('--sidebar'); w.removeProperty('--auf-sidebar');
+    }
+
+    const g = feld('schriftgroesse');
+    w.setProperty('--schrift-skala', g.options[g.selectedIndex].dataset.faktor);
+    const e = feld('ecken');
+    w.setProperty('--radius', e.options[e.selectedIndex].dataset.radius);
+
+    document.querySelectorAll('.schema').forEach(l =>
+        l.classList.toggle('an', l.querySelector('input').checked));
+    document.querySelectorAll('.knopfwahl').forEach(l =>
+        l.classList.toggle('an', l.querySelector('input').checked));
+}
+
+function schemaGewaehlt(radio) {
+    /* Ein Schema füllt die Farbfelder – wer danach eine Farbe ändert, gewinnt. */
+    if (radio.dataset.akzent) { feld('akzent').value = radio.dataset.akzent; delete feld('akzent').dataset.leer; }
+    if (radio.dataset.sidebar) { feld('sidebar').value = radio.dataset.sidebar; delete feld('sidebar').dataset.leer; }
+    vorschau();
+}
+
+function farbeLeeren(id) {
+    /* „Vereinsfarbe" heißt: kein eigener Wert – das Feld wird beim Speichern leer übergeben. */
+    const f = feld(id);
+    f.dataset.leer = '1';
+    f.removeAttribute('name');
+    f.style.opacity = '.45';
+    vorschau();
+}
+
+document.getElementById('aussehenform').addEventListener('submit', function () {
+    /* Leergesetzte Farbfelder sollen wirklich leer ankommen */
+    ['akzent', 'sidebar'].forEach(id => {
+        const f = feld(id);
+        if (f.dataset.leer && !f.getAttribute('name')) {
+            const h = document.createElement('input');
+            h.type = 'hidden'; h.name = id; h.value = '';
+            this.appendChild(h);
+        }
+    });
+});
+
+vorschau();
+</script>
+{% endblock %}

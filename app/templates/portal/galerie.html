@@ -1,0 +1,37 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Fotogalerie{% endblock %}
+{% block inhalt %}
+<p style="margin:14px 0 0"><a href="{{ url_for('portal.home') }}" style="text-decoration:none;color:var(--mp);font-weight:600">‹ Start</a></p>
+<div class="mp-karte"><h2 style="margin:0;font-size:18px">📸 {{ t("k_galerie") }}</h2>
+    <p class="feld-hinweis" style="margin:6px 0 0">Alben zu unseren Veranstaltungen. Fotos hinzufügen kannst du direkt beim jeweiligen Termin.</p>
+</div>
+
+{% if alben %}
+<div class="album-grid">
+    {% for a in alben %}
+    <a class="album" href="{{ url_for('portal.termin', tid=a.id) }}#galerie">
+        <div class="album-bild" style="background-image:url('{{ url_for('portal.galerie_foto', fid=a.cover) }}')">
+            <span class="album-anz">{{ a.anzahl }} 📷</span>
+        </div>
+        <div class="album-titel">{{ a.titel }}</div>
+        <div class="feld-hinweis">{{ a.datum[8:10] }}.{{ a.datum[5:7] }}.{{ a.datum[0:4] }}</div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="mp-karte"><p class="feld-hinweis" style="margin:0">Noch keine Fotos vorhanden. Öffne einen Termin und lade die ersten Bilder hoch! 📷</p></div>
+{% endif %}
+
+<style>
+    .album-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+    /* Desktopversion: Alben füllen die Breite – mobil bleiben es zwei Spalten */
+    @media (min-width: 980px) { .album-grid { grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); } }
+    .album { text-decoration:none; color:inherit; background:var(--flaeche); border-radius:14px; overflow:hidden;
+             box-shadow:0 1px 3px rgba(20,40,60,.08); display:block; }
+    .album-bild { position:relative; aspect-ratio:4/3; background-size:cover; background-position:center; background-color:var(--flaeche-3); }
+    .album-anz { position:absolute; right:6px; bottom:6px; background:rgba(0,0,0,.6); color:#fff;
+                 border-radius:999px; padding:2px 9px; font-size:12px; font-weight:600; }
+    .album-titel { font-weight:700; font-size:14px; padding:8px 10px 0; line-height:1.25; }
+    .album .feld-hinweis { padding:2px 10px 10px; }
+</style>
+{% endblock %}

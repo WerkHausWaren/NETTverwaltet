@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Kalender – Jahr{% endblock %}
+{% block content %}
+{% include "kalender/_switcher.html" %}
+
+<div class="kal-jahr">
+{% for m in monate %}
+<div class="kal-mini">
+    <h3>
+        <a href="{{ url_for('kalender.index', ansicht='monat', d=m.erster_iso) }}">{{ m.name }}</a>
+        {% if m.anzahl %}<span class="badge badge-gruppe">{{ m.anzahl }}</span>{% endif %}
+    </h3>
+    <table>
+        <thead><tr>{% for w in wochentage %}<td style="font-weight:700;color:var(--text-schwach)">{{ w[0] }}</td>{% endfor %}</tr></thead>
+        <tbody>
+        {% for woche in m.wochen %}
+        <tr>
+            {% for d in woche %}
+            {% if d.hat %}
+            <td class="{{ 'heute' if d.heute and d.im_monat }}" style="padding:0">
+                <a href="{{ url_for('kalender.index', ansicht='monat', d=d.iso) }}" title="{{ d.titel }}"
+                   style="display:block;background:{{ d.farbe|hexfarbe }};color:{{ d.farbe|kontrast }};border-radius:50%;font-weight:700;padding:3px 0">{{ d.tag }}</a>
+            </td>
+            {% else %}
+            <td class="{{ 'aus' if not d.im_monat }} {{ 'heute' if d.heute and d.im_monat }}">{{ d.tag if d.im_monat else '' }}</td>
+            {% endif %}
+            {% endfor %}
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endfor %}
+</div>
+<div class="feld-hinweis" style="margin-top:12px">Zahl = Anzahl Termine im Monat · farbige Tage haben Termine · Klick auf den Monatsnamen öffnet die Monatsansicht.</div>
+{% endblock %}

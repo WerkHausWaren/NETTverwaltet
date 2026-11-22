@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Beitrags-Werkstatt{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🪄 Beitrags-Werkstatt</h1><div class="sub">Veranstaltung wählen – fertige Textvorschläge für jeden Kanal</div></div>
+    <div class="aktionen"><a href="{{ url_for('oea.plan') }}" class="btn btn-sekundaer">📋 Redaktionsplan</a></div>
+</div>
+
+<form method="get" class="karte" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:16px">
+    <label style="flex:1;min-width:240px;margin:0">Veranstaltung
+        <select name="termin_id" onchange="this.form.submit()">
+            <option value="">– bitte wählen –</option>
+            {% for tm in termine %}
+            <option value="{{ tm.id }}" {{ 'selected' if t and t.id == tm.id }}>{{ tm.datum | datum_de }} – {{ tm.titel }}</option>
+            {% endfor %}
+        </select></label>
+    <button class="btn">Vorschläge erzeugen</button>
+</form>
+
+{% if t %}
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:14px">
+    {% for e in entwuerfe %}
+    <div class="karte" style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px">
+            <strong style="font-size:16px">{{ e.format.symbol }} {{ e.format.label }}</strong>
+            <span class="feld-hinweis" style="margin-left:auto{{ ';color:var(--fehler-text);font-weight:700' if e.format.max and e.laenge > e.format.max }}">
+                {{ e.laenge }}{% if e.format.max %} / {{ e.format.max }}{% endif %} Zeichen · ideal ~{{ e.format.ideal }}</span>
+        </div>
+        <textarea id="wtext-{{ e.kanal }}" rows="{{ 12 if e.kanal == 'presse' else 8 }}"
+                  style="font-size:13.5px;line-height:1.5">{{ e.text }}</textarea>
+        <div class="feld-hinweis">💡 {{ e.format.hinweis }}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-sekundaer btn-klein"
+                    onclick="navigator.clipboard.writeText(document.getElementById('wtext-{{ e.kanal }}').value).then(()=>{this.textContent='✓ Kopiert!';setTimeout(()=>this.textContent='📋 Kopieren',1500)})">📋 Kopieren</button>
+            <form method="post" action="{{ url_for('oea.werkstatt_uebernehmen') }}" style="display:inline"
+                  onsubmit="this.querySelector('[name=text]').value=document.getElementById('wtext-{{ e.kanal }}').value">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="termin_id" value="{{ t.id }}">
+                <input type="hidden" name="kanal" value="{{ e.kanal }}">
+                <input type="hidden" name="text" value="">
+                <button class="btn btn-klein">📋 In den Redaktionsplan</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="hilfe-box">💡 Die Werkstatt baut aus Titel, Datum, Ort, Beschreibung, Preis und Anmeldelink der
+    Veranstaltung fertige Entwürfe – für jeden Kanal im richtigen Format samt Zeichenlimit
+    (Instagram, Facebook, Mastodon, Bluesky, Telegram und eine Pressemitteilung nach journalistischem Aufbau).
+    Text hier noch anpassen, dann kopieren oder in den Redaktionsplan übernehmen.</div>
+{% endif %}
+{% endblock %}

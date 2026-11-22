@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Türöffnung (Nuki){% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🔓 Türöffnung (Nuki Web)</h1><div class="sub">Berechtigte Mitglieder öffnen und schließen die Tür direkt in der App</div></div>
+    <div class="aktionen"><a href="{{ url_for('einstellungen.index') }}" class="btn btn-sekundaer">← Einstellungen</a></div>
+</div>
+
+<details class="hilfe-box" style="margin-bottom:18px">
+    <summary style="cursor:pointer;font-weight:600">❓ So richtest du die Nuki-Anbindung ein</summary>
+    <ol style="margin:10px 0 0 18px;padding:0;line-height:1.85">
+        <li>Auf <strong>web.nuki.io</strong> mit dem Vereins-Nuki-Konto anmelden.</li>
+        <li>Menü → <strong>API</strong> → <strong>„API-Token generieren“</strong>.</li>
+        <li>Beim Erzeugen die Rechte für <strong>Smartlocks lesen</strong> <em>und</em>
+            <strong>Aktionen ausführen</strong> anhaken.</li>
+        <li>Den Token hier unten einfügen und <strong>speichern</strong>.</li>
+        <li><strong>Verbindung testen</strong>, dann deine Tür auswählen – fertig.</li>
+    </ol>
+    <div class="feld-hinweis" style="margin-top:8px">Wer die Tür per App öffnen/schließen darf, steuerst du über das
+        <a href="{{ url_for('schluessel.index') }}">Schlüsselbuch</a>: Jedes Mitglied mit einem offenen Eintrag ist berechtigt.</div>
+</details>
+
+<div class="karte" style="max-width:640px">
+    <h2 style="margin-top:0;font-size:17px">1 · Nuki-Web-Token</h2>
+    <form method="post" action="{{ url_for('einstellungen.nuki') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="aktion" value="token">
+        <div class="feld"><label>API-Token {% if token_gesetzt %}<span class="badge badge-aktiv">gespeichert</span>{% endif %}</label>
+            <input type="password" name="nuki_token" autocomplete="off" spellcheck="false"
+                   placeholder="{{ 'leer lassen = gespeicherten Token behalten' if token_gesetzt else 'Token von web.nuki.io einfügen' }}">
+            <div class="feld-hinweis">Wird verschlüsselt gespeichert und verlässt nie den Server.</div>
+        </div>
+        <button class="btn">💾 Token speichern</button>
+        {% if token_gesetzt %}
+        <label style="display:inline-flex;gap:6px;align-items:center;margin-left:14px;font-weight:400">
+            <input type="checkbox" name="nuki_token_loeschen" style="width:auto"> Zugang entfernen</label>
+        {% endif %}
+    </form>
+</div>
+
+{% if token_gesetzt %}
+<div class="karte" style="max-width:640px">
+    <h2 style="margin-top:0;font-size:17px">2 · Verbindung testen & Tür auswählen</h2>
+    <form method="post" action="{{ url_for('einstellungen.nuki') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="aktion" value="test">
+        <button class="btn btn-sekundaer">🔌 Verbindung testen & Türen laden</button>
+    </form>
+    {% if test_meldung %}<p style="margin:12px 0 0;font-weight:600;{{ 'color:var(--gut-text)' if test_ok else 'color:var(--warn-text)' }}">{{ test_meldung }}</p>{% endif %}
+
+    {% if tueren %}
+    <form method="post" action="{{ url_for('einstellungen.nuki') }}" style="margin-top:14px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="aktion" value="tuer">
+        <div class="feld"><label>Tür (Smartlock)</label>
+            <select name="smartlock_id" id="tuer-select" onchange="document.getElementById('tuer-name').value = this.options[this.selectedIndex].dataset.name">
+                {% for t in tueren %}
+                <option value="{{ t.smartlockId }}" data-name="{{ t.name }}"
+                    {{ 'selected' if t.smartlockId == einst.nuki_smartlock_id }}>{{ t.name }}{% if t.type == 2 %} (Opener){% endif %}
+                    – {{ '✅ online' if t.online else '⚠️ OFFLINE' }}{% if t.akku is not none %}, Akku {{ t.akku }} %{% endif %}, {{ t.zustand_text }}</option>
+                {% endfor %}
+            </select>
+            <div class="feld-hinweis">Bitte eine Tür mit <strong>✅ online</strong> wählen – offline gemeldete
+                Geräte (z. B. ausgetauschte alte Schlösser) nehmen Befehle zwar an, führen sie aber nicht aus.</div>
+            <input type="hidden" name="smartlock_name" id="tuer-name"
+                   value="{{ (tueren | selectattr('smartlockId','equalto', einst.nuki_smartlock_id) | map(attribute='name') | first) or tueren[0].name }}">
+        </div>
+        <button class="btn">✅ Diese Tür verwenden</button>
+    </form>
+    {% endif %}
+
+    {% if einst.nuki_smartlock_id %}
+    <p class="feld-hinweis" style="margin-top:14px">Aktuell ausgewählte Tür:
+        <strong>{{ einst.nuki_smartlock_name or einst.nuki_smartlock_id }}</strong>.
+        Berechtigte Mitglieder sehen den Öffnen/Schließen-Knopf auf ihrer App-Startseite.</p>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

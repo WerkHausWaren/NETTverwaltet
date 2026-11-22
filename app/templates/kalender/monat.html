@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Kalender – Monat{% endblock %}
+{% block content %}
+{% include "kalender/_switcher.html" %}
+
+<table class="kal-monat">
+    <thead><tr>{% for w in wochentage %}<th>{{ w }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for woche in wochen %}
+    <tr>
+        {% for d in woche %}
+        <td class="{{ 'kal-td-heute' if d.heute }} {{ 'kal-td-aus' if not d.im_monat }}">
+            <a class="kal-tag-nr" href="{{ url_for('kalender.index', ansicht='liste', neu_datum=d.iso, _anchor='neu') }}" title="Termin am {{ d.tag }}. anlegen">{{ d.tag }}</a>
+            {% for e in d.events %}{% include "kalender/_chip.html" %}{% endfor %}
+        </td>
+        {% endfor %}
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+<div class="feld-hinweis" style="margin-top:10px"><span class="kal-event eigen" style="display:inline-block">eigene Veranstaltung</span> &nbsp; <span class="kal-event extern" style="display:inline-block">externer Kalender</span></div>
+{% endblock %}

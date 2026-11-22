@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Fördermittel{% endblock %}
+{% macro ampelpunkt(a) %}
+<span title="{{ {'rot':'Frist überschritten','gelb':'Frist rückt näher','gruen':'genug Zeit','grau':'keine Frist hinterlegt'}[a] }}"
+      style="display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:7px;flex:0 0 auto;
+             background:{{ {'rot':'var(--rot)','gelb':'var(--gelb)','gruen':'var(--gruen)','grau':'var(--text-schwach)'}[a] }}"></span>
+{% endmacro %}
+{% macro frist_text(p) %}
+    {% if p.frist_tage is none %}<span class="feld-hinweis">–</span>
+    {% elif p.frist_tage < 0 %}<span style="color:var(--fehler-text);font-weight:700">{{ p.frist_was }} seit {{ -p.frist_tage }} Tagen überfällig!</span>
+    {% elif p.frist_tage == 0 %}<span style="color:var(--fehler-text);font-weight:700">{{ p.frist_was }} – heute!</span>
+    {% else %}<span style="{{ 'color:var(--warn-text);font-weight:700' if p.ampel == 'gelb' }}">{{ p.frist_was }} in {{ p.frist_tage }} Tagen</span>{% endif %}
+{% endmacro %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🎯 Fördermittel</h1>
+        <div class="sub">Von der Recherche über den Antrag bis zum Verwendungsnachweis – alles an einem Ort</div></div>
+    <div class="aktionen">
+        <a href="{{ url_for('foerderung.toepfe') }}" class="btn btn-sekundaer">🔍 Fördertöpfe durchsuchen</a>
+        <a href="{{ url_for('foerderung.projekt_neu') }}" class="btn">+ Förderprojekt</a>
+    </div>
+</div>
+
+{% if dringend %}
+<div class="karte" style="border-left:4px solid var(--rot);background:var(--fehler-grund)">
+    <h2 style="margin-top:0;font-size:16px">⚠️ Das eilt</h2>
+    <ul style="margin:0;padding-left:20px;line-height:1.9">
+        {% for p in dringend %}
+        <li><a href="{{ url_for('foerderung.projekt', pid=p.id) }}"><strong>{{ p.titel }}</strong></a> —
+            {{ frist_text(p) }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<div class="kachel-reihe" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:14px">
+    {% for wert, titel, hinweis, farbe in [
+        (summen.beantragt, 'Beantragt', 'liegt beim Geldgeber', 'var(--text-hell)'),
+        (summen.bewilligt, 'Bewilligt', 'zugesagtes Geld', 'var(--gruen)'),
+        (summen.abgerechnet, 'Abgerechnet', 'fertig nachgewiesen', 'var(--blau)')] %}
+    <div class="karte" style="margin:0;padding:16px">
+        <div class="feld-hinweis" style="text-transform:uppercase;letter-spacing:.6px;font-size:11px">{{ titel }}</div>
+        <div style="font-size:25px;font-weight:800;color:{{ farbe }};font-variant-numeric:tabular-nums">{{ wert | euro }}</div>
+        <div class="feld-hinweis">{{ hinweis }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if not offen and not erledigt %}
+<div class="karte" style="text-align:center;padding:30px">
+    <div style="font-size:40px">🎯</div>
+    <h2 style="margin:6px 0">Noch kein Förderprojekt</h2>
+    <p class="feld-hinweis" style="max-width:560px;margin:0 auto 16px">
+        In den <strong>Fördertöpfen</strong> stehen schon recherchierte Programme, die zu einem Verein wie eurem
+        passen. Such dir einen passenden aus und leg daraus ein Projekt an – ab dann erinnert dich die App
+        an jede Frist und stellt am Ende den Verwendungsnachweis aus dem Kassenbuch zusammen.</p>
+    <a href="{{ url_for('foerderung.toepfe') }}" class="btn">🔍 Passenden Fördertopf suchen</a>
+    <a href="{{ url_for('foerderung.projekt_neu') }}" class="btn btn-sekundaer">✏️ Projekt von Hand anlegen</a>
+</div>
+{% endif %}
+
+{% if offen %}
+<div class="karte">
+    <h2 style="margin-top:0">Laufende Projekte</h2>
+    <div class="tabellen-scroll">
+    <table class="tabelle no-sort">
+        <thead><tr><th>Projekt</th><th>Fördergeber</th><th>Status</th><th>Nächste Frist</th>
+            <th class="rechts">Bewilligt</th><th class="rechts">Ausgegeben</th></tr></thead>
+        <tbody>
+        {% for p in offen %}
+        <tr style="{{ 'background:var(--fehler-grund)' if p.ampel == 'rot' }}">
+            <td style="display:flex;align-items:baseline">{{ ampelpunkt(p.ampel) }}
+                <span><a href="{{ url_for('foerderung.projekt', pid=p.id) }}"><strong>{{ p.titel }}</strong></a>
+                {% if p.aktenzeichen %}<br><span class="feld-hinweis">Az. {{ p.aktenzeichen }}</span>{% endif %}</span></td>
+            <td>{{ p.geber_name or '–' }}</td>
+            <td><span class="badge badge-gruppe">{{ status_namen.get(p.status, p.status) }}</span></td>
+            <td>{{ frist_text(p) }}</td>
+            <td class="rechts">{{ p.bewilligt | euro if p.bewilligt else (p.antragssumme | euro if p.antragssumme else '–') }}
+                {% if not p.bewilligt and p.antragssumme %}<br><span class="feld-hinweis">beantragt</span>{% endif %}</td>
+            <td class="rechts">{% if p.ausgaben %}{{ p.ausgaben | euro }}
+                {% if p.bewilligt %}<br><span class="feld-hinweis" style="{{ 'color:var(--fehler-text)' if p.rest < 0 }}">
+                    {{ 'Rest ' ~ (p.rest | euro) if p.rest >= 0 else ((-p.rest) | euro) ~ ' zu viel' }}</span>{% endif %}
+                {% else %}<span class="feld-hinweis">–</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
+{% if erledigt %}
+<details class="karte" style="padding:0">
+    <summary style="padding:16px;cursor:pointer;font-weight:600">📁 Abgeschlossen &amp; abgelehnt ({{ erledigt | length }})</summary>
+    <div style="padding:0 16px 16px">
+        <table class="tabelle no-sort">
+            <thead><tr><th>Projekt</th><th>Fördergeber</th><th>Status</th><th class="rechts">Summe</th></tr></thead>
+            <tbody>
+            {% for p in erledigt %}
+            <tr>
+                <td><a href="{{ url_for('foerderung.projekt', pid=p.id) }}">{{ p.titel }}</a></td>
+                <td>{{ p.geber_name or '–' }}</td>
+                <td><span class="badge badge-gruppe">{{ status_namen.get(p.status, p.status) }}</span></td>
+                <td class="rechts">{{ (p.bewilligt or p.antragssumme) | euro }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</details>
+{% endif %}
+
+<div class="hilfe-box" style="margin-top:14px">💡 <strong>So läuft ein Förderprojekt:</strong>
+    <strong>1.</strong> Passenden Topf finden → <strong>2.</strong> Projekt anlegen und Antrag stellen →
+    <strong>3.</strong> Bewilligung eintragen → <strong>4.</strong> Während des Projekts alle Ausgaben im
+    Kassenbuch dem Projekt zuordnen → <strong>5.</strong> Verwendungsnachweis auf Knopfdruck ausdrucken.
+    Die App meldet sich rechtzeitig vor jeder Frist.</div>
+{% endblock %}

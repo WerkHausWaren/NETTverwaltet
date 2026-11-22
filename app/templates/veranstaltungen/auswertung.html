@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Veranstaltungs-Auswertung{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>📈 Veranstaltungs-Auswertung</h1></div>
+    <a href="{{ url_for('veranstaltungen.index') }}" class="btn btn-sekundaer">Zurück</a>
+</div>
+
+<div class="karten-reihe" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:14px">
+    <div class="karte" style="text-align:center"><div style="font-size:24px;font-weight:800">{{ summen.gesamt }}</div><div class="feld-hinweis">Anmeldungen gesamt</div></div>
+    <div class="karte" style="text-align:center"><div style="font-size:24px;font-weight:800">{{ summen.bezahlt | euro }}</div><div class="feld-hinweis">Einnahmen{% if summen.offen %} · <span style="color:var(--rot)">{{ summen.offen | euro }} offen</span>{% endif %}</div></div>
+    {% if summen.spenden %}<div class="karte" style="text-align:center"><div style="font-size:24px;font-weight:800">{{ summen.spenden | euro }}</div><div class="feld-hinweis">Spenden</div></div>{% endif %}
+    <div class="karte" style="text-align:center"><div style="font-size:24px;font-weight:800">{{ summen.interesse }}</div><div class="feld-hinweis">Interesse an Mitgliedschaft 🤝</div></div>
+    <div class="karte" style="text-align:center"><div style="font-size:24px;font-weight:800">{{ summen.foto }}</div><div class="feld-hinweis">Foto-Einwilligungen 📷<br><span style="font-size:11px">{{ summen.foto_nein }} abgelehnt · {{ summen.foto_offen }} unbeantwortet</span></div></div>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Je Veranstaltung</h2>
+    <table>
+        <thead><tr><th>Veranstaltung</th><th>Datum</th><th>Teilnehmende</th><th>Auslastung</th><th>Einnahmen</th></tr></thead>
+        <tbody>
+        {% for z in zeilen %}
+        <tr onclick="window.location='{{ url_for('veranstaltungen.detail', tid=z.t.id) }}'" style="cursor:pointer">
+            <td><strong>{{ z.t.titel }}</strong></td>
+            <td>{{ z.t.datum | datum_de }}</td>
+            <td>{{ z.stand.teilnehmer }}{% if z.t.max_teilnehmer %} / {{ z.t.max_teilnehmer }}{% endif %}
+                {% if z.min_erreicht is not none %}{% if z.min_erreicht %}<span class="badge badge-aktiv" style="font-size:11px">Min ✓</span>{% else %}<span class="badge badge-inaktiv" style="font-size:11px">Min offen</span>{% endif %}{% endif %}</td>
+            <td>{% if z.auslastung is not none %}
+                <div style="background:var(--flaeche-3);border-radius:6px;height:16px;width:90px;overflow:hidden;display:inline-block;vertical-align:middle">
+                    <div style="background:var(--blau);height:100%;width:{{ [z.auslastung,100]|min }}%"></div></div>
+                <span class="sub">{{ z.auslastung }}%</span>{% else %}<span class="sub">—</span>{% endif %}</td>
+            <td>{{ z.stand.bezahlt | euro }}{% if z.stand.offen %} <span class="sub">(+{{ z.stand.offen | euro }} offen)</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% if not zeilen %}<p class="feld-hinweis">Noch keine Veranstaltungen.</p>{% endif %}
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Woher die Kontakte kommen</h2>
+    {% if quellen %}
+    <table>
+        <thead><tr><th>Quelle</th><th class="rechts">Anmeldungen</th></tr></thead>
+        <tbody>{% for q in quellen %}<tr><td>{{ q.q }}</td><td class="rechts">{{ q.c }}</td></tr>{% endfor %}</tbody>
+    </table>
+    {% else %}<p class="feld-hinweis">Noch keine Daten.</p>{% endif %}
+</div>
+{% endblock %}

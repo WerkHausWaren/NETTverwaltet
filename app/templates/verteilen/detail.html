@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+{% block title %}{{ a.titel }}{% endblock %}
+{% block content %}
+{% set f = st.fortschritt %}
+{% set pk = st.plakate %}
+{% set mehrere = mats|length > 1 %}
+<div class="page-header">
+    <div>
+        <h1>🗺️ {{ a.titel }}</h1>
+        <div class="sub">{% if a.von %}{{ a.von | datum_wt }}{% endif %}{% if a.bis %} – {{ a.bis | datum_wt }}{% endif %}
+            {% if a.archiviert_am %} · abgeschlossen am {{ a.archiviert_am | datum_de }}{% endif %}</div>
+    </div>
+    <div class="aktionen">
+        <a href="{{ url_for('verteilen.index') }}" class="btn btn-sekundaer">‹ Alle Aktionen</a>
+        {% if f %}<a href="{{ url_for('verteilen.export', aid=a.id) }}" class="btn btn-sekundaer">⬇️ CSV Straßen</a>{% endif %}
+        {% if pk %}<a href="{{ url_for('verteilen.plakate_export', aid=a.id) }}" class="btn btn-sekundaer">⬇️ CSV Plakate</a>{% endif %}
+        <a href="{{ url_for('portal.verteilen_aktion', aid=a.id) }}" target="_blank" rel="noopener" class="btn btn-sekundaer">📱 App ↗</a>
+        <form method="post" action="{{ url_for('verteilen.archivieren', aid=a.id) }}" style="display:inline"
+              onsubmit="return confirm('{{ 'Aktion wieder öffnen?' if a.archiviert_am else 'Aktion abschließen? Helfer:innen können dann nichts mehr eintragen.' }}')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn {{ 'btn-sekundaer' if a.archiviert_am else '' }}">{{ '↩︎ Wieder öffnen' if a.archiviert_am else '✅ Abschließen' }}</button>
+        </form>
+    </div>
+</div>
+
+<div class="karte">
+    {% if f %}
+    <div style="height:12px;background:var(--grau-linie);border-radius:6px;overflow:hidden">
+        <div style="height:100%;width:{{ f.prozent }}%;background:var(--gruen)"></div></div>
+    <p style="margin:8px 0 0">📄 <strong>{{ f.prozent }} %</strong> verteilt ·
+        <strong>{{ f.strassen_verteilt }}</strong> von {{ f.strassen_gesamt }} Straßen komplett ·
+        ≈ {{ '{:,}'.format(f.haushalte_verteilt).replace(',', '.') }} von
+        {{ '{:,}'.format(f.haushalte_gesamt).replace(',', '.') }} Haushalten mit allem versorgt ·
+        {{ fotos }} Foto{{ '' if fotos == 1 else 's' }}</p>
+    {% if mehrere %}
+    <p class="feld-hinweis" style="margin:4px 0 0">{% for m in f.materialien %}{{ m.titel }}: {{ m.strassen_verteilt }} Straßen
+        (≈ {{ '{:,}'.format(m.haushalte_verteilt).replace(',', '.') }} Haushalte){{ ' · ' if not loop.last }}{% endfor %}</p>
+    {% endif %}
+    {% endif %}
+    {% if pk %}
+    {% set z = pk.zaehler %}
+    <p style="margin:8px 0 0">📍 <strong>{{ z.haengt }}</strong> Plakat{{ '' if z.haengt == 1 else 'e' }} hängen
+        {%- if z.max %} von {{ z.max }} erlaubten Standorten{% endif %} · {{ z.geplant }} geplant ·
+        <span {{ 'style=color:var(--rot)' if z.beschaedigt or z.weg }}>{{ z.beschaedigt }} beschädigt · {{ z.weg }} weg</span> ·
+        {{ z.abgehaengt }} abgehängt</p>
+    {% if z.abhaengen_bis %}
+    <p class="feld-hinweis" style="margin:4px 0 0">⏰ Alle Plakate müssen bis {{ z.abhaengen_bis | datum_wt }} abgehängt sein
+        {%- if z.aktiv %} – es hängen bzw. sind noch {{ z.aktiv }} geplant.{% else %} – erledigt ✓{% endif %}</p>
+    {% endif %}
+    {% endif %}
+    <p class="feld-hinweis" style="margin:6px 0 0">🧹 Löschfrist:
+        {% if a.anonymisiert_am %}erledigt am {{ a.anonymisiert_am | datum_de }} – Routen und Namen sind entfernt, Zahlen und Plakat-Standorte bleiben.
+        {% elif loeschfrist %}am {{ loeschfrist.isoformat() | datum_de }} werden Routen und Namen automatisch entfernt.
+        {% else %}greift 3 Monate nach dem Ende bzw. der Abhängfrist, sonst nach dem Abschließen.{% endif %}</p>
+</div>
+
+<div class="haupt-neben">
+<div class="karte">
+    <h2 style="margin-top:0">👥 Wer hat wie viel geschafft?</h2>
+    {% if personen %}
+    <table>
+        <thead><tr><th>Person</th>{% if f %}<th class="rechts">Straßen verteilt</th><th class="rechts">in Arbeit</th><th class="rechts">Haushalte</th>{% endif %}
+            {% if pk %}<th class="rechts">Plakate gehängt</th>{% endif %}{% if zust %}<th class="rechts">zugestellt</th>{% endif %}</tr></thead>
+        <tbody>{% for p in personen %}
+        <tr><td>{{ p.name }}</td>{% if f %}<td class="rechts">{{ p.verteilt }}</td><td class="rechts">{{ p.laeuft }}</td>
+            <td class="rechts">{{ '{:,}'.format(p.hh).replace(',', '.') }}</td>{% endif %}
+            {% if pk %}<td class="rechts">{{ p.plakate }}</td>{% endif %}{% if zust %}<td class="rechts">{{ p.zugestellt or 0 }}</td>{% endif %}</tr>
+        {% endfor %}</tbody>
+    </table>
+    {% else %}<p class="feld-hinweis">Noch hat niemand mitgemacht.</p>{% endif %}
+</div>
+<div class="karte">
+    <details>
+        <summary class="btn btn-sekundaer" style="list-style:none;cursor:pointer;display:inline-block">✏️ Aktion bearbeiten</summary>
+        <form method="post" action="{{ url_for('verteilen.bearbeiten', aid=a.id) }}" style="margin-top:12px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="feld"><label>Titel *</label><input type="text" name="titel" value="{{ a.titel }}" required maxlength="120"></div>
+            <div class="feld"><label>Was gehört dazu?</label>
+                <label style="font-weight:400;display:block"><input type="checkbox" name="mit_flyern" value="1" {{ 'checked' if a.mit_flyern }}> 📄 Flyer/Postkarten verteilen</label>
+                <label style="font-weight:400;display:block"><input type="checkbox" name="mit_plakaten" value="1" {{ 'checked' if a.mit_plakaten }}> 📍 Plakate aufhängen</label>
+                <label style="font-weight:400;display:block"><input type="checkbox" name="mit_zustellungen" value="1" {{ 'checked' if a.mit_zustellungen }}> 📬 Zustellungen an Kontakte</label></div>
+            <div class="feld"><label>Was wird zugestellt?</label><input type="text" name="zustellung_was" maxlength="120" value="{{ a.zustellung_was or '' }}"></div>
+            <div class="feld"><label>Was wird verteilt?</label><textarea name="beschreibung" rows="2">{{ a.beschreibung or '' }}</textarea></div>
+            <div class="feld-reihe">
+                <div class="feld"><label>Beginn</label><input type="date" name="von" value="{{ a.von or '' }}"></div>
+                <div class="feld"><label>Ende</label><input type="date" name="bis" value="{{ a.bis or '' }}"></div>
+            </div>
+            <div class="feld-reihe">
+                <div class="feld"><label>Plakat-Kürzel</label><input type="text" name="plakat_kuerzel" maxlength="6" value="{{ a.plakat_kuerzel or 'P' }}"></div>
+                <div class="feld"><label>Höchstzahl Plakate</label><input type="number" name="plakat_max" min="0" value="{{ a.plakat_max or 0 }}">
+                    <div class="feld-hinweis">0 = keine Grenze</div></div>
+                <div class="feld"><label>Abhängen bis</label><input type="date" name="abhaengen_bis" value="{{ a.abhaengen_bis or '' }}"></div>
+            </div>
+            {% if orte|length > 1 %}
+            <div class="feld"><label>Gebiet <span class="feld-hinweis">(nichts angehakt = alle Orte)</span></label>
+                <div style="display:flex;gap:6px 14px;flex-wrap:wrap">
+                {% for o in orte %}<label style="font-weight:400"><input type="checkbox" name="orte" value="{{ o }}" {{ 'checked' if o in gewaehlte_orte }}> {{ o }}</label>{% endfor %}
+                </div></div>
+            {% endif %}
+            <button type="submit" class="btn">💾 Speichern</button>
+        </form>
+    </details>
+</div>
+</div>
+
+{% if f %}
+<div class="karte" id="flyer">
+    <h2 style="margin-top:0">📄 Flyer &amp; Postkarten</h2>
+    <p class="feld-hinweis" style="margin-top:0">Helfer:innen sehen die Bilder in der App und wählen vor dem Übernehmen
+        einer Route, welche Flyer sie dabeihaben. Jede Straße gilt je Flyer als verteilt.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px">
+    {% for m in mats %}
+    <div style="border:1px solid var(--linie);border-radius:10px;padding:10px">
+        {% if m.bild %}<a href="{{ url_for('portal.verteilen_flyer_bild', mid=m.id) }}" target="_blank" rel="noopener">
+            <img src="{{ url_for('portal.verteilen_flyer_bild', mid=m.id) }}" alt="{{ m.titel }}"
+                 style="width:100%;height:150px;object-fit:contain;background:var(--flaeche-2);border-radius:6px"></a>
+        {% else %}<div style="height:150px;display:grid;place-items:center;background:var(--flaeche-2);border-radius:6px;color:var(--text-hell)">kein Bild</div>{% endif %}
+        <form method="post" action="{{ url_for('verteilen.flyer_bearbeiten', aid=a.id, mid=m.id) }}" enctype="multipart/form-data" style="margin-top:8px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="text" name="titel" value="{{ m.titel }}" maxlength="80" aria-label="Name des Flyers">
+            <input type="file" name="bild" accept="image/*" aria-label="Bild des Flyers" style="margin-top:6px;font-size:13px">
+            <button class="btn btn-klein" style="margin-top:6px">💾 Speichern</button>
+        </form>
+        {% if loeschbar.get(m.id) %}
+        <form method="post" action="{{ url_for('verteilen.flyer_loeschen', aid=a.id, mid=m.id) }}" style="margin-top:6px"
+              onsubmit="return confirm('Flyer „{{ m.titel }}“ entfernen?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sekundaer btn-klein">🗑 Entfernen</button>
+        </form>{% endif %}
+    </div>
+    {% endfor %}
+    <form method="post" action="{{ url_for('verteilen.flyer_neu', aid=a.id) }}" enctype="multipart/form-data"
+          style="border:1px dashed var(--linie-stark);border-radius:10px;padding:10px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <strong>➕ Weiterer Flyer</strong>
+        <input type="text" name="titel" required maxlength="80" placeholder="z. B. Postkarte Kinoabend" style="margin-top:8px">
+        <input type="file" name="bild" accept="image/*" style="margin-top:6px;font-size:13px" aria-label="Bild (freiwillig)">
+        <button class="btn btn-klein" style="margin-top:6px">Hinzufügen</button>
+    </form>
+    </div>
+</div>
+
+<div class="karte" id="strassen">
+    <h2 style="margin-top:0">🏘️ Straßen und Stand</h2>
+    {% set tf_ziel = '#verteil-tabelle' %}
+    {% set tf_chips = [{'label': '🟢 verteilt', 'wert': 'verteilt'}, {'label': '🟡 teilweise', 'wert': 'teil'},
+                       {'label': '🟠 in Arbeit', 'wert': 'laeuft'}, {'label': '⚪ offen', 'wert': 'offen'}] %}
+    {% set tf_seiten = [25, 50, 100] %}
+    {% include '_tabellen_filter.html' %}
+    <div class="tabellen-scroll">
+    <table id="verteil-tabelle">
+        <thead><tr><th>Ort</th><th>Straße</th><th class="rechts">Haushalte</th><th>{{ 'Stand je Flyer' if mehrere else 'Status' }}</th></tr></thead>
+        <tbody>
+        {% for s in st.strassen %}
+        {% set je = st.status.get(s.id|string) or {} %}
+        {% set werte = [] %}{% for m in mats %}{% set _ = werte.append((je.get(m.id|string) or {}).get('status') or 'offen') %}{% endfor %}
+        {% if werte|select('equalto', 'verteilt')|list|length == werte|length %}{% set ges = 'verteilt' %}
+        {% elif 'laeuft' in werte %}{% set ges = 'laeuft' %}
+        {% elif 'verteilt' in werte %}{% set ges = 'teil' %}
+        {% else %}{% set ges = 'offen' %}{% endif %}
+        <tr data-tf="{{ ges }}">
+            <td>{{ s.ort }}</td><td><strong>{{ s.name }}</strong>{% if st.fotos.get(s.id|string) %} 📷{% endif %}</td>
+            <td class="rechts">{{ s.haushalte }}</td>
+            <td data-sort="{{ {'verteilt': 0, 'teil': 1, 'laeuft': 2, 'offen': 3}.get(ges, 3) }}">
+            {% for m in mats %}
+                {% set x = je.get(m.id|string) or {} %}
+                {% set stat = x.status or 'offen' %}
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:2px 0">
+                    {% if mehrere %}<span class="feld-hinweis" style="min-width:90px">{{ m.titel }}</span>{% endif %}
+                    <span>{{ {'verteilt': '🟢 verteilt', 'laeuft': '🟠 in Arbeit', 'offen': '⚪ offen'}.get(stat, stat) }}</span>
+                    {% if x.wer %}<span>{{ x.wer }}{% if x.am %} <span class="feld-hinweis">{{ x.am[:10] | datum_de }}</span>{% endif %}</span>{% endif %}
+                    {% if stat != 'offen' and not a.archiviert_am %}
+                    <form method="post" action="{{ url_for('verteilen.zuruecksetzen', aid=a.id) }}" style="display:inline;margin-left:auto"
+                          onsubmit="return confirm('„{{ s.name }}“{{ (' – ' ~ m.titel) if mehrere }} wieder auf offen setzen?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="strasse_id" value="{{ s.id }}"><input type="hidden" name="material_id" value="{{ m.id }}">
+                        <input type="hidden" name="status" value="offen">
+                        <button class="btn btn-sekundaer btn-klein" title="Wieder freigeben">↩︎ offen</button>
+                    </form>{% endif %}
+                </div>
+            {% endfor %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
+{% if zust %}
+{% set zz = zust.zaehler %}
+{% set vo = zust.verortung %}
+<div class="karte" id="zustellungen">
+    <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline">
+        <h2 style="margin-top:0">📬 Zustellungen{% if a.zustellung_was %} – {{ a.zustellung_was }}{% endif %}</h2>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+            {% if not a.archiviert_am %}<a class="btn" href="{{ url_for('verteilen.zustellungen_auswahl', aid=a.id) }}">➕ Empfänger:innen hinzufügen</a>{% endif %}
+            {% if zust.liste %}<a class="btn btn-sekundaer" href="{{ url_for('verteilen.laufzettel', aid=a.id) }}" target="_blank" rel="noopener">🖨 Laufzettel</a>
+            <a class="btn btn-sekundaer" href="{{ url_for('verteilen.laufzettel_csv', aid=a.id) }}">⬇️ CSV</a>{% endif %}
+        </div>
+    </div>
+    <p style="margin:4px 0 0"><strong>{{ zz.zugestellt }}</strong> von {{ zz.gesamt }} zugestellt · {{ zz.laeuft }} in Arbeit ·
+        {{ zz.offen }} offen{% if zz.nicht_zustellbar %} · <span style="color:var(--rot)">{{ zz.nicht_zustellbar }} nicht zustellbar</span>{% endif %}</p>
+    {% if vo.gesamt %}
+    <p class="feld-hinweis" style="margin:4px 0 0">📍 Kartenpunkte: {{ vo.fertig }} von {{ vo.gesamt }} ermittelt
+        {%- if vo.fertig < vo.gesamt %} – {{ 'läuft gerade (etwa 1 Sekunde je Anschrift, Seite neu laden)' if vo.laeuft else 'noch offen' }}
+        <form method="post" action="{{ url_for('verteilen.zustellungen_verorten', aid=a.id) }}" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sekundaer btn-klein">↻ jetzt ermitteln</button></form>{% endif %}
+        · hausgenau über OpenStreetMap (Nominatim, nur die Anschrift, ohne Namen)</p>
+    {% endif %}
+
+    {% if zust.rueck %}
+    <div class="hilfe-box" style="margin-top:12px">
+        <strong>⚠️ Anschrift prüfen ({{ zust.rueck|length }})</strong>
+        <ul style="margin:6px 0 0;padding-left:18px">{% for z in zust.rueck %}
+            <li><a href="{{ url_for('kontakte.detail', kid=z.kontakt_id) }}">{{ z.name }}</a> – {{ z.anschrift }}{{ (', ' ~ z.ort) if z.ort }}:
+                <em>{{ z.grund }}</em> <span class="feld-hinweis">({{ z.wer }}, {{ z.am[:10] | datum_de }})</span>
+                <form method="post" action="{{ url_for('verteilen.zustellung_setzen', aid=a.id, zid=z.id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="status" value="offen">
+                    <button class="btn btn-sekundaer btn-klein" title="Nach dem Korrigieren wieder zur Zustellung freigeben">↩︎ wieder offen</button></form></li>
+        {% endfor %}</ul>
+    </div>
+    {% endif %}
+
+    {% if zust.liste %}
+    <div class="tabellen-scroll" style="margin-top:12px">
+    <table>
+        <thead><tr><th>Kontakt</th><th>Anschrift</th><th>Stand</th><th>Wer</th><th>Karte</th><th></th></tr></thead>
+        <tbody>{% for z in zust.liste %}
+        <tr>
+            <td><a href="{{ url_for('kontakte.detail', kid=z.kontakt_id) }}">{{ z.name }}</a>{% if z.ansprechpartner %}<br><span class="feld-hinweis">{{ z.ansprechpartner }}</span>{% endif %}</td>
+            <td>{{ z.anschrift }}<br><span class="feld-hinweis">{{ z.plz }} {{ z.ort }}</span></td>
+            <td>{{ {'offen': '⚪ offen', 'laeuft': '🟠 in Arbeit', 'zugestellt': '🟢 zugestellt', 'nicht_zustellbar': '🔴 nicht zustellbar'}.get(z.status, z.status) }}
+                {% if z.grund %}<br><span class="feld-hinweis">{{ z.grund }}</span>{% endif %}</td>
+            <td>{{ z.wer }}{% if z.am and z.wer %} <span class="feld-hinweis">{{ z.am[:10] | datum_de }}</span>{% endif %}</td>
+            <td title="{{ {'nominatim': 'hausgenau', 'strasse': 'Straßenpunkt', 'hand': 'von Hand gesetzt'}.get(z.quelle, 'ohne Kartenpunkt') }}">
+                {{ {'nominatim': '📍', 'strasse': '🛣', 'hand': '📌'}.get(z.quelle, '⚠️') if z.verortet else '⏳' }}</td>
+            <td class="rechts" style="white-space:nowrap">
+                {% if z.status == 'offen' and not a.archiviert_am %}
+                <form method="post" action="{{ url_for('verteilen.zustellung_entfernen', aid=a.id, zid=z.id) }}"
+                      onsubmit="return confirm('{{ z.name }} aus den Zustellungen entfernen?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein" title="Entfernen">🗑</button></form>
+                {% elif z.status in ('laeuft', 'zugestellt') and not a.archiviert_am %}
+                <form method="post" action="{{ url_for('verteilen.zustellung_setzen', aid=a.id, zid=z.id) }}"
+                      onsubmit="return confirm('Zustellung an {{ z.name }} wieder auf offen setzen?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="status" value="offen">
+                    <button class="btn btn-sekundaer btn-klein" title="Wieder freigeben">↩︎ offen</button></form>
+                {% endif %}</td>
+        </tr>{% endfor %}</tbody>
+    </table>
+    </div>
+    <p class="feld-hinweis">📍 hausgenau · 🛣 Straßenpunkt · 📌 von Hand gesetzt · ⚠️ ohne Kartenpunkt · ⏳ wird ermittelt.
+        Helfer:innen sehen Name und Hausnummer erst, wenn sie die Zustellung übernommen haben.</p>
+    {% else %}
+    <p class="feld-hinweis">Noch keine Empfänger:innen. Über „➕ Empfänger:innen hinzufügen“ Kontakte mit Anschrift auswählen.</p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if pk %}
+<div class="karte" id="plakate">
+    <h2 style="margin-top:0">📍 Plakate</h2>
+    {% if pk.liste %}
+    <div class="tabellen-scroll">
+    <table>
+        <thead><tr><th>Nr.</th><th>Zustand</th><th>Straße / Mast</th><th>Zuletzt</th><th></th></tr></thead>
+        <tbody>{% for p in pk.liste %}
+        <tr>
+            <td style="white-space:nowrap"><strong>{{ p.nr }}</strong>{% if p.fotos %} 📷{% endif %}</td>
+            <td>{{ {'geplant': '⏳ geplant', 'haengt': '✅ hängt', 'beschaedigt': '⚠️ beschädigt', 'weg': '❌ weg', 'abgehaengt': '⬇️ abgehängt'}.get(p.status, p.status) }}</td>
+            <td>{{ p.strasse }}{% if p.hinweis %}<br><span class="feld-hinweis">{{ p.hinweis }}</span>{% endif %}</td>
+            <td>{% set v = p.verlauf[-1] if p.verlauf else none %}{% if v %}{{ v.was }} <span class="feld-hinweis">{{ v.wer }} · {{ v.am[:10] | datum_de }}</span>{% endif %}</td>
+            <td class="rechts">{% if p.status == 'geplant' and not a.archiviert_am %}
+                <form method="post" action="{{ url_for('verteilen.plakat_loeschen', aid=a.id, pid=p.id) }}"
+                      onsubmit="return confirm('Geplantes Plakat {{ p.nr }} löschen?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein">🗑</button>
+                </form>{% endif %}</td>
+        </tr>
+        {% endfor %}</tbody>
+    </table>
+    </div>
+    {% else %}<p class="feld-hinweis">Noch kein Plakat-Standort. Helfer:innen setzen sie in der App auf der Karte.</p>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Veranstaltungen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🎟️ Anmeldungen</h1><div class="sub">Veranstaltungen mit Teilnehmenden-Anmeldung</div></div>
+    <div class="aktionen">
+        <a href="{{ url_for('kommunikation.vorlagen_veranstaltungen') }}" class="btn btn-sekundaer">📧 E-Mail-Vorlagen</a>
+        <a href="{{ url_for('veranstaltungen.gutscheine') }}" class="btn btn-sekundaer">🎟️ Gutscheine</a>
+        <a href="{{ url_for('kalender.index') }}" class="btn btn-sekundaer">📆 Kalender</a>
+        <a href="{{ url_for('veranstaltungen.auswertung') }}" class="btn btn-sekundaer">📈 Auswertung</a>
+        <a href="{{ url_for('termine.neu') }}" class="btn">+ Neue Veranstaltung</a>
+    </div>
+</div>
+
+<div class="hilfe-box">Alle Veranstaltungen mit Anmeldung. Mit <strong>+ Anmeldung</strong> erfasst du direkt eine neue Anmeldung, mit <strong>Verwalten</strong> öffnest du die Teilnehmenden-Verwaltung.</div>
+
+{% if liste %}
+{# Live-Suche: filtert die Liste sofort beim Tippen (Titel, Ort, Datum, Beträge …) #}
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+    <input type="search" id="such-va" placeholder="🔍 Suche (Titel, Ort, Anmelder:in, Teilnehmende …)"
+           style="flex:1;min-width:220px;padding:9px 12px;border:1px solid var(--grau-linie);border-radius:8px">
+    <label style="display:inline-flex;gap:6px;align-items:center;font-size:13.5px;cursor:pointer">
+        <input type="checkbox" id="such-va-offen" style="width:auto"> nur mit offenen Zahlungen
+    </label>
+    <span id="such-va-treffer" class="feld-hinweis"></span>
+</div>
+<table id="va-tabelle">
+    <thead><tr><th>Veranstaltung</th><th>Datum</th><th>Anmeldestand</th><th>Zahlungen</th><th></th></tr></thead>
+    <tbody>
+    {% for e in liste %}
+    {% set t = e.t %}{% set s = e.stand %}
+    <tr onclick="window.location='{{ url_for('veranstaltungen.detail', tid=t.id) }}'" style="cursor:pointer"
+        data-offen="{{ '1' if s.offen else '' }}" data-namen="{{ namen.get(t.id, []) | join('|') }}">
+        <td><strong>{{ t.titel }}</strong>{% if t.ort %}<br><span class="sub">{{ t.ort }}</span>{% endif %}
+            {% if t.anmeldung_token %}<br><span class="badge badge-aktiv" style="font-size:11px">öffentlicher Link</span>{% endif %}
+            <span class="sub such-hit" style="display:none;color:var(--blau);font-weight:600"></span></td>
+        <td>{{ t.datum | datum_wt }}{% if t.uhrzeit %}<br><span class="sub">{{ t.uhrzeit }} Uhr</span>{% endif %}</td>
+        <td>
+            <strong>{{ s.teilnehmer }}</strong>{% if t.max_teilnehmer %} / {{ t.max_teilnehmer }}{% endif %} Teilnehmende
+            {% if t.min_teilnehmer %}
+                {% if s.teilnehmer >= t.min_teilnehmer %}<span class="badge badge-aktiv" style="font-size:11px">Min ✓</span>
+                {% else %}<span class="badge badge-inaktiv" style="font-size:11px">Min {{ t.min_teilnehmer }}</span>{% endif %}
+            {% endif %}
+            {% if s.warteliste %}<br><span class="sub">+{{ s.warteliste }} Warteliste</span>{% endif %}
+        </td>
+        <td>{% if s.offen %}<span style="color:var(--rot)">{{ s.offen | euro }} offen</span><br>{% endif %}
+            <span class="sub">{{ s.bezahlt | euro }} bezahlt</span></td>
+        <td class="rechts" style="white-space:nowrap">
+            <a href="{{ url_for('veranstaltungen.anmeldung_neu', tid=t.id) }}" onclick="event.stopPropagation()" class="btn" style="padding:5px 10px">+ Anmeldung</a>
+            <a href="{{ url_for('veranstaltungen.detail', tid=t.id) }}" onclick="event.stopPropagation()" class="btn btn-sekundaer" style="padding:5px 10px">Verwalten</a>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+<script>
+(function () {
+    var feld = document.getElementById('such-va');
+    var offen = document.getElementById('such-va-offen');
+    var treffer = document.getElementById('such-va-treffer');
+    var zeilen = document.querySelectorAll('#va-tabelle tbody tr');
+    function filtern() {
+        var q = feld.value.trim().toLowerCase();
+        var n = 0;
+        zeilen.forEach(function (z) {
+            var hit = z.querySelector('.such-hit');
+            // Treffer im sichtbaren Text ODER in den Anmelder:in-/Namen der Teilnehmenden dieser Veranstaltung
+            var namenListe = (z.dataset.namen || '').split('|').filter(Boolean);
+            var namenTreffer = q ? namenListe.filter(function (x) { return x.toLowerCase().indexOf(q) !== -1; }) : [];
+            var ok = !q || z.textContent.toLowerCase().indexOf(q) !== -1 || namenTreffer.length > 0;
+            if (ok && offen.checked && !z.dataset.offen) ok = false;
+            z.style.display = ok ? '' : 'none';
+            if (hit) {
+                if (ok && namenTreffer.length) {
+                    hit.style.display = 'block';
+                    hit.textContent = '🎟️ Anmeldung: ' + namenTreffer.join(', ');
+                } else {
+                    hit.style.display = 'none';
+                }
+            }
+            if (ok) n++;
+        });
+        treffer.textContent = (q || offen.checked) ? n + ' von ' + zeilen.length : '';
+    }
+    feld.addEventListener('input', filtern);
+    offen.addEventListener('change', filtern);
+})();
+</script>
+{% else %}
+<div class="karte"><p class="feld-hinweis">Noch keine Veranstaltungen mit Anmeldung. Lege die erste an.</p></div>
+{% endif %}
+{% endblock %}

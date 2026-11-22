@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Lastschriftläufe{% endblock %}
+{% block content %}
+
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <h1 style="margin:0">💶 Lastschriftläufe</h1>
+    <form method="post" action="{{ url_for('lastschrift.neu') }}" style="display:flex;gap:8px;align-items:center;margin:0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="number" name="jahr" value="{{ jahr }}" style="width:90px" aria-label="Beitragsjahr">
+        <button class="btn">＋ Einzug vorbereiten</button>
+    </form>
+</div>
+
+<p class="feld-hinweis">Jeder Einzug ist hier festgehalten: wer dabei war, mit welchem Betrag und
+    wann abgebucht wurde. Das schützt davor, dieselben Beiträge versehentlich zweimal einzuziehen —
+    und bei Fragen der Kassenprüfung ist alles nachlesbar.</p>
+
+{% if laeufe %}
+<div class="karte">
+    <div class="tabellen-scroll">
+    <table>
+        <thead><tr><th>Lauf</th><th>Einzugstag</th><th>Status</th><th class="num">Posten</th><th class="num">Summe</th><th></th></tr></thead>
+        <tbody>
+        {% for l in laeufe %}
+        <tr class="{{ 'ueberfaellig' if l.status == 'verworfen' }}">
+            <td>
+                <strong>{{ l.bezeichnung }}</strong>
+                <div class="feld-hinweis">angelegt am {{ l.erstellt_am[:10] | datum_de }}</div>
+            </td>
+            <td class="num">{{ l.faellig_am | datum_de }}</td>
+            <td>
+                <span class="badge {{ 'badge-gut' if l.status == 'verbucht'
+                                      else 'badge-offen' if l.status == 'eingereicht'
+                                      else 'badge-neutral' }}">{{ status_text.get(l.status, l.status) }}</span>
+            </td>
+            <td class="num">{{ l.anzahl }}</td>
+            <td class="num">{{ l.summe | euro }}</td>
+            <td class="rechts">
+                <a class="btn btn-sekundaer btn-klein" href="{{ url_for('lastschrift.detail', lid=l.id) }}">Ansehen →</a>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% else %}
+<div class="karte">
+    <p style="margin:0">Noch kein Lastschriftlauf angelegt.</p>
+    <p class="feld-hinweis">Mit <strong>＋ Einzug vorbereiten</strong> stellt die Verwaltung alle
+        offenen Beiträge des Jahres zusammen, bei denen eine Lastschrift vereinbart ist. Du siehst
+        dann in Ruhe, wer eingezogen wird und bei wem noch etwas fehlt — erst danach entsteht die
+        Datei für die Bank.</p>
+</div>
+{% endif %}
+
+{% endblock %}

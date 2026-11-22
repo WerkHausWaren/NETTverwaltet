@@ -1,0 +1,42 @@
+name: Fehler melden
+description: Etwas funktioniert nicht wie erwartet.
+labels: ["Fehler"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke für deine Meldung! Bitte **keine echten Mitgliederdaten** (Namen, Adressen, IBANs) hier einfügen.
+  - type: textarea
+    id: was
+    attributes:
+      label: Was hast du gemacht?
+      description: Schritt für Schritt, z. B. „Mitglieder → Neu → Speichern“.
+    validations:
+      required: true
+  - type: textarea
+    id: passiert
+    attributes:
+      label: Was ist passiert – und was hättest du erwartet?
+    validations:
+      required: true
+  - type: dropdown
+    id: betrieb
+    attributes:
+      label: Wie nutzt ihr NETTverwaltet?
+      options:
+        - Auf dem eigenen Rechner (Doppelklick-Start)
+        - Auf einem eigenen Server (Docker)
+        - In der Demo
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version oder Datum des Downloads
+      placeholder: z. B. v1.0 oder 03.12.2026
+  - type: textarea
+    id: meldung
+    attributes:
+      label: Fehlermeldung (falls vorhanden)
+      description: Bei Server-Betrieb hilft die Ausgabe von `docker compose logs --tail 50` – vorher bitte nach Personendaten durchsehen.
+      render: text

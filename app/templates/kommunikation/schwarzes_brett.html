@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+{% block title %}Schwarzes Brett{% endblock %}
+{% block content %}
+<h1>📌 Schwarzes Brett <span class="sub">Gesuche und Angebote zusammenbringen</span></h1>
+
+<details class="sb-neu">
+    <summary class="btn" style="display:inline-block;cursor:pointer">＋ Eintrag anlegen</summary>
+    <form method="post" action="{{ url_for('kommunikation.schwarzes_brett_neu') }}" class="sb-karte" style="margin-top:10px;max-width:640px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld-reihe">
+            <div class="feld"><label>Art</label>
+                <select name="typ">
+                    <option value="gesuch">🙋 Gesuch</option>
+                    <option value="angebot">🎁 Angebot</option>
+                    <option value="info">📌 Info</option>
+                </select></div>
+            {% if kategorien %}
+            <div class="feld"><label>Kategorie</label>
+                <select name="kategorie"><option value="">–</option>
+                    {% for k in kategorien %}<option value="{{ k }}">{{ k }}</option>{% endfor %}
+                </select></div>
+            {% endif %}
+        </div>
+        <div class="feld"><label>Titel *</label><input type="text" name="titel" required></div>
+        <div class="feld"><label>Text</label><textarea name="text" rows="3"></textarea></div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Name (z.B. Anrufer:in)</label><input type="text" name="gast_name"></div>
+            <div class="feld"><label>Kontakt (Telefon/E-Mail)</label><input type="text" name="gast_kontakt"></div>
+        </div>
+        <div class="feld"><label>Sprachen</label><input type="text" name="sprachen" placeholder="z.B. Deutsch, Українська"></div>
+        <button class="btn">Anlegen & veröffentlichen</button>
+    </form>
+</details>
+
+{% if kategorien %}
+<div class="sb-chips">
+    <a href="{{ url_for('kommunikation.schwarzes_brett') }}" class="sb-chip {{ 'sb-chip-aktiv' if not kat_filter }}">Alle</a>
+    {% for k in kategorien %}
+    <a href="{{ url_for('kommunikation.schwarzes_brett', kat=k) }}" class="sb-chip {{ 'sb-chip-aktiv' if kat_filter == k }}">{{ k }}</a>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% macro kontakt(zeile) -%}
+    {%- if zeile.email %}<a href="mailto:{{ zeile.email }}">✉️ {{ zeile.email }}</a>{% endif %}
+    {%- if zeile.telefon %} · <a href="tel:{{ zeile.telefon }}">📞 {{ zeile.telefon }}</a>{% endif %}
+    {%- if zeile.mobil %} · <a href="tel:{{ zeile.mobil }}">📱 {{ zeile.mobil }}</a>{% endif %}
+{%- endmacro %}
+
+{% macro karte(p, ist_gesuch) %}
+<div class="sb-karte {{ 'sb-offen' if ist_gesuch and not p.meldungen }}">
+    <div class="sb-kopf">
+        <span>
+            {% if p.typ in ('gesuch', 'angebot') %}
+            <label class="sb-badge" style="cursor:pointer" title="Für „Verbinden“ auswählen">
+                <input type="radio" form="paar-form" name="{{ 'gesuch_id' if p.typ == 'gesuch' else 'angebot_id' }}"
+                       value="{{ p.id }}" style="accent-color:var(--blau)"> auswählen</label>
+            {% endif %}
+            <span class="sb-badge" style="font-variant-numeric:tabular-nums">#{{ p.id }}</span>
+            {% if p.kategorie %}<span class="sb-badge">{{ p.kategorie }}</span>{% endif %}
+            {% if ist_gesuch and not p.meldungen %}<span class="sb-badge sb-badge-rot">⏳ wartet seit
+                {% if p.offen_tage == 0 %}heute{% elif p.offen_tage == 1 %}1 Tag{% else %}{{ p.offen_tage }} Tagen{% endif %}</span>{% endif %}
+        </span>
+        <form method="post" action="{{ url_for('kommunikation.schwarzes_brett_erledigt', pid=p.id) }}"
+              onsubmit="return confirm('Eintrag als vermittelt/erledigt schließen?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sekundaer btn-klein">✓ erledigt</button>
+        </form>
+    </div>
+    <div class="sb-titel">{{ p.titel }}</div>
+    {% if p.text %}<div class="sb-text">{{ p.text }}</div>{% endif %}
+    {% if p.sprachen %}<div class="sb-meta">🌐 {{ p.sprachen }}</div>{% endif %}
+    <div class="sb-meta">
+        {% if p.mitglied_id %}von <strong>{{ p.vorname }} {{ p.nachname }}</strong>
+            · {{ p.erstellt_am[8:10] }}.{{ p.erstellt_am[5:7] }}.{{ p.erstellt_am[0:4] }}<br>{{ kontakt(p) }}
+        {% else %}von <strong>{{ p.gast_name }}</strong> <span class="sb-badge">Gast</span>
+            · {{ p.erstellt_am[8:10] }}.{{ p.erstellt_am[5:7] }}.{{ p.erstellt_am[0:4] }}<br>
+            {% if '@' in (p.gast_kontakt or '') %}<a href="mailto:{{ p.gast_kontakt }}">✉️ {{ p.gast_kontakt }}</a>
+            {% else %}<a href="tel:{{ p.gast_kontakt }}">📞 {{ p.gast_kontakt }}</a>{% endif %}
+        {% endif %}</div>
+    <details class="sb-edit">
+        <summary class="feld-hinweis" style="cursor:pointer">✏️ bearbeiten</summary>
+        <form method="post" action="{{ url_for('kommunikation.schwarzes_brett_bearbeiten', pid=p.id) }}" style="margin-top:8px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="feld-reihe">
+                <div class="feld"><label>Art</label>
+                    <select name="typ">
+                        <option value="gesuch" {{ 'selected' if p.typ == 'gesuch' }}>🙋 Gesuch</option>
+                        <option value="angebot" {{ 'selected' if p.typ == 'angebot' }}>🎁 Angebot</option>
+                        <option value="info" {{ 'selected' if p.typ == 'info' }}>📌 Info</option>
+                    </select></div>
+                {% if kategorien %}
+                <div class="feld"><label>Kategorie</label>
+                    <select name="kategorie"><option value="">–</option>
+                        {% for k in kategorien %}<option value="{{ k }}" {{ 'selected' if p.kategorie == k }}>{{ k }}</option>{% endfor %}
+                    </select></div>
+                {% endif %}
+            </div>
+            <div class="feld"><label>Titel</label><input type="text" name="titel" required value="{{ p.titel }}"></div>
+            <div class="feld"><label>Text</label><textarea name="text" rows="3">{{ p.text }}</textarea></div>
+            {% if not p.mitglied_id %}
+            <div class="feld-reihe">
+                <div class="feld"><label>Name</label><input type="text" name="gast_name" value="{{ p.gast_name }}"></div>
+                <div class="feld"><label>Kontakt</label><input type="text" name="gast_kontakt" value="{{ p.gast_kontakt }}"></div>
+            </div>
+            {% endif %}
+            <div class="feld"><label>Sprachen</label><input type="text" name="sprachen" value="{{ p.sprachen }}"></div>
+            <div style="display:flex;gap:8px;align-items:center">
+                <button class="btn btn-klein">💾 Speichern</button>
+            </div>
+        </form>
+        <form method="post" action="{{ url_for('kommunikation.schwarzes_brett_loeschen', pid=p.id) }}"
+              onsubmit="return confirm('Eintrag endgültig löschen? Das kann nicht rückgängig gemacht werden.')"
+              style="margin-top:6px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sekundaer btn-klein">🗑 endgültig löschen</button>
+        </form>
+    </details>
+    {% if p.meldungen %}
+    <div class="sb-meldungen">
+        <strong>🙌 Gemeldet:</strong>
+        {% for a in p.meldungen %}
+        <div class="sb-meldung">
+            {{ a.vorname }} {{ a.nachname }} · {{ kontakt(a) }}
+            <form method="post" action="{{ url_for('kommunikation.schwarzes_brett_verbinden', pid=p.id) }}" style="display:inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="mitglied_id" value="{{ a.mitglied_id }}">
+                <button class="btn btn-klein">🤝 per E-Mail verbinden</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endmacro %}
+
+{% if wartend %}
+<div class="sb-warten">
+    <h2>🕒 Wartet auf Freigabe ({{ wartend | length }})</h2>
+    {% for p in wartend %}
+    <div class="sb-karte sb-karte-warten">
+        <div class="sb-kopf">
+            <span>
+                <span class="sb-badge" style="font-variant-numeric:tabular-nums">#{{ p.id }}</span>
+                <span class="sb-badge">{{ '🙋 Gesuch' if p.typ == 'gesuch' else '🎁 Angebot' }}</span>
+                {% if p.kategorie %}<span class="sb-badge">{{ p.kategorie }}</span>{% endif %}
+                {% if p.sprachen %}<span class="sb-badge">🌐 {{ p.sprachen }}</span>{% endif %}
+            </span>
+            <span style="display:flex;gap:6px">
+                <form method="post" action="{{ url_for('kommunikation.schwarzes_brett_freigeben', pid=p.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-klein">✓ freigeben</button>
+                </form>
+                <form method="post" action="{{ url_for('kommunikation.schwarzes_brett_ablehnen', pid=p.id) }}"
+                      onsubmit="return confirm('Eintrag ablehnen und löschen?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein">✕ ablehnen</button>
+                </form>
+            </span>
+        </div>
+        <div class="sb-titel">{{ p.titel }}</div>
+        {% if p.text %}<div class="sb-text">{{ p.text }}</div>{% endif %}
+        <div class="sb-meta">von <strong>{{ p.gast_name or (p.vorname ~ ' ' ~ p.nachname) }}</strong>
+            {% if not p.mitglied_id %}<span class="sb-badge">Gast</span> · {{ p.gast_kontakt }}{% endif %}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<input id="sb-suche" type="search" placeholder="🔍 Sofort-Suche: Nummer, Titel, Name, Kontakt, Kategorie …"
+       style="width:100%;max-width:520px;padding:9px 14px;margin:0 0 12px;border:1px solid var(--linie);border-radius:999px;font-size:14px">
+
+<form id="paar-form" method="post" action="{{ url_for('kommunikation.schwarzes_brett_paar_verbinden') }}"
+      style="position:sticky;top:8px;z-index:5;margin:0 0 12px;text-align:center">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn">🤝 {{ t('paar_verbinden') }}</button>
+</form>
+
+<div class="sb-spalten">
+    <div>
+        <h2>🙋 Gesuche ({{ gesuche | length }})</h2>
+        {% for p in gesuche %}{{ karte(p, True) }}{% else %}<p class="feld-hinweis">Keine offenen Gesuche.</p>{% endfor %}
+    </div>
+    <div>
+        <h2>🎁 Angebote ({{ angebote | length }})</h2>
+        {% for p in angebote %}{{ karte(p, False) }}{% else %}<p class="feld-hinweis">Keine offenen Angebote.</p>{% endfor %}
+    </div>
+</div>
+
+{% if infos %}
+<h2 style="margin-top:24px">📌 Infos ({{ infos | length }})</h2>
+{% for p in infos %}{{ karte(p, False) }}{% endfor %}
+{% endif %}
+
+{% if erledigte %}
+<details style="margin-top:24px">
+    <summary style="cursor:pointer;font-size:19px;font-weight:700">✔️ Erledigt / vermittelt ({{ erledigte | length }})</summary>
+    {% for p in erledigte %}
+    <div class="sb-karte" style="opacity:.75;margin-top:10px">
+        <div class="sb-kopf">
+            <span>
+                <span class="sb-badge" style="font-variant-numeric:tabular-nums">#{{ p.id }}</span>
+                <span class="sb-badge">{{ '🙋 Gesuch' if p.typ == 'gesuch' else ('🎁 Angebot' if p.typ == 'angebot' else '📌 Info') }}</span>
+                {% if p.kategorie %}<span class="sb-badge">{{ p.kategorie }}</span>{% endif %}
+                <span class="sb-badge" style="background:var(--gut-grund);color:var(--gut-text)">✔️ erledigt</span>
+            </span>
+            <span style="display:flex;gap:6px">
+                <form method="post" action="{{ url_for('kommunikation.schwarzes_brett_oeffnen', pid=p.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein">↩︎ wieder öffnen</button>
+                </form>
+                <form method="post" action="{{ url_for('kommunikation.schwarzes_brett_loeschen', pid=p.id) }}"
+                      onsubmit="return confirm('Eintrag endgültig löschen?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein">🗑</button>
+                </form>
+            </span>
+        </div>
+        <div class="sb-titel">{{ p.titel }}</div>
+        <div class="sb-meta">von <strong>{{ p.gast_name or ((p.vorname or '') ~ ' ' ~ (p.nachname or '')) }}</strong>
+            · {{ p.erstellt_am[8:10] }}.{{ p.erstellt_am[5:7] }}.{{ p.erstellt_am[0:4] }}</div>
+    </div>
+    {% endfor %}
+</details>
+{% endif %}
+
+<script>
+(function () {
+    var feld = document.getElementById("sb-suche");
+    if (!feld) return;
+    feld.addEventListener("input", function () {
+        var w = feld.value.trim().toLowerCase();
+        document.querySelectorAll(".sb-karte").forEach(function (k) {
+            k.style.display = (!w || k.textContent.toLowerCase().indexOf(w) !== -1) ? "" : "none";
+        });
+        // Beim Suchen auch die zugeklappten Bereiche (Erledigt) öffnen
+        document.querySelectorAll("details").forEach(function (d) {
+            if (w && d.querySelector(".sb-karte") &&
+                d.textContent.toLowerCase().indexOf(w) !== -1) d.open = true;
+        });
+    });
+})();
+</script>
+<style>
+.sb-chips { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 18px; }
+.sb-chip { text-decoration:none; border:1px solid var(--linie); border-radius:999px;
+           padding:4px 12px; font-size:13px; color:inherit; }
+.sb-chip-aktiv { background:var(--blau); color:var(--auf-primaer); border-color:var(--blau); }
+.sb-spalten { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+@media (max-width: 980px) { .sb-spalten { grid-template-columns:1fr; } }
+.sb-karte { border:1px solid var(--linie); border-radius:12px; padding:12px 14px;
+            margin-bottom:12px; background:var(--flaeche); color:var(--text); }
+.sb-offen { border-inline-start:4px solid var(--rot); }
+.sb-warten { margin-bottom:18px; }
+.sb-karte-warten { border-inline-start:4px solid var(--gelb); background:var(--warn-grund); color:var(--warn-text); }
+.sb-kopf { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+.sb-badge { background:var(--neutral-grund); color:var(--neutral-text); border-radius:999px; padding:2px 10px; font-size:12px; }
+.sb-badge-rot { background:var(--fehler-grund); color:var(--fehler-text); font-weight:700; }
+.sb-titel { font-weight:700; font-size:16px; margin-top:6px; }
+.sb-text { margin-top:4px; font-size:14px; white-space:pre-line; }
+.sb-meta { margin-top:8px; font-size:13px; color:var(--text-hell); }
+.sb-meldungen { margin-top:10px; padding-top:8px; border-top:1px dashed var(--linie); font-size:14px; }
+.sb-meldung { margin-top:6px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.btn-klein { padding:4px 10px; font-size:13px; }
+</style>
+{% endblock %}

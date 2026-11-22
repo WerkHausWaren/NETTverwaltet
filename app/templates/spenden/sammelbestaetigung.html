@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Sammelbestätigung {{ jahr }} – {{ adresse.name }}</title>
+<style>
+    body { font-family: Georgia, 'Times New Roman', serif; color: #111; margin: 0; font-size: 12.5px; line-height: 1.45; }
+    .drucken { margin: 16px 20px; font-family: -apple-system, Arial, sans-serif; }
+    .drucken .box { background:#f3f5f8; border:1px solid #d8dee8; border-radius:10px; padding:12px 14px; max-width:640px; }
+    .drucken h3 { margin:0 0 8px; font-size:14px; }
+    .drucken .zeile { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
+    .drucken label { font-size:12px; color:#475569; display:block; }
+    .drucken input[type=text], .drucken select { padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; width:100%; box-sizing:border-box; background:#fff; }
+    .btn { background: #2563eb; color: #fff; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; text-decoration:none; display:inline-block; }
+    .btn.sek { background:#e2e8f0; color:#1e293b; }
+    .blatt { width: 180mm; margin: 0 auto; padding: 18mm 20mm; box-sizing: border-box; }
+    .aussteller-label { font-size: 9.5px; color: #444; }
+    .aussteller { font-size: 12px; border-bottom: 1px solid #333; padding-bottom: 5px; margin-bottom: 18px; }
+    h1 { font-size: 14.5px; margin: 0 0 2px; }
+    .unter { font-size: 11px; color: #222; margin-bottom: 16px; }
+    .kasten { border: 1px solid #333; padding: 8px 10px; margin: 10px 0; min-height: 34px; }
+    .kasten .klein { font-size: 9.5px; color: #444; }
+    table.betrag { width: 100%; border-collapse: collapse; margin: 12px 0; table-layout: fixed; }
+    table.betrag td, table.betrag th { border: 1px solid #333; padding: 6px 8px; text-align: left; vertical-align: top; }
+    table.betrag th { font-size: 10.5px; font-weight: normal; }
+    .feld { margin: 9px 0; }
+    .cb { display: flex; gap: 7px; margin: 8px 0; }
+    .cb .kk { flex: 0 0 auto; font-size: 14px; line-height: 1.2; }
+    .hinweis { font-size: 9.8px; color: #222; margin-top: 5px; }
+    .unterschrift { margin-top: 34px; }
+    .linie { border-top: 1px solid #333; width: 82mm; padding-top: 3px; font-size: 10px; }
+    .luecke { display: inline-block; min-width: 34mm; border-bottom: 1px dotted #555; text-align: center; }
+    hr.trenn { border: none; border-top: 1px solid #999; margin: 14px 0 8px; }
+    .anlage { page-break-before: always; }
+    table.liste { width: 100%; border-collapse: collapse; margin: 10px 0; }
+    table.liste td, table.liste th { border: 1px solid #333; padding: 5px 8px; font-size: 11.5px; }
+    table.liste th { background: #f1f1f1; text-align: left; font-weight: normal; }
+    table.liste td.r, table.liste th.r { text-align: right; }
+    @media print { .drucken { display: none; } .blatt { margin: 0; } }
+</style>
+</head>
+<body>
+<div class="drucken">
+    <form method="get" class="box" action="{{ url_for('spenden.sammelbestaetigung') }}">
+        <input type="hidden" name="jahr" value="{{ jahr }}">
+        {% if mid %}<input type="hidden" name="mid" value="{{ mid }}">{% endif %}
+        {% if spender %}<input type="hidden" name="spender" value="{{ spender }}">{% endif %}
+        <h3>✏️ Angaben anpassen (werden nicht gespeichert, nur für den Druck)</h3>
+        <div class="zeile">
+            <div style="flex:1;min-width:220px"><label>Name des Zuwendenden</label><input type="text" name="name" value="{{ adresse.name }}"></div>
+        </div>
+        <div class="zeile">
+            <div style="flex:2;min-width:220px"><label>Straße &amp; Hausnr.</label><input type="text" name="strasse" value="{{ adresse.strasse }}"></div>
+            <div style="flex:0 0 90px"><label>PLZ</label><input type="text" name="plz" value="{{ adresse.plz }}"></div>
+            <div style="flex:1;min-width:140px"><label>Ort</label><input type="text" name="ort" value="{{ adresse.ort }}"></div>
+        </div>
+        <div class="zeile">
+            <div style="flex:1;min-width:260px"><label>Verzicht auf Erstattung von Aufwendungen (gilt dann für ALLE Zeilen der Anlage – gemischte Fälle über Einzelbescheinigungen lösen)</label>
+                <select name="verzicht">
+                    <option value="nein" {{ 'selected' if not verzicht }}>Nein</option>
+                    <option value="ja" {{ 'selected' if verzicht }}>Ja</option>
+                </select></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+            <button class="btn sek" type="submit">Übernehmen</button>
+            <button class="btn" type="button" onclick="window.print()">🖨️ Drucken / Als PDF sichern</button>
+            <a class="btn sek" href="{{ url_for('spenden.index', jahr=jahr) }}">← Zurück</a>
+        </div>
+        {% if not einst.finanzamt or not einst.freistellung_datum or not einst.foerderzwecke %}
+        <p style="font-size:12px;color:#b45309;margin:8px 0 0">⚠️ Finanzamt, Freistellungsbescheid-Datum oder Förderzwecke fehlen –
+            bitte in den <a href="{{ url_for('einstellungen.index') }}">Einstellungen</a> ergänzen, damit die Bestätigung vollständig ist.</p>
+        {% endif %}
+    </form>
+</div>
+
+{# ======================= Amtliches Muster: Sammelbestätigung ======================= #}
+<div class="blatt">
+    <div class="aussteller-label">Aussteller (Bezeichnung und Anschrift der steuerbegünstigten Einrichtung)</div>
+    <div class="aussteller">
+        {{ einst.vereinsname }}{% if einst.strasse %}, {{ einst.strasse }}{% endif %}{% if einst.ort %}, {{ einst.plz }} {{ einst.ort }}{% endif %}
+    </div>
+
+    <h1>Sammelbestätigung über Geldzuwendungen</h1>
+    <div class="unter">im Sinne des § 10b des Einkommensteuergesetzes an eine der in § 5 Abs. 1 Nr. 9 des
+        Körperschaftsteuergesetzes bezeichneten Körperschaften, Personenvereinigungen oder Vermögensmassen</div>
+
+    <div class="kasten">
+        <div class="klein">Name und Anschrift des Zuwendenden:</div>
+        {{ adresse.name }}{% if adresse.strasse %}, {{ adresse.strasse }}{% endif %}{% if adresse.plz or adresse.ort %}, {{ adresse.plz }} {{ adresse.ort }}{% endif %}
+    </div>
+
+    <table class="betrag">
+        <tr><th>Gesamtbetrag der Zuwendungen – in Ziffern –</th><th>– in Buchstaben –</th><th>Zeitraum der Zuwendungen:</th></tr>
+        <tr>
+            <td>{{ summe | euro }}</td>
+            <td>– {{ betrag_worte }} –</td>
+            <td>01.01.{{ jahr }} – 31.12.{{ jahr }}</td>
+        </tr>
+    </table>
+
+    <div class="cb"><span class="kk">{{ '☒' if einst.freistellung_datum else '☐' }}</span>
+        <span>Wir sind wegen Förderung
+        <span class="luecke">{{ einst.foerderzwecke or '' }}</span>
+        nach dem Freistellungsbescheid bzw. nach der Anlage zum Körperschaftsteuerbescheid des Finanzamtes
+        <span class="luecke">{{ einst.finanzamt or '' }}</span>,
+        StNr. <span class="luecke">{{ einst.steuernummer or '' }}</span>,
+        vom <span class="luecke">{{ einst.freistellung_datum or '' }}</span>
+        für den letzten Veranlagungszeitraum <span class="luecke">{{ einst.freistellung_zeitraum or '' }}</span>
+        nach § 5 Abs. 1 Nr. 9 des Körperschaftsteuergesetzes von der Körperschaftsteuer und nach § 3 Nr. 6 des
+        Gewerbesteuergesetzes von der Gewerbesteuer befreit.</span></div>
+
+    <div class="cb"><span class="kk">☐</span>
+        <span>Die Einhaltung der satzungsmäßigen Voraussetzungen nach den §§ 51, 59, 60 und 61 AO wurde vom Finanzamt
+        <span class="luecke">{{ einst.finanzamt or '' }}</span>,
+        StNr. <span class="luecke">{{ einst.steuernummer or '' }}</span>,
+        mit Bescheid vom <span class="luecke"></span> nach § 60a AO gesondert festgestellt. Wir fördern nach unserer
+        Satzung <span class="luecke">{{ einst.foerderzwecke or '' }}</span>.</span></div>
+
+    <div class="feld" style="margin-top:14px">Es wird bestätigt, dass die Zuwendungen nur zur Förderung
+        <span class="luecke">{{ einst.foerderzwecke or '' }}</span> verwendet werden.</div>
+
+    <div class="feld">Es wird bestätigt, dass über die in der Gesamtsumme enthaltenen Zuwendungen keine weiteren
+        Bestätigungen, weder formelle Zuwendungsbestätigungen noch Beitragsquittungen oder Ähnliches, ausgestellt
+        wurden und werden.</div>
+
+    <div class="feld">Ob es sich um den Verzicht auf Erstattung von Aufwendungen handelt, ist der Anlage zu
+        entnehmen. Die Anlage (Einzelaufstellung) ist Bestandteil dieser Sammelbestätigung.</div>
+
+    <div class="unterschrift">
+        <div style="margin-bottom:38px">{{ einst.ort }}, den ____________________</div>
+        <div class="linie">(Ort, Datum und Unterschrift des Zuwendungsempfängers)</div>
+    </div>
+
+    <div class="hinweis" style="margin-top:20px">
+        <strong>Hinweis:</strong><br>
+        Wer vorsätzlich oder grob fahrlässig eine unrichtige Zuwendungsbestätigung erstellt oder veranlasst, dass
+        Zuwendungen nicht zu den in der Zuwendungsbestätigung angegebenen steuerbegünstigten Zwecken verwendet
+        werden, haftet für die entgangene Steuer (§ 10b Abs. 4 EStG, § 9 Abs. 3 KStG, § 9 Nr. 5 GewStG).<br><br>
+        Diese Bestätigung wird nicht als Nachweis für die steuerliche Berücksichtigung der Zuwendung anerkannt,
+        wenn das Datum des Freistellungsbescheides länger als 5 Jahre bzw. das Datum der Feststellung der Einhaltung
+        der satzungsmäßigen Voraussetzungen nach § 60a Abs. 1 AO länger als 3 Jahre seit Ausstellung des
+        Bescheides zurückliegt (§ 63 Abs. 5 AO).
+    </div>
+</div>
+
+{# ======================= Anlage: Einzelaufstellung ======================= #}
+<div class="blatt anlage">
+    <div class="aussteller-label">Anlage zur Sammelbestätigung vom ____________________</div>
+    <div class="aussteller">{{ einst.vereinsname }} – Einzelaufstellung der Zuwendungen {{ jahr }} von {{ adresse.name }}</div>
+
+    <table class="liste">
+        <thead><tr><th>Datum der Zuwendung</th><th>Art der Zuwendung</th>
+            <th>Verzicht auf Erstattung von Aufwendungen</th><th class="r">Betrag</th></tr></thead>
+        <tbody>
+        {% for z in zeilen %}
+        <tr>
+            <td>{{ z.datum | datum_de }}</td>
+            <td>Geldzuwendung{% if z.zweck %} <span style="color:#444">({{ z.zweck }})</span>{% endif %}</td>
+            <td>{{ 'ja' if verzicht else 'nein' }}</td>
+            <td class="r">{{ z.betrag | euro }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr><th colspan="3" style="text-align:right">Gesamtsumme</th><th class="r">{{ summe | euro }}</th></tr>
+        </tfoot>
+    </table>
+</div>
+</body>
+</html>

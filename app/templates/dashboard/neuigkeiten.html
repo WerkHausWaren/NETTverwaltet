@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Was ist neu{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>✨ Was ist neu?</h1>
+        <div class="sub">Was die Verwaltung und die Mitglieder-App dazugelernt haben – neueste zuerst</div></div>
+    <a href="{{ url_for('dashboard.index') }}" class="btn btn-sekundaer">← Zum Dashboard</a>
+</div>
+
+{% if eintraege %}
+{% for e in eintraege %}
+<div class="karte">
+    <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap">
+        <strong style="flex:1;min-width:0;font-size:15.5px">{{ e.titel }}</strong>
+        {% if vorher and e.datum > vorher %}
+        <span style="flex:none;background:var(--blau,#143a7c);color:#fff;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:800">NEU</span>
+        {% endif %}
+        {% if e.fuer == 'vorstand' %}
+        <span class="badge badge-gruppe" style="flex:none;font-size:11px" title="Diesen Eintrag sehen nur Vorstand und Öffentlichkeitsarbeit">Vorstand</span>
+        {% endif %}
+        <span class="feld-hinweis" style="flex:none">{{ e.datum | datum_de }}</span>
+    </div>
+    <p style="margin:6px 0 0">{{ e.text }}</p>
+    <form method="post" action="{{ url_for('dashboard.was_neu_informieren') }}" style="margin:8px 0 0"
+          onsubmit="return confirm('Push-Mitteilung zu diesem Eintrag an {{ 'Vorstand und Öffentlichkeitsarbeit' if e.fuer == 'vorstand' else 'alle' }} senden?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="datum" value="{{ e.datum }}">
+        <input type="hidden" name="titel" value="{{ e.titel }}">
+        <button class="btn btn-sekundaer btn-klein">📣 {{ 'Vorstand' if e.fuer == 'vorstand' else 'Mitglieder' }} informieren</button>
+    </form>
+</div>
+{% endfor %}
+{% else %}
+<div class="karte"><p class="feld-hinweis" style="margin:0">Noch keine Einträge.</p></div>
+{% endif %}
+{% endblock %}

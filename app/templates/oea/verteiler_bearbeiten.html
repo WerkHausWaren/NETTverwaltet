@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Presse-Kontakt bearbeiten{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>✏️ {{ k.name }}</h1><div class="sub">Presse-Kontakt bearbeiten</div></div>
+    <a href="{{ url_for('oea.verteiler') }}" class="btn btn-sekundaer">‹ Presseverteiler</a>
+</div>
+
+<form method="post" class="karte">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="feld-reihe">
+        <div class="feld"><label>Redaktion / Medium *</label>
+            <input type="text" name="name" required value="{{ k.name }}"></div>
+        <div class="feld"><label>Ansprechpartner:in</label>
+            <input type="text" name="ansprechpartner" value="{{ k.ansprechpartner }}"></div>
+    </div>
+    <div class="feld-reihe">
+        <div class="feld"><label>E-Mail</label>
+            <input type="email" name="email" value="{{ k.email }}"></div>
+        <div class="feld"><label>Telefon</label>
+            <input type="text" name="telefon" value="{{ k.telefon }}"></div>
+        <div class="feld"><label>Ort</label>
+            <input type="text" name="ort" value="{{ k.ort }}"></div>
+    </div>
+    <div class="feld"><label>Redaktionsschluss</label>
+        <input type="text" name="redaktionsschluss" value="{{ k.redaktionsschluss }}"
+               placeholder="z. B. 15. des Vormonats">
+        <div class="feld-hinweis">Steht hier ein Monatstag wie „am 15.", trägt die Automatik die Frist
+            jeden Monat als Erinnerung in den Redaktionsplan ein.</div></div>
+    <div class="feld"><label>Notizen</label>
+        <textarea name="notizen" rows="4">{{ k.notizen }}</textarea>
+        <div class="feld-hinweis">Einreichweg, Besonderheiten, Quelle der Angaben.</div></div>
+    <div class="feld"><label>🔐 Zugangsdaten für eigene Eintragungen</label>
+        <textarea name="logindaten" rows="4" autocomplete="off" spellcheck="false"
+                  placeholder="Portal: cmsweb.wittich.de&#10;Benutzer: verein@verein.example&#10;Passwort: …">{{ logindaten }}</textarea>
+        <div class="feld-hinweis">Für Medien mit eigenem Redaktionsportal (z. B. MeinWittich für die
+            Amtsblätter oder das Nordkurier-Lokalportal). Wird <strong>verschlüsselt</strong> gespeichert
+            und nur hier angezeigt – Feld leeren löscht die Zugangsdaten.</div></div>
+    <button class="btn">💾 Speichern</button>
+    <a href="{{ url_for('oea.verteiler') }}" class="btn btn-sekundaer">Abbrechen</a>
+</form>
+{% endblock %}

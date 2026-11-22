@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Rolle: {{ r.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Rolle: {{ r.name }}</h1><div class="sub">Aufgaben-Beschreibung und Unterlagen</div></div>
+    <a href="{{ url_for('schichten.rollen') }}" class="btn btn-sekundaer">← Zu den Rollen</a>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Beschreibung</h2>
+    {% if kommend %}
+    <p class="feld-hinweis" style="margin:0 0 10px">ℹ️ Diese Rolle steckt in <strong>{{ kommend }}</strong>
+        kommenden {{ 'Schicht' if kommend == 1 else 'Schichten' }}. Umbenennen ist unbedenklich –
+        die Schichten übernehmen den neuen Namen automatisch. Löschen ist erst möglich, wenn keine
+        kommende Schicht diese Rolle mehr nutzt.</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('schichten.rolle_speichern', rid=r.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld-reihe">
+            <div class="feld"><label>Name</label><input type="text" name="name" value="{{ r.name }}"></div>
+            <div class="feld"><label>Farbe</label><input type="color" name="farbe" value="{{ r.farbe }}" style="height:42px"></div>
+        </div>
+        <div class="feld"><label>Was ist zu tun?</label>
+            <textarea name="beschreibung" style="min-height:140px" placeholder="Schritt-für-Schritt, worauf zu achten ist …">{{ r.beschreibung or '' }}</textarea></div>
+        <button type="submit" class="btn">💾 Speichern</button>
+    </form>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Unterlagen</h2>
+    {% if medien %}
+    <table style="margin-bottom:16px">
+        <thead><tr><th>Art</th><th>Titel</th><th></th></tr></thead>
+        <tbody>
+        {% for m in medien %}
+        <tr>
+            <td>{{ '🎬 Video' if m.typ=='video' else '📄 Dokument' }}</td>
+            <td>
+                {% if m.typ=='video' %}<a href="{{ m.url|sichere_url }}" target="_blank" rel="noopener">{{ m.titel }} ↗</a>
+                {% else %}<a href="{{ url_for('schichten.medium_datei', mid=m.id) }}" target="_blank">{{ m.titel }}</a>{% endif %}
+            </td>
+            <td class="rechts">
+                <form method="post" action="{{ url_for('schichten.medium_loeschen', mid=m.id) }}" style="display:inline" onsubmit="return confirm('Entfernen?')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein">✕</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="feld-hinweis">Noch keine Unterlagen hinterlegt.</p>
+    {% endif %}
+
+    <div class="feld-reihe">
+        <div class="karte" style="margin:0">
+            <h3 style="margin-top:0">📄 Dokument hochladen</h3>
+            <form method="post" action="{{ url_for('schichten.rolle_medium', rid=r.id) }}" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="typ" value="dokument">
+                <div class="feld"><label>Titel (optional)</label><input type="text" name="titel"></div>
+                <div class="feld"><label>Datei (PDF, Bild, …)</label><input type="file" name="datei" required></div>
+                <button type="submit" class="btn btn-sekundaer">Hochladen</button>
+            </form>
+        </div>
+        <div class="karte" style="margin:0">
+            <h3 style="margin-top:0">🎬 Video-Link hinzufügen</h3>
+            <form method="post" action="{{ url_for('schichten.rolle_medium', rid=r.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="typ" value="video">
+                <div class="feld"><label>Titel</label><input type="text" name="titel" placeholder="z.B. Einweisung Projektor"></div>
+                <div class="feld"><label>Link (YouTube, Vimeo, …)</label><input type="text" name="url" placeholder="https://…" required></div>
+                <button type="submit" class="btn btn-sekundaer">Hinzufügen</button>
+            </form>
+        </div>
+    </div>
+    <div class="feld-hinweis" style="margin-top:10px">Dokumente werden {{ 'in OneDrive' if design and design.dok_speicherort=='onedrive' else 'lokal' }} gespeichert (wie unter Vereinsunterlagen eingestellt). Für große Videos empfiehlt sich ein Link.</div>
+</div>
+{% endblock %}

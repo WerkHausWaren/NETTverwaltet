@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Jubiläen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Jubiläen-Regeln</h1><div class="sub">Flexibel festlegen, welche Jubiläen im Dashboard erscheinen</div></div>
+    <a href="{{ url_for('dashboard.index') }}" class="btn btn-sekundaer">← Dashboard</a>
+</div>
+
+<div class="hilfe-box">
+    <strong>So funktioniert's:</strong> Jede Regel prüft für alle aktiven Mitglieder bestimmte Jahres-Meilensteine (nächstes Jahr):
+    <ul style="margin:8px 0 0 18px;padding:0">
+        <li><strong>Geburtstag</strong> – wichtige/runde Geburtstage, z.B. Jahre <code>50, 60, 70, 80</code>.</li>
+        <li><strong>Mitgliedschaft</strong> – Jahre seit Eintrittsdatum, z.B. <code>10, 25, 40</code>.</li>
+    </ul>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Neue Regel</h2>
+    <form method="post" action="{{ url_for('dashboard.jubilaeen') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld-reihe">
+            <div class="feld"><label>Bezeichnung</label><input type="text" name="name" placeholder="z.B. Jahre Mitgliedschaft" required></div>
+            <div class="feld"><label>Art</label>
+                <select name="typ">
+                    <option value="geburtstag">Geburtstag (Alter)</option>
+                    <option value="mitgliedschaft">Mitgliedschaft (seit Eintritt)</option>
+                </select>
+            </div>
+            <div class="feld"><label>Jahre (mit Komma)</label><input type="text" name="jahre" placeholder="z.B. 50,60,70,80" required></div>
+        </div>
+        <button type="submit" class="btn">＋ Regel anlegen</button>
+    </form>
+</div>
+
+{% if regeln %}
+<h2>Bestehende Regeln <span class="feld-hinweis">– direkt bearbeiten und speichern</span></h2>
+<table>
+    <thead><tr><th>Regel bearbeiten</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for r in regeln %}
+    <tr {{ 'style=opacity:0.55' if not r.aktiv }}>
+        <td>
+            <form method="post" action="{{ url_for('dashboard.jubilaeum_speichern', rid=r.id) }}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="name" value="{{ r.name }}" style="max-width:210px" title="Bezeichnung">
+                <select name="typ" style="width:auto">
+                    <option value="geburtstag" {{ 'selected' if r.typ=='geburtstag' }}>Geburtstag</option>
+                    <option value="mitgliedschaft" {{ 'selected' if r.typ=='mitgliedschaft' }}>Mitgliedschaft</option>
+                </select>
+                <input type="text" name="jahre" value="{{ r.jahre }}" style="max-width:170px" title="Jahre mit Komma">
+                <button type="submit" class="btn btn-klein">💾 Speichern</button>
+            </form>
+        </td>
+        <td>{{ 'aktiv' if r.aktiv else 'inaktiv' }}</td>
+        <td class="rechts">
+            <div class="aktionen" style="justify-content:flex-end">
+                <form method="post" action="{{ url_for('dashboard.jubilaeum_umschalten', rid=r.id) }}" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein">{{ 'deaktivieren' if r.aktiv else 'aktivieren' }}</button>
+                </form>
+                <form method="post" action="{{ url_for('dashboard.jubilaeum_loeschen', rid=r.id) }}" style="display:inline" onsubmit="return confirm('Regel löschen?')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein">✕</button>
+                </form>
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endblock %}

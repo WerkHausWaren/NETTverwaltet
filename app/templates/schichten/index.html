@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}Schichtplan{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Schichtplan</h1><div class="sub">Mitglieder für Veranstaltungen einteilen</div></div>
+    <div class="aktionen">
+        <a href="{{ url_for('schichten.rueckmeldungen') }}" class="btn btn-sekundaer">📝 Rückmeldungen{% if rueck_ungelesen %} <span style="background:var(--rot);color:var(--auf-primaer);border-radius:999px;padding:1px 8px;font-size:12px;margin-left:4px">{{ rueck_ungelesen }}</span>{% endif %}</a>
+        <a href="{{ url_for('schichten.rollen') }}" class="btn btn-sekundaer">🎭 Rollen verwalten</a>
+    </div>
+</div>
+
+<div class="karte">
+    {# Eingeklappt (06.11.): Der normale Weg führt über die Veranstaltung
+       (Termin bearbeiten → „Schichten & Helfer") – hier nur noch der Sonderfall. #}
+    <details>
+    <summary class="btn btn-sekundaer" style="list-style:none;cursor:pointer;display:inline-block">➕ Neue Schicht anlegen</summary>
+    <div class="feld-hinweis" style="margin:8px 0 4px">💡 Der übliche Weg: Schichten direkt an der
+        Veranstaltung anlegen und pflegen – Termin öffnen → <strong>Bearbeiten</strong> →
+        Abschnitt „🧑‍🤝‍🧑 Schichten &amp; Helfer". Dieses Formular ist für Schichten ohne
+        oder mit nachträglicher Termin-Verknüpfung gedacht.</div>
+    <form method="post" action="{{ url_for('schichten.neu') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% if termine %}
+        <div class="feld"><label>Veranstaltung verknüpfen (optional)</label>
+            <select name="termin_id" id="schicht-termin" onchange="terminZeit(this)">
+                <option value="">— ohne Veranstaltung —</option>
+                {% for t in termine %}<option value="{{ t.id }}" data-von="{{ t.uhrzeit or '' }}" data-bis="{{ t.uhrzeit_bis or '' }}">{{ t.datum | datum_wt }} · {{ t.titel }}</option>{% endfor %}
+            </select>
+            <div class="feld-hinweis">Titel, Datum und Ort werden dann automatisch übernommen (leere Felder unten genügen);
+                als Schichtzeit werden 15 Minuten vor Terminbeginn bis 15 Minuten nach Terminende vorgeschlagen.</div>
+        </div>
+        <script>
+        /* Zeit-Vorschlag beim Verknüpfen: Terminbeginn −15 bis Terminende +15 Minuten
+           (Tagesgrenzen geklemmt; ohne Endzeit bleibt das Bis-Feld leer). */
+        function terminZeit(sel) {
+            function min(z) { if (!z) { return null; } var p = z.split(':'); return (+p[0]) * 60 + (+p[1]); }
+            function fmt(m) {
+                m = Math.max(0, Math.min(1439, m));
+                return ('0' + Math.floor(m / 60)).slice(-2) + ':' + ('0' + (m % 60)).slice(-2);
+            }
+            var o = sel.options[sel.selectedIndex];
+            var von = min(o.getAttribute('data-von'));
+            var bis = min(o.getAttribute('data-bis'));
+            // Nur leere oder zuvor automatisch befüllte Felder anfassen –
+            // Handeingaben bleiben beim Termin-Wechsel stehen (Audit 06.11.)
+            function setz(feld, wert) {
+                if (!feld.value || feld.value === feld.dataset.auto) {
+                    feld.value = wert;
+                    feld.dataset.auto = wert;
+                }
+            }
+            setz(sel.form.zeit_von, von === null ? '' : fmt(von - 15));
+            setz(sel.form.zeit_bis, bis === null ? '' : fmt(bis + 15));
+        }
+        </script>
+        {% endif %}
+        <div class="feld"><label>Titel / Veranstaltung</label><input type="text" name="titel" placeholder="z.B. Kinoabend „Der Vorname"" {{ '' if termine else 'required' }}></div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Datum <span class="feld-hinweis">(Pflicht ohne verknüpfte Veranstaltung)</span></label><input type="date" name="datum"></div>
+            <div class="feld"><label>von *</label><input type="time" name="zeit_von" required title="Ab wann muss der Helfer da sein?"></div>
+            <div class="feld"><label>bis *</label><input type="time" name="zeit_bis" required title="Bis wann muss der Helfer bleiben?"></div>
+            <div class="feld"><label>Ort</label><input type="text" name="ort"></div>
+        </div>
+        <div class="feld-hinweis" style="margin-top:-4px">🕒 Beginn und Ende sind Pflicht – die Helfer sehen so genau, wann sie da sein und bis wann sie bleiben müssen.</div>
+        <div class="feld"><label>Notiz</label><input type="text" name="notiz"></div>
+        <button type="submit" class="btn">＋ Schicht anlegen</button>
+        <div class="feld-hinweis" style="margin-top:6px">Danach fügst du Positionen (Rollen) hinzu und ordnest Mitglieder zu.</div>
+    </form>
+    </details>
+</div>
+
+{% set status_text = {'gruen':'voll besetzt','gelb':'Tausch gesucht','rot':'unbesetzt','grau':'keine Positionen'} %}
+
+<div class="ampel-legende">
+    <span class="al-item"><span class="pkt gruen"></span> {{ zaehler.gruen }} voll besetzt</span>
+    <span class="al-item"><span class="pkt gelb"></span> {{ zaehler.gelb }} Tausch gesucht</span>
+    <span class="al-item"><span class="pkt rot"></span> {{ zaehler.rot }} unbesetzt</span>
+    <span style="flex:1"></span>
+    {# kat wandert mit – der Bedarfs-Umschalter soll den Kategorie-Filter nicht verwerfen (Audit) #}
+    {% if nur == 'bedarf' %}
+        <a href="{{ url_for('schichten.index', kat=kat or None) }}" class="btn btn-sekundaer btn-klein">Alle anzeigen</a>
+    {% else %}
+        <a href="{{ url_for('schichten.index', nur='bedarf', kat=kat or None) }}" class="btn btn-sekundaer btn-klein">🔴🟡 Nur Handlungsbedarf</a>
+    {% endif %}
+</div>
+
+{% if kat_vorhanden %}
+{# Kategorie-Filter im selben Stil wie bei den Terminen (kalender.index) #}
+<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+    <span class="feld-hinweis" style="margin-right:2px">Kategorie:</span>
+    <a href="{{ url_for('schichten.index', nur=nur or None) }}" class="badge {{ 'badge-aktiv' if not kat else 'badge-gruppe' }}" style="text-decoration:none">Alle</a>
+    {% for k in kat_vorhanden %}
+    <a href="{{ url_for('schichten.index', kat=k, nur=nur or None) }}" class="badge {{ 'badge-aktiv' if kat==k else 'badge-gruppe' }}" style="text-decoration:none">{{ k }}</a>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if schichten %}
+{# Such- und Filterleiste (Haus-Muster _tabellen_filter): Live-Suche über
+   Titel/Veranstaltung/Datum/Ort, Chips über data-tf der Zeilen, Blättern. #}
+{% set tf_ziel = '#schicht-tabelle' %}
+{% set tf_chips = [
+    {'label': '🔴🟡 Bedarf', 'wert': 'bedarf'},
+    {'label': '🔴 unbesetzt', 'wert': 'rot'},
+    {'label': '🟡 Tausch', 'wert': 'gelb'},
+    {'label': '🟢 voll besetzt', 'wert': 'gruen'},
+    {'label': '📆 kommend', 'wert': 'kommend'},
+    {'label': '🕰️ vergangen', 'wert': 'vergangen'},
+] %}
+{% set tf_seiten = [10, 25, 50] %}
+{% include '_tabellen_filter.html' %}
+<div class="tabellen-scroll">
+<table id="schicht-tabelle">
+    <thead><tr><th title="Nach Dringlichkeit sortieren">Status</th><th>Datum</th><th>Veranstaltung</th><th>Rollen</th><th>Zeit</th><th>Ort</th><th class="rechts">Besetzung</th></tr></thead>
+    <tbody>
+    {% for s in schichten %}
+    <tr onclick="window.location='{{ url_for('schichten.detail', sid=s.id) }}'" style="cursor:pointer"
+        data-tf="{{ s.status }}{{ ' bedarf' if s.status in ('rot', 'gelb') }} {{ 'kommend' if s.datum >= heute else 'vergangen' }}">
+        <td data-sort="{{ {'rot':0,'gelb':1,'gruen':2,'grau':3}[s.status] }}"><span class="pkt {{ s.status }}" title="{{ status_text[s.status] }}"></span></td>
+        <td data-sort="{{ s.datum }}">{{ s.datum | datum_wt }}</td>
+        <td data-sort="{{ s.titel|lower }}"><strong>{{ s.titel }}</strong>{% if s.termin_titel %}<br><span class="feld-hinweis">📅 {{ s.termin_titel }}</span>{% endif %}</td>
+        {% set s_rollen = rollen_map.get(s.id) %}
+        <td data-sort="{{ (s_rollen[0].name if s_rollen else '')|lower }}">
+            {% for r in s_rollen or [] %}<span class="badge" style="background:{{ r.farbe|hexfarbe('var(--gruppe-grund)') }};color:{{ r.farbe|kontrast if r.farbe else 'var(--gruppe-text)' }};margin:1px 2px 1px 0">{{ r.name }}{% if r.n > 1 %} ×{{ r.n }}{% endif %}</span>
+            {%- else %}<span class="feld-hinweis">–</span>{% endfor %}
+        </td>
+        <td data-sort="{{ s.zeit_von }}">{% if s.zeit_von and s.zeit_bis %}🕒 {{ s.zeit_von }}–{{ s.zeit_bis }} Uhr{% else %}<span style="color:var(--rot)" title="Bitte Schicht bearbeiten und Zeiten ergänzen">⚠️ Zeit fehlt</span>{% endif %}</td>
+        <td data-sort="{{ s.ort|lower }}">{{ s.ort }}</td>
+        <td class="rechts" data-sort="{{ (s.offen * 1000 + s.tausch) if s.slots else -1 }}">
+            {% if s.slots %}
+                <span class="ampel-zahlen"><span class="az gruen">{{ s.besetzt }} besetzt</span>{% if s.tausch %} · <span class="az gelb">{{ s.tausch }} Tausch</span>{% endif %}{% if s.offen %} · <span class="az rot">{{ s.offen }} offen</span>{% endif %}</span>
+            {% else %}<span class="feld-hinweis">keine Positionen</span>{% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<div class="karte leer"><div class="icon">{{ '✅' if nur == 'bedarf' else '🗓️' }}</div>
+    <p>{% if nur == 'bedarf' %}Kein Handlungsbedarf – alle Schichten sind besetzt! 🎉{% else %}Noch keine Schichten angelegt.{% endif %}</p></div>
+{% endif %}
+
+<style>
+    .pkt { display:inline-block; width:13px; height:13px; border-radius:50%; vertical-align:middle; }
+    .pkt.gruen { background:var(--gruen); } .pkt.gelb { background:var(--gelb); }
+    .pkt.rot { background:var(--rot); } .pkt.grau { background:var(--text-schwach); }
+    .ampel-legende { display:flex; align-items:center; gap:18px; flex-wrap:wrap; margin:2px 0 16px; font-size:13px; }
+    .ampel-legende .al-item { display:inline-flex; align-items:center; gap:7px; }
+    .ampel-zahlen { font-size:13px; white-space:nowrap; }
+    .az.gruen { color:var(--gruen); font-weight:600; } .az.gelb { color:var(--warn-text); font-weight:600; }
+    .az.rot { color:var(--rot); font-weight:700; }
+</style>
+{% endblock %}

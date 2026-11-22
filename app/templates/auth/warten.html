@@ -1,0 +1,57 @@
+{% extends "auth/_layout.html" %}
+{% block title %}Anmeldung läuft{% endblock %}
+{% block inhalt %}
+<div class="auth-logo">☁️</div>
+<h2 class="auth-titel">Anmeldung über das Vereins-Konto</h2>
+<ol style="margin:10px 0 4px;padding-left:22px;line-height:1.6">
+    <li>Unten auf <strong>„Bei Nextcloud anmelden"</strong> tippen.</li>
+    <li>Dort anmelden und <strong>„Zugriff gewähren"</strong> bestätigen.</li>
+    <li>Hierher zurückkehren – es geht automatisch weiter.</li>
+</ol>
+<p style="text-align:center;margin-top:16px">
+    {# BEWUSST dieselbe Adresse wie der Poll-Token (aus der Sitzung): Früher
+       holte dieser Knopf einen ZWEITEN Token – wer sich dann im automatisch
+       geöffneten Tab anmeldete, wartete hier ewig (Audit 07.11.). #}
+    <a class="btn" href="{{ login_url }}" target="_blank" rel="noopener" id="nclink">☁️ Bei Nextcloud anmelden</a>
+</p>
+<p class="feld-hinweis" id="status" style="text-align:center;margin-top:14px">⏳ Warte auf Bestätigung …</p>
+<p style="text-align:center;margin-top:14px">
+    <button type="button" class="btn btn-sekundaer" id="weiter">Ich habe mich angemeldet – weiter</button>
+</p>
+<p class="feld-hinweis" style="text-align:center;margin-top:10px">
+    Schon wieder hier, aber nichts passiert? Diese Seite darf neu geladen werden –
+    die Anmeldung geht nicht verloren. Bei einer Fehlermeldung:
+    <a href="{{ url_for('auth.login_nextcloud_neu') }}">Anmeldung frisch starten</a>.
+</p>
+
+<script>
+(function(){
+    var status = document.getElementById('status');
+    var fertig = false, laeuft = false;
+
+    function pruefe(){
+        if (fertig || laeuft) return;
+        laeuft = true;
+        fetch("{{ url_for('auth.login_nextcloud_status') }}", {headers:{'Accept':'application/json'}, cache:'no-store'})
+          .then(function(r){ return r.json(); })
+          .then(function(d){
+            laeuft = false;
+            if (d.status === "ok") { fertig = true; status.textContent = "✅ Geschafft – einen Moment …"; window.location = d.redirect; }
+            else if (d.status === "kein_zugang") { fertig = true;
+                status.textContent = "⛔ Dein Nextcloud-Konto hat keine Berechtigung für diese App."; }
+            else if (d.status === "fehler") { fertig = true;
+                status.textContent = "⚠️ " + (d.text || "Fehler.") +
+                    " Tippe unten auf „Anmeldung frisch starten“."; }
+          }).catch(function(){ laeuft = false; });
+    }
+
+    setInterval(pruefe, 2500);
+    // Zurück im Vordergrund (Handy!): sofort prüfen statt aufs Intervall warten
+    document.addEventListener("visibilitychange", function(){ if (!document.hidden) pruefe(); });
+    window.addEventListener("focus", pruefe);
+    window.addEventListener("pageshow", pruefe);
+    document.getElementById("weiter").addEventListener("click", pruefe);
+    pruefe();
+})();
+</script>
+{% endblock %}

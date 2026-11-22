@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Instagram-Kommentare{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>💬 Kommentar-Postfach</h1>
+        <div class="sub">Rückmeldungen zu euren Instagram-Beiträgen{% if ig_konto %} – @{{ ig_konto }}{% endif %}</div></div>
+    <div class="aktionen">
+        <form method="post" action="{{ url_for('oea.kommentare_holen') }}" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sekundaer">🔄 Jetzt abrufen</button>
+        </form>
+        <a href="{{ url_for('oea.plan') }}" class="btn btn-sekundaer">📋 Redaktionsplan</a>
+    </div>
+</div>
+
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+    <a href="{{ url_for('oea.kommentare') }}" class="btn btn-klein {{ '' if nur_offen else 'btn-sekundaer' }}">Offen ({{ offen }})</a>
+    <a href="{{ url_for('oea.kommentare', alle=1) }}" class="btn btn-klein {{ 'btn-sekundaer' if nur_offen }}">Alle</a>
+    <span class="feld-hinweis" style="margin-left:auto">Kommentare werden automatisch alle 6 Stunden geholt.</span>
+</div>
+
+{% if kommentare %}
+<div style="display:flex;flex-direction:column;gap:12px">
+    {% for k in kommentare %}
+    <div class="karte" style="padding:14px{{ ';opacity:.7' if k.erledigt }}">
+        <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap">
+            <strong>@{{ k.von or 'unbekannt' }}</strong>
+            <span class="feld-hinweis">{{ k.erstellt_am[:10] | datum_de }}{% if k.beitrag_titel %} · zu „{{ k.beitrag_titel }}"{% endif %}</span>
+            {% if k.beantwortet_am %}<span class="badge badge-bezahlt" style="margin-left:auto">✓ beantwortet</span>
+            {% elif k.erledigt %}<span class="badge badge-inaktiv" style="margin-left:auto">erledigt</span>{% endif %}
+        </div>
+        <p style="margin:8px 0 0;font-size:15px;line-height:1.6">{{ k.text }}</p>
+
+        {% if k.antwort_text %}
+        <div style="margin-top:10px;padding:10px 12px;background:var(--flaeche-2);border-radius:10px">
+            <div class="feld-hinweis">Eure Antwort vom {{ k.beantwortet_am[:10] | datum_de }}</div>
+            <div style="font-size:14.5px">{{ k.antwort_text }}</div>
+        </div>
+        {% elif not k.erledigt %}
+        <form method="post" action="{{ url_for('oea.kommentar_antwort', kid=k.id) }}" style="margin-top:10px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <textarea name="antwort" rows="2" placeholder="Antwort schreiben – erscheint öffentlich unter dem Kommentar"></textarea>
+            <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+                <button class="btn btn-klein">💬 Antworten</button>
+                <button class="btn btn-sekundaer btn-klein" name="aktion" value="erledigt"
+                        formnovalidate>✓ Ohne Antwort erledigen</button>
+            </div>
+        </form>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="karte leer"><div class="icon">💬</div>
+    <p>{% if nur_offen %}Keine offenen Kommentare – alles beantwortet. 🎉{% else %}Noch keine Kommentare.
+        Sie erscheinen hier, sobald ihr einen Beitrag über die App auf Instagram veröffentlicht habt.{% endif %}</p></div>
+{% endif %}
+{% endblock %}

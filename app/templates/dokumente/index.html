@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Dokumente{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Dokumente & Berichte</h1><div class="sub">Listen, Serienbriefe und Etiketten erstellen</div></div>
+</div>
+
+<div class="karte" style="padding:14px;margin-bottom:14px;
+     border-left:4px solid {{ 'var(--gelb)' if fehlend else 'var(--gruen)' }}">
+    <strong>Auf allen Listen stehen {{ anzahl }} von {{ alle }} Personen.</strong>
+    {% if zaehlende %}
+        Gezählt werden die Gruppen <strong>{{ zaehlende | join(' und ') }}</strong>.
+    {% else %}
+        Es wurde keine Auswahl getroffen – daher erscheinen alle Personen.
+    {% endif %}
+    {% if fehlend %}
+    <details style="margin-top:8px">
+        <summary class="feld-hinweis" style="cursor:pointer">
+            {{ fehlend | length }} Person{{ 'en' if fehlend | length != 1 }} steht nicht auf den Listen – anzeigen</summary>
+        <ul style="margin:8px 0 0;padding-left:20px;line-height:1.8">
+            {% for f in fehlend %}
+            <li>{{ f.vorname }} {{ f.nachname }}
+                <span class="feld-hinweis">— {{ f.gruppen or 'in keiner Gruppe' }}</span></li>
+            {% endfor %}
+        </ul>
+        <p class="feld-hinweis" style="margin:8px 0 0">Fehlt hier jemand, der eigentlich Mitglied ist?
+            Dann gehört die Person in eine der zählenden Gruppen – zu ändern unter
+            <a href="{{ url_for('mitglieder.liste') }}">Mitglieder</a> oder
+            <a href="{{ url_for('einstellungen.index') }}">Einstellungen → Gruppen &amp; Zählung</a>.</p>
+    </details>
+    {% endif %}
+</div>
+
+<div class="hilfe-box">
+    <strong>Als PDF speichern:</strong> Jede Ausgabe öffnet eine druckfertige Seite.
+    Über <em>Datei → Drucken</em> (⌘P) und dann <em>„Als PDF sichern“</em> erhältst du ein PDF – ganz ohne Zusatzsoftware.
+</div>
+
+<div class="karten-reihe" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">
+    <div class="karte">
+        <h2 style="margin-top:0">📋 Mitgliederliste</h2>
+        <p class="feld-hinweis">Übersichtliche, druckbare Liste aller Mitglieder mit Kontaktdaten.</p>
+        <a href="{{ url_for('dokumente.mitgliederliste') }}" target="_blank" class="btn">Öffnen</a>
+    </div>
+    <div class="karte">
+        <h2 style="margin-top:0">📝 Teilnehmendenliste</h2>
+        <p class="feld-hinweis">Anwesenheitsliste für Versammlungen – mit Datum, Thema, Ort und Unterschriftenfeld.</p>
+        <form action="{{ url_for('dokumente.teilnehmerliste') }}" method="get" target="_blank" style="display:flex;flex-direction:column;gap:6px">
+            <input type="text" name="thema" placeholder="Anlass / Thema (z. B. Mitgliederversammlung 2026)">
+            <div style="display:flex;gap:6px">
+                <input type="date" name="datum" style="flex:1">
+                <input type="text" name="ort" placeholder="Ort" style="flex:1">
+            </div>
+            <button type="submit" class="btn">Öffnen</button>
+        </form>
+    </div>
+    <div class="karte">
+        <h2 style="margin-top:0">✉️ Serienbrief</h2>
+        <p class="feld-hinweis">Persönlich adressierte Briefe mit Platzhaltern – ideal für Einladungen oder Bescheide.</p>
+        <a href="{{ url_for('dokumente.serienbrief') }}" class="btn">Erstellen</a>
+    </div>
+    <div class="karte">
+        <h2 style="margin-top:0">🏷️ Adressetiketten</h2>
+        <p class="feld-hinweis">Adressaufkleber im Raster (3 Spalten), passend für Standard-Etikettenbögen.</p>
+        <a href="{{ url_for('dokumente.etiketten') }}" target="_blank" class="btn">Öffnen</a>
+    </div>
+    <div class="karte">
+        <h2 style="margin-top:0">💳 Mitgliederausweise</h2>
+        <p class="feld-hinweis">Ausweise in Chipkartengröße (85,6 × 54 mm) mit Logo, Vereinsfarbe und QR-Code – mehrere je Seite.</p>
+        <a href="{{ url_for('dokumente.ausweise') }}" target="_blank" class="btn">Öffnen</a>
+    </div>
+    {% if design and design.modul_veranstaltungen %}
+    <div class="karte">
+        <h2 style="margin-top:0">🎟️ Veranstaltungs-Vorlagen & Voucher</h2>
+        <p class="feld-hinweis">E-Mail-Texte für Teilnehmende (Bestätigung, Erinnerung, Absage …) und die
+            Textbausteine der Eintrittskarte bearbeiten.</p>
+        <a href="{{ url_for('kommunikation.vorlagen_veranstaltungen') }}" class="btn">Bearbeiten</a>
+    </div>
+    {% endif %}
+    <div class="karte">
+        <h2 style="margin-top:0">🎨 Canva-Verknüpfung</h2>
+        <p class="feld-hinweis">Flyer, Plakate und Newsletter gestalten. Öffnet Canva im Browser.</p>
+        <a href="https://www.canva.com/" target="_blank" rel="noopener" class="btn btn-sekundaer">Canva öffnen ↗</a>
+    </div>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Filter für Listen & Etiketten</h2>
+    <p class="feld-hinweis">Du kannst Mitgliederliste und Etiketten auf eine Gruppe einschränken:</p>
+    <div class="tag-auswahl">
+        <a href="{{ url_for('dokumente.mitgliederliste') }}" target="_blank" class="badge badge-gruppe">Liste: Alle</a>
+        {% for g in gruppen %}
+        <a href="{{ url_for('dokumente.mitgliederliste', gruppe=g.id) }}" target="_blank" class="badge badge-gruppe">Liste: {{ g.name }}</a>
+        {% endfor %}
+    </div>
+    <div class="tag-auswahl" style="margin-top:8px">
+        <a href="{{ url_for('dokumente.ausweise') }}" target="_blank" class="badge badge-gruppe">Ausweise: Alle</a>
+        {% for g in gruppen %}
+        <a href="{{ url_for('dokumente.ausweise', gruppe=g.id) }}" target="_blank" class="badge badge-gruppe">Ausweise: {{ g.name }}</a>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

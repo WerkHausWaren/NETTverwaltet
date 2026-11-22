@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Ankündigungen zum Ausdrucken{% endblock %}
+{% block content %}
+
+<div class="nicht-drucken">
+    <p><a href="{{ url_for('lastschrift.detail', lid=lauf.id) }}" class="feld-hinweis">‹ Zurück zum Lauf</a></p>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+        <h1 style="margin:0">🖨️ Ankündigungen zum Ausdrucken</h1>
+        <button class="btn" onclick="window.print()">Drucken</button>
+    </div>
+    {% if zeilen %}
+    <p class="feld-hinweis">Diese {{ zeilen | length }} Person(en) haben keine E-Mail-Adresse
+        hinterlegt. Drucke die Zettel aus und gib sie weiter oder schick sie per Post – jede Seite
+        enthält alles, was zur Ankündigung gehört.</p>
+    {% endif %}
+</div>
+
+{% if not zeilen %}
+<div class="karte nicht-drucken">
+    <p style="margin:0">🎉 Alle Betroffenen haben eine E-Mail-Adresse – hier gibt es nichts zu drucken.</p>
+</div>
+{% endif %}
+
+{% for z in zeilen %}
+<div class="druckseite">
+    <div style="font-weight:700;font-size:17px">{{ einst.vereinsname }}</div>
+    {% if einst.strasse %}<div style="font-size:13px;color:#555">{{ einst.strasse }},
+        {{ einst.plz }} {{ einst.ort }}</div>{% endif %}
+
+    <div style="margin:26px 0 18px">
+        {% if z.m %}
+        <div>{{ z.m.vorname }} {{ z.m.nachname }}</div>
+        {% if z.m.strasse %}<div>{{ z.m.strasse }}</div>{% endif %}
+        {% if z.m.plz or z.m.ort %}<div>{{ z.m.plz }} {{ z.m.ort }}</div>{% endif %}
+        {% else %}
+        <div>{{ z.posten.name }}</div>
+        {% endif %}
+    </div>
+
+    <h2 style="font-size:16px;margin:18px 0 10px">Ankündigung eines Lastschrifteinzugs</h2>
+
+    <p>wir kündigen hiermit an, dass wir den folgenden Betrag wie vereinbart per Lastschrift
+        vom Konto einziehen. Es ist nichts zu tun – bitte nur dafür sorgen, dass das Konto
+        zum genannten Termin gedeckt ist.</p>
+
+    <table style="border-collapse:collapse;margin:16px 0">
+        <tr><td style="padding:5px 14px 5px 0;color:#555">Betrag</td>
+            <td style="padding:5px 0"><strong>{{ z.posten.betrag | euro }}</strong></td></tr>
+        <tr><td style="padding:5px 14px 5px 0;color:#555">Einzug am</td>
+            <td style="padding:5px 0"><strong>{{ lauf.faellig_am | datum_de }}</strong></td></tr>
+        <tr><td style="padding:5px 14px 5px 0;color:#555">Verwendungszweck</td>
+            <td style="padding:5px 0">{{ z.posten.verwendungszweck or 'Mitgliedsbeitrag' }}</td></tr>
+        <tr><td style="padding:5px 14px 5px 0;color:#555">Mandatsreferenz</td>
+            <td style="padding:5px 0">{{ z.posten.mandatsreferenz or '–' }}</td></tr>
+        <tr><td style="padding:5px 14px 5px 0;color:#555">Gläubiger-Identifikationsnummer</td>
+            <td style="padding:5px 0">{{ einst.glaeubiger_id or '–' }}</td></tr>
+    </table>
+
+    <p style="font-size:12px;color:#555">Der Einzug erfolgt frühestens am genannten Tag; je nach
+        Bank kann die Buchung ein bis zwei Tage später erscheinen. Der Abbuchung kann innerhalb
+        von acht Wochen ab Belastung ohne Angabe von Gründen widersprochen werden – dafür bitte
+        an die eigene Bank wenden.</p>
+
+    <p style="margin-top:20px">Mit freundlichen Grüßen<br>{{ einst.vereinsname }}</p>
+</div>
+{% endfor %}
+
+<style>
+    .druckseite { padding:24px 0; border-bottom:1px dashed #bbb; }
+    .druckseite:last-child { border-bottom:none; }
+    @media print {
+        .nicht-drucken, nav, header, footer, .sidebar { display:none !important; }
+        .druckseite { page-break-after:always; border:none; padding:0; }
+        body { background:#fff; color:#000; }
+    }
+</style>
+
+{% endblock %}

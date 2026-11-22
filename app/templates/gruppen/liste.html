@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Gruppen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Gruppen & Verteiler</h1><div class="sub">Mitglieder in Gruppen organisieren – für Rundmails, Zählung und die
+        Reihenfolge in der Mitglieder-App (kleiner Rang = weiter oben, z. B. Vorstand 10, Mitglieder 20, Fördermitglieder 30).
+        Wer als Mitglied zählt und wer Schichten übernehmen darf, stellst du unter
+        <a href="{{ url_for('einstellungen.index') }}">Einstellungen → Gruppen &amp; Zählung</a> ein.</div></div>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Neue Gruppe</h2>
+    <form method="post" action="{{ url_for('gruppen.neu') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld-reihe">
+            <div class="feld"><label>Name</label><input type="text" name="name" placeholder="z.B. Vorstand" required></div>
+            <div class="feld"><label>Beschreibung (optional)</label><input type="text" name="beschreibung"></div>
+        </div>
+        <button type="submit" class="btn">＋ Gruppe anlegen</button>
+    </form>
+</div>
+
+{% if gruppen %}
+<table>
+    <thead><tr><th>Gruppe</th><th>Beschreibung</th><th>Rang</th><th class="rechts">Mitglieder</th><th></th></tr></thead>
+    <tbody>
+    {% for g in gruppen %}
+        <tr>
+            <td><strong>{{ g.name }}</strong></td>
+            <td>{{ g.beschreibung }}</td>
+            <td>
+                <form method="post" action="{{ url_for('gruppen.speichern', gid=g.id) }}" style="display:flex;gap:6px;align-items:center">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="number" name="rang" value="{{ g.rang if g.rang is not none else 50 }}" min="0" max="999" style="width:74px;padding:6px 8px">
+                    <button class="btn btn-sekundaer btn-klein" type="submit">✓</button>
+                </form>
+            </td>
+            <td class="rechts"><a href="{{ url_for('mitglieder.liste', gruppe=g.id) }}">{{ g.anzahl }}</a></td>
+            <td class="rechts">
+                <form method="post" action="{{ url_for('gruppen.loeschen', gid=g.id) }}"
+                      onsubmit="return confirm('Gruppe „{{ g.name }}“ löschen? Die Mitglieder bleiben erhalten.')" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein" type="submit">Löschen</button>
+                </form>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="karte leer"><div class="icon">🏷️</div><p>Noch keine Gruppen angelegt.</p></div>
+{% endif %}
+{% endblock %}

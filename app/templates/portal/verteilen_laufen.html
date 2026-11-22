@@ -1,0 +1,85 @@
+<!doctype html>
+{# Lauf-Ansicht einer Route: Vollbild-Karte ohne App-Leiste (Vorbild: Einlass).
+   Farben aus style.css + Aussehen der App, also hell/dunkel wie eingestellt. #}
+<html lang="de" data-modus="{{ aussehen_app_modus }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<meta name="color-scheme" content="light dark">
+<title>{{ {"runde": "Plakat-Runde", "zustellen": "Zustellen"}.get(ansicht, "Route laufen") }} – {{ a.titel }}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<style>:root { --mp: var(--blau); }</style>
+<style>{{ aussehen_app_css | safe }}</style>
+{% include "portal/_verteilen_stil.html" %}
+<style>
+    html, body { height: 100%; margin: 0; overscroll-behavior: none; }
+    body { background: var(--grund); color: var(--text); }
+    .mp-btn { display: block; box-sizing: border-box; text-align: center; background: var(--mp); color: var(--auf-primaer);
+              border: none; border-radius: calc(var(--radius) * 1.2); padding: 13px; font-size: 16px; font-weight: 600;
+              text-decoration: none; cursor: pointer; font-family: inherit; }
+    #vt-karte { position: fixed; inset: 0; z-index: 0; height: auto; min-height: 0; border: 0; border-radius: 0; }
+    .vt-oben { position: fixed; z-index: 10; top: calc(10px + env(safe-area-inset-top)); left: 10px; right: 10px;
+               display: flex; gap: 8px; }
+    .vt-oben .mp-btn { width: auto; padding: 9px 12px; font-size: 14px; white-space: nowrap; box-shadow: var(--schatten-hoch); }
+    @media (max-width: 360px) { .vt-oben { gap: 6px; } .vt-oben .mp-btn { padding: 8px 9px; font-size: 13px; } }
+    .vt-oben .rechts { margin-left: auto; }
+    .leaflet-bottom.leaflet-right { bottom: auto; top: calc(62px + env(safe-area-inset-top)); }
+    #vt-panel { position: fixed; z-index: 10; left: 0; right: 0; bottom: 0; max-width: 640px; margin: 0 auto;
+                background: var(--flaeche); color: var(--text); border-radius: 20px 20px 0 0;
+                padding: 14px 16px calc(16px + env(safe-area-inset-bottom)); box-shadow: 0 -4px 22px rgba(0,0,0,.18);
+                box-sizing: border-box; }
+    #vt-panel .vt-reihe .mp-btn { padding: 14px 12px; font-size: 16px; }
+    .vt-zeile-klein { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-hell); }
+    .vt-wo { font-size: 13px; color: var(--text-hell); margin-top: 6px; }
+    .vt-strasse { font-size: 24px; font-weight: 800; line-height: 1.15; margin: 2px 0; text-wrap: balance; }
+    #vt-lauf-liste { position: fixed; z-index: 20; left: 0; right: 0; bottom: 0; top: calc(64px + env(safe-area-inset-top));
+                     max-width: 640px; margin: 0 auto; background: var(--flaeche); border-radius: 20px 20px 0 0;
+                     box-shadow: 0 -4px 22px rgba(0,0,0,.25); display: flex; flex-direction: column; }
+    #vt-lauf-liste[hidden] { display: none; }
+    .vt-lauf-kopf { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--linie); }
+    .vt-lauf-inhalt { overflow-y: auto; padding: 4px 16px calc(16px + env(safe-area-inset-bottom)); flex: 1; }
+    .vt-lauf-zeile { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--linie); }
+    .vt-haken { width: 36px; height: 36px; flex: none; border-radius: 50%; border: 2px solid var(--linie-stark);
+                background: var(--flaeche); color: #fff; font-size: 18px; font-weight: 800; cursor: pointer; }
+    .vt-haken.an { background: var(--gruen); border-color: var(--gruen); }
+    .vt-haken:disabled { opacity: .4; cursor: default; }
+    #vt-toast { bottom: calc(210px + env(safe-area-inset-bottom)); }
+</style>
+</head>
+<body>
+<div id="vt" data-ansicht="{{ ansicht }}"
+     data-api="{{ url_for('portal.verteilen_state', aid=a.id)[:-6] }}"
+     data-liste="{{ url_for('portal.verteilen_aktion', aid=a.id) }}"
+     data-laufen="{{ url_for('portal.verteilen_laufen', aid=a.id) }}"
+     data-runde="{{ url_for('portal.verteilen_runde', aid=a.id) if a.mit_plakaten else '' }}"
+     data-zustellen="{{ url_for('portal.verteilen_zustellen', aid=a.id) if a.mit_zustellungen else '' }}"
+     data-foto="{{ url_for('portal.verteilen_foto', fid=0) }}"
+     data-flyerbild="{{ url_for('portal.verteilen_flyer_bild', mid=0) }}">
+    <div id="vt-karte" role="region" aria-label="Karte deiner Route"></div>
+    <div class="vt-oben">
+        <a class="mp-btn sekundaer" href="{{ url_for('portal.verteilen_aktion', aid=a.id) }}{{ {'runde': '#plakate', 'zustellen': '#zustellen'}.get(ansicht, '') }}">‹ Zurück</a>
+        <button type="button" class="mp-btn sekundaer" data-tun="liste">📋 {{ {'runde': 'Plakate', 'zustellen': 'Anschriften'}.get(ansicht, 'Stopps') }}</button>
+        <button type="button" class="mp-btn" data-tun="folgen" title="Karte folgt deinem Standort" aria-label="Karte folgt deinem Standort">🎯</button>
+        {% if ansicht == 'runde' %}
+        <button type="button" class="mp-btn sekundaer rechts" data-tun="r-neu">🔁 Neu</button>
+        {% elif ansicht == 'zustellen' %}
+        <a class="mp-btn sekundaer rechts" href="{{ url_for('portal.verteilen_aktion', aid=a.id) }}#zustellen">✓ Fertig</a>
+        {% else %}
+        <button type="button" class="mp-btn sekundaer rechts" data-tun="beenden">⏹ Beenden</button>
+        {% endif %}
+    </div>
+    <div id="vt-panel" aria-live="polite">Lade …</div>
+    <div id="vt-lauf-liste" hidden>
+        <div class="vt-lauf-kopf">
+            <b style="flex:1">📋 {{ {'runde': 'Plakate dieser Runde', 'zustellen': 'Deine Zustellungen'}.get(ansicht, 'Deine Route') }}</b>
+            {% if ansicht == 'laufen' %}<button type="button" class="mp-btn sekundaer" style="padding:8px 12px;font-size:14px" data-tun="dazu">➕ Straße dazu</button>{% endif %}
+            <button type="button" class="mp-btn sekundaer" style="padding:8px 12px;font-size:14px" data-tun="liste" aria-label="Liste schließen">✕</button>
+        </div>
+        <div class="vt-lauf-inhalt"></div>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='leaflet/leaflet.js') }}"></script>
+<script src="{{ url_for('static', filename='verteilen.js') }}"></script>
+</body>
+</html>

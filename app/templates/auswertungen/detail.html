@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{{ titel }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>{{ titel }}</h1><div class="sub">Detailansicht aus den Auswertungen</div></div>
+    <a href="{{ url_for('auswertungen.index') }}" class="btn btn-sekundaer">← Zurück zu den Auswertungen</a>
+</div>
+
+{% if mitglieder %}
+<p class="feld-hinweis">{{ mitglieder|length }} Mitglied(er)</p>
+<table>
+    <thead><tr><th>Name</th><th>Ort</th><th>Status</th><th>E-Mail</th><th class="rechts">Beitrag</th></tr></thead>
+    <tbody>
+    {% for m in mitglieder %}
+    <tr onclick="window.location='{{ url_for('mitglieder.detail', mid=m.id) }}'" style="cursor:pointer">
+        <td><strong>{{ m.vorname }} {{ m.nachname }}</strong>{% if m.firma %}<br><span class="feld-hinweis">{{ m.firma }}</span>{% endif %}</td>
+        <td>{{ m.plz }} {{ m.ort }}</td>
+        <td><span class="badge badge-{{ m.status|lower|replace('ä','ae') }}">{{ m.status }}</span></td>
+        <td>{{ m.email }}</td>
+        <td class="rechts">{{ m.beitrag | euro }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% elif buchungen %}
+<p class="feld-hinweis">{{ buchungen|length }} Spende(n) · Summe {{ (buchungen | sum(attribute='betrag')) | euro }}</p>
+<table>
+    <thead><tr><th>Datum</th><th>Spender:in</th><th>Beschreibung</th><th class="rechts">Betrag</th></tr></thead>
+    <tbody>
+    {% for b in buchungen %}
+    <tr>
+        <td>{{ b.datum | datum_de }}</td>
+        <td>{{ b.vorname }} {{ b.nachname }}</td>
+        <td>{{ b.beschreibung }}</td>
+        <td class="rechts">{{ b.betrag | euro }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="karte leer"><div class="icon">🔍</div><p>Keine Datensätze in dieser Auswahl.</p></div>
+{% endif %}
+{% endblock %}

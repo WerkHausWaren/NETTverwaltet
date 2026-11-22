@@ -1,0 +1,21 @@
+{% extends "auth/_layout.html" %}
+{% block title %}{{ t('aktuell_danke') if gueltig else t('aktuell_ungueltig') }}{% endblock %}
+{% block inhalt %}
+{% if sprachen_an %}
+<div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+    <select aria-label="{{ t('sprache') }}" onchange="window.location='/sprache/'+this.value"
+            style="border:1px solid var(--linie);border-radius:999px;padding:5px 8px;font-size:13px;background:var(--flaeche);color:var(--text)">
+        {% for code, name in sprachen_liste() %}
+        <option value="{{ code }}" {{ 'selected' if code == sprache_aktuell() }}>{{ name }}</option>
+        {% endfor %}
+    </select>
+</div>
+{% endif %}
+{% if gueltig %}
+<div class="auth-logo">✅</div>
+<h1 class="auth-titel">{{ t('aktuell_danke') }}</h1>
+{% else %}
+<div class="auth-logo">🤔</div>
+<h1 class="auth-titel">{{ t('aktuell_ungueltig') }}</h1>
+{% endif %}
+{% endblock %}

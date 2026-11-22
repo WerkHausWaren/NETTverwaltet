@@ -1,0 +1,55 @@
+{% extends "portal/_layout.html" %}
+{% block title %}{{ mg.vorname }} {{ mg.nachname }}{% endblock %}
+{% block inhalt %}
+<div class="mp-schmal">
+<p style="margin:14px 0 0"><a href="{{ url_for('portal.chat') }}" style="text-decoration:none;color:var(--mp);font-weight:600">‹ Mitglieder</a></p>
+
+<div class="mp-karte" style="text-align:center">
+    <div class="k-avatar">
+        {% if mg.avatar_dateiname %}<img src="{{ url_for('portal.avatar', mid=mg.id) }}?v={{ mg.avatar_dateiname }}" alt="">
+        {% else %}<span>{{ (mg.vorname or ' ')[:1] }}{{ (mg.nachname or ' ')[:1] }}</span>{% endif %}
+    </div>
+    <h2 style="margin:12px 0 2px;font-size:20px">{{ mg.vorname }} {{ mg.nachname }}</h2>
+    {% if mg.ort %}<div class="feld-hinweis">📍 {{ mg.ort }}</div>{% endif %}
+    {% if design and design.sprachen_labels and mg.sprachen %}
+    <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:8px">
+        {% for s in mg.sprachen.split(',') if s.strip() %}
+        <span style="background:var(--flaeche-3);border:1px solid var(--linie);border-radius:999px;padding:2px 10px;font-size:12px">🌐 {{ s.strip() }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {# Angezeigt werden nur freigegebene Wege; ohne Auswahl gelten die Standardwege #}
+    <div style="display:flex;flex-direction:column;gap:9px;margin-top:16px;text-align:left">
+        {% if darf_kontakt and mg.email and (not wege or 'E-Mail' in wege) %}
+        <a class="kontakt-btn" href="mailto:{{ mg.email }}">✉️ <span>E-Mail schreiben</span></a>
+        {% endif %}
+        {% if darf_kontakt and (mg.mobil or mg.telefon) and (not wege or 'Telefon' in wege) %}
+        <a class="kontakt-btn" href="tel:{{ (mg.mobil or mg.telefon)|replace(' ','') }}">📞 <span>Anrufen</span></a>
+        {% endif %}
+        {% if darf_kontakt and mg.mobil and (not wege or 'WhatsApp' in wege) %}
+        <a class="kontakt-btn wa" href="https://wa.me/{{ mg.mobil|wa_nummer }}" target="_blank" rel="noopener">💚 <span>WhatsApp</span></a>
+        {% endif %}
+        {% if darf_kontakt and mg.mobil and 'Signal' in wege %}
+        <a class="kontakt-btn si" href="https://signal.me/#p/+{{ mg.mobil|wa_nummer }}" target="_blank" rel="noopener">💙 <span>Signal</span></a>
+        {% endif %}
+    </div>
+
+    {% if not darf_kontakt %}
+    <p class="feld-hinweis" style="margin-top:14px">Dieses Mitglied hat keine Kontaktmöglichkeit freigegeben.</p>
+    {% elif not (mg.email or mg.mobil or mg.telefon) %}
+    <p class="feld-hinweis" style="margin-top:14px">Für dieses Mitglied sind keine Kontaktdaten hinterlegt.</p>
+    {% endif %}
+</div>
+
+<style>
+    .k-avatar { width:96px; height:96px; border-radius:50%; overflow:hidden; margin:0 auto; background:var(--mp);
+                color:var(--auf-primaer); display:grid; place-items:center; font-size:34px; font-weight:800; text-transform:uppercase; }
+    .k-avatar img { width:100%; height:100%; object-fit:cover; }
+    .kontakt-btn { display:flex; align-items:center; gap:12px; background:var(--flaeche-3); border:1px solid var(--linie);
+                   border-radius:12px; padding:13px 16px; text-decoration:none; color:var(--mp); font-weight:600; font-size:15px; }
+    .kontakt-btn.wa { color:var(--gut-text); }
+    .kontakt-btn.si { color:var(--info-text); }
+</style>
+</div>
+{% endblock %}

@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Rechnungen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🧾 Rechnungen</h1><div class="sub">Rechnungen schreiben, versenden und den Zahlungseingang verfolgen</div></div>
+    <div class="aktionen">
+        <a href="{{ url_for('rechnungen.neu') }}" class="btn">＋ Neue Rechnung</a>
+    </div>
+</div>
+
+<div class="hilfe-box" style="margin-bottom:14px">💡 <strong>So funktioniert's:</strong> Rechnung anlegen → drucken oder
+    per E-Mail senden (die Empfänger:in bekommt einen Link mit Druckansicht und den Zahlungsdaten) → der Zahlungseingang
+    wird beim <a href="{{ url_for('bank.index') }}">Bankabruf</a> über den Zahlcode <strong>automatisch erkannt</strong>
+    und die Rechnung auf „bezahlt" gesetzt. Bezahlte Rechnungen sind unveränderlich – Korrekturen laufen über Storno.</div>
+
+<details class="karte" style="margin-bottom:14px"{{ ' open' if ueberfaellig_n and not mahn_auto }}>
+    <summary style="cursor:pointer;font-weight:600">⏰ Mahnautomatik –
+        {{ 'eingeschaltet' if mahn_auto else 'ausgeschaltet' }}</summary>
+    <p class="feld-hinweis" style="margin:8px 0">Ist sie eingeschaltet, verschickt der Server überfällige
+        Rechnungen automatisch in drei Stufen. Nach der 2. Mahnung passiert nichts mehr von selbst –
+        wie es weitergeht, entscheidet ihr bewusst. Rechnungen ohne E-Mail-Adresse werden übersprungen
+        (ihr bekommt eine Push-Nachricht dazu).</p>
+    <form method="post" action="{{ url_for('rechnungen.mahnautomatik') }}"
+          style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+            <input type="checkbox" name="mahn_auto" style="width:auto" {{ 'checked' if mahn_auto }}>
+            automatisch mahnen</label>
+        <div class="feld" style="margin:0"><label>Erinnerung nach</label>
+            <input type="number" name="mahn_tage1" value="{{ einst.mahn_tage1 or 7 }}" min="1" max="365" style="width:80px"> </div>
+        <div class="feld" style="margin:0"><label>1. Mahnung nach</label>
+            <input type="number" name="mahn_tage2" value="{{ einst.mahn_tage2 or 21 }}" min="2" max="365" style="width:80px"></div>
+        <div class="feld" style="margin:0"><label>2. Mahnung nach</label>
+            <input type="number" name="mahn_tage3" value="{{ einst.mahn_tage3 or 35 }}" min="3" max="365" style="width:80px"></div>
+        <span class="feld-hinweis">Tagen nach Fälligkeit</span>
+        <button class="btn btn-sekundaer btn-klein">💾 Speichern</button>
+    </form>
+</details>
+
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+    {% for w, lbl in [('', 'Alle'), ('offen', 'Offen'), ('bezahlt', 'Bezahlt'), ('storniert', 'Storniert')] %}
+    <a href="{{ url_for('rechnungen.index', status=w or None) }}"
+       class="btn btn-klein {{ '' if status == w else 'btn-sekundaer' }}">{{ lbl }}</a>
+    {% endfor %}
+    <span class="feld-hinweis" style="margin-left:auto">Offene Forderungen: <strong>{{ offen_summe | euro }}</strong>
+        {% if ueberfaellig_n %} · <span style="color:var(--fehler-text);font-weight:700">⏰ {{ ueberfaellig_n }} überfällig ({{ ueberfaellig_summe | euro }})</span>
+        · <a href="{{ url_for('rechnungen.forderungen_export') }}" title="Übergabeliste für Mahnverfahren/Inkasso (CSV)">📄 Forderungsliste</a>{% endif %}</span>
+</div>
+
+{% if rechnungen %}
+{% set tf_ziel = '#rechnungsliste' %}
+{% include '_tabellen_filter.html' %}
+<div class="tabellen-scroll">
+<table id="rechnungsliste" class="tabelle">
+    <thead><tr><th>Nummer</th><th>Datum</th><th>Empfänger:in</th><th>Betreff</th>
+        <th style="text-align:right">Betrag</th><th>Status</th><th class="rechts">Aktionen</th></tr></thead>
+    <tbody>
+    {% for z in rechnungen %}{% set r = z.r %}
+    <tr style="{{ 'opacity:.55;' if r.status == 'storniert' }}{{ 'background:var(--warn-grund);' if z.ueberfaellig }}">
+        <td><strong>{{ r.nummer }}</strong><br><span class="feld-hinweis" style="font-family:ui-monospace,Menlo,monospace;font-size:11px" title="Zahlcode für den automatischen Abgleich">{{ r.zahlcode }}</span></td>
+        <td>{{ r.datum | datum_de }}{% if r.faellig_am %}<br><span class="feld-hinweis" style="{{ 'color:var(--fehler-text);font-weight:700' if z.ueberfaellig }}">fällig {{ r.faellig_am | datum_de }}{{ ' ⏰' if z.ueberfaellig }}</span>{% endif %}
+            {% if r.gemahnt_am %}<br><span class="feld-hinweis">{{ ['','⏰ Erinnerung','⏰ 1. Mahnung','⏰ 2. Mahnung'][r.mahnstufe or 1] if (r.mahnstufe or 0) <= 3 else '⏰ gemahnt' }}
+                {{ r.gemahnt_am | datum_de }}</span>{% endif %}</td>
+        <td>{{ r.empfaenger_name }}</td>
+        <td>{{ r.betreff }}</td>
+        <td style="text-align:right;font-weight:700">{{ z.brutto | euro }}</td>
+        <td>{% if r.status == 'bezahlt' %}<span class="badge badge-bezahlt">✓ bezahlt{% if r.bezahlt_am %} {{ r.bezahlt_am | datum_de }}{% endif %}</span>
+            {% elif r.status == 'storniert' %}<span class="badge badge-inaktiv">storniert</span>
+            {% else %}<span class="badge badge-offen">offen</span>{% endif %}</td>
+        <td class="rechts" style="white-space:nowrap">
+            <a href="{{ url_for('rechnungen.druck', rid=r.id) }}" class="btn btn-sekundaer btn-klein" title="Ansehen / Drucken">🖨️</a>
+            {% if r.status != 'bezahlt' %}
+            <a href="{{ url_for('rechnungen.bearbeiten', rid=r.id) }}" class="btn btn-sekundaer btn-klein" title="Bearbeiten">✏️</a>
+            {% endif %}
+            {% if r.empfaenger_email %}
+            <form method="post" action="{{ url_for('rechnungen.senden', rid=r.id) }}" style="display:inline"
+                  onsubmit="return confirm('Rechnung per E-Mail an {{ r.empfaenger_email }} senden?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-sekundaer btn-klein" title="Per E-Mail senden">✉️</button>
+            </form>
+            {% endif %}
+            {% if r.status == 'offen' and z.ueberfaellig and r.empfaenger_email %}
+            <form method="post" action="{{ url_for('rechnungen.mahnen', rid=r.id) }}" style="display:inline"
+                  onsubmit="return confirm('Freundliche Zahlungserinnerung an {{ r.empfaenger_email }} senden?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-sekundaer btn-klein" title="Zahlungserinnerung senden">⏰</button>
+            </form>
+            {% endif %}
+            {% if r.status == 'offen' %}
+            <form method="post" action="{{ url_for('rechnungen.status_setzen', rid=r.id) }}" style="display:inline"
+                  onsubmit="return confirm('Als bezahlt markieren und ins Kassenbuch buchen?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="status" value="bezahlt">
+                <input type="hidden" name="ins_kassenbuch" value="1">
+                <button class="btn btn-sekundaer btn-klein" title="Als bezahlt markieren (mit Kassenbuch-Buchung)">✅</button>
+            </form>
+            <form method="post" action="{{ url_for('rechnungen.status_setzen', rid=r.id) }}" style="display:inline"
+                  onsubmit="return confirm('Rechnung stornieren?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="status" value="storniert">
+                <button class="btn btn-sekundaer btn-klein" title="Stornieren">↩️</button>
+            </form>
+            <form method="post" action="{{ url_for('rechnungen.loeschen', rid=r.id) }}" style="display:inline"
+                  onsubmit="return confirm('Rechnung endgültig löschen? (Nur sinnvoll bei Fehleingaben – sonst stornieren.)')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-sekundaer btn-klein" title="Löschen (nur Fehleingaben)">✕</button>
+            </form>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<div class="karte leer"><div class="icon">🧾</div><p>Noch keine Rechnungen{{ ' mit diesem Status' if status }}.
+    <a href="{{ url_for('rechnungen.neu') }}">Erste Rechnung schreiben</a></p></div>
+{% endif %}
+{% endblock %}

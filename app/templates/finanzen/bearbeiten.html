@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Buchung bearbeiten{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>✏️ Buchung bearbeiten</h1><div class="sub">Beleg-Nr. {{ b.belegnr or '–' }} · {{ b.datum | datum_de }}</div></div>
+    <div class="aktionen"><a href="{{ url_for('finanzen.liste', jahr=b.datum[:4]) }}" class="btn btn-sekundaer">← Zurück</a></div>
+</div>
+
+<div class="karte">
+    <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld"><label>Konto (Kontenrahmen)</label>
+            <select name="konto_id">
+                <option value="">— freie Buchung (ohne Konto) —</option>
+                {% for skey, sname in sphaeren_namen.items() %}
+                {% set konten_der_sphaere = konten | selectattr('sphaere','equalto',skey) | list %}
+                {% if konten_der_sphaere %}
+                <optgroup label="{{ sname }}">
+                    {% for k in konten_der_sphaere %}
+                    <option value="{{ k.id }}" {{ 'selected' if k.id==b.konto_id }}>{{ k.nummer }} · {{ k.name }} ({{ 'Einnahme' if k.typ=='einnahme' else 'Ausgabe' }})</option>
+                    {% endfor %}
+                </optgroup>
+                {% endif %}
+                {% endfor %}
+            </select>
+            <div class="feld-hinweis">Legt Einnahme/Ausgabe und steuerliche Sphäre automatisch fest.</div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Datum</label><input type="date" name="datum" value="{{ b.datum }}" required></div>
+            <div class="feld"><label>Betrag (€)</label><input type="text" name="betrag" value="{{ '%.2f'|format(b.betrag)|replace('.',',') }}" required></div>
+            <div class="feld"><label>Geldkonto</label>
+                <select name="geldkonto_id">
+                    <option value="">— nicht zugeordnet —</option>
+                    {% for g in geldkonten %}<option value="{{ g.id }}" {{ 'selected' if g.id==b.geldkonto_id }}>{{ g.name }}</option>{% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Art (nur ohne Konto)</label>
+                <select name="typ">
+                    <option value="einnahme" {{ 'selected' if b.typ=='einnahme' }}>Einnahme</option>
+                    <option value="ausgabe" {{ 'selected' if b.typ=='ausgabe' }}>Ausgabe</option>
+                </select></div>
+            <div class="feld"><label>Kategorie (frei, ohne Konto)</label>
+                <input type="text" name="kategorie" value="{{ b.kategorie }}"></div>
+            <div class="feld"><label>Mitglied</label>
+                <select name="mitglied_id">
+                    <option value="">— kein Mitglied —</option>
+                    {% for m in mitglieder %}<option value="{{ m.id }}" {{ 'selected' if m.id==b.mitglied_id }}>{{ m.nachname }}, {{ m.vorname }}</option>{% endfor %}
+                </select></div>
+        </div>
+        <div class="feld"><label>Beschreibung</label><input type="text" name="beschreibung" value="{{ b.beschreibung }}"></div>
+        <div class="feld"><label>Beleg ersetzen (optional)</label>
+            <input type="file" name="beleg" accept="image/*,application/pdf">
+            {% if b.beleg_dateiname %}<div class="feld-hinweis">Aktueller Beleg: <a href="{{ url_for('finanzen.beleg', bid=b.id) }}" target="_blank">📎 öffnen</a> (bleibt erhalten, wenn du nichts hochlädst)</div>{% endif %}
+        </div>
+        <button type="submit" class="btn">💾 Änderung speichern</button>
+    </form>
+</div>
+{% endblock %}

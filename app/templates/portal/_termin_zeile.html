@@ -1,0 +1,24 @@
+{# Eine Termin-Zeile im Look der Handy-Terminliste (19.11.2026) – Startseite („Nächste Termine“, Kino).
+   Erwartet t (mit bild/kat_bild/kategorie_id/farbe/kategorie, optional tag = „Heute“/„Morgen“),
+   gemerkt, heute_iso, design. Farbstreifen + Bild bündig, Pastelltönung, rechts Teilen/Herz/Ticket. #}
+{% set MONK = ['Jan.', 'Feb.', 'März', 'Apr.', 'Mai', 'Juni', 'Juli', 'Aug.', 'Sep.', 'Okt.', 'Nov.', 'Dez.'] %}
+{% set anmeldbar = not t.abgesagt and not t.verborgen and design and design.modul_veranstaltungen and t.anmeldung_aktiv
+                   and t.anmeldung_token and (not t.anmeldeschluss or t.anmeldeschluss >= heute_iso) %}
+<a href="{{ termin_link(t) }}" class="tz{{ ' tz-abgesagt' if t.abgesagt }}" style="--tf:{{ t.farbe|hexfarbe('var(--linie)') }}">
+    {% if t.bild and not t.verborgen %}<img class="tz-bild" src="{{ url_for('termine.bild', tid=t.id, v=t.bild) }}" alt="" loading="lazy">
+    {% elif t.kat_bild and t.kategorie_id and not t.verborgen %}<img class="tz-bild" src="{{ url_for('portal.kategorie_bild', kid=t.kategorie_id, v=t.kat_bild) }}" alt="" loading="lazy">
+    {% else %}<span class="tz-bild tz-platz" aria-hidden="true"></span>{% endif %}
+    <div class="tz-text">
+        <div class="tz-titel">{{ t.titel }}</div>
+        <div class="tz-meta">{% if t.tag %}<b>{{ t.tag }}</b> · {% endif %}{{ t.datum|wt }}, {{ t.datum[8:10]|int }}. {{ MONK[(t.datum[5:7]|int) - 1] }}{% if t.uhrzeit %} · {{ t.uhrzeit }}{% if t.uhrzeit_bis %}–{{ t.uhrzeit_bis }}{% endif %} Uhr{% endif %}{% if t.ort %} · {{ t.ort.split(',')[0] }}{% endif %}</div>
+        {% if t.abgesagt %}<div class="tz-abg">Abgesagt</div>{% elif t.kategorie %}<div class="tz-kat">{{ t.kategorie }}</div>{% endif %}
+    </div>
+    {% if not t.verborgen %}<span class="teilen" role="button" tabindex="0" title="Termin teilen" aria-label="Termin teilen: {{ t.titel }}"
+          data-url="{{ termin_link(t) }}"
+          data-text="{{ t.titel }} – {{ t.datum|wt }}, {{ t.datum[8:10] }}.{{ t.datum[5:7] }}.{{ t.datum[0:4] }}{% if t.uhrzeit %}, {{ t.uhrzeit }} Uhr{% endif %}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg></span>
+    <span class="herz{{ ' an' if t.id in (gemerkt or []) }}" role="button" tabindex="0" data-tid="{{ t.id }}"
+          aria-pressed="{{ 'true' if t.id in (gemerkt or []) else 'false' }}"
+          title="{{ 'Gemerkt – nochmal tippen zum Entfernen' if t.id in (gemerkt or []) else 'Auf den Merkzettel' }}"></span>{% endif %}
+    {% if anmeldbar %}<span class="tz-anm" role="link" tabindex="0" data-href="{{ url_for('veranstaltungen.oeffentlich', token=t.anmeldung_token) }}"
+          title="Jetzt anmelden" aria-label="Jetzt anmelden: {{ t.titel }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a3 3 0 0 0 0 6v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a3 3 0 0 0 0-6z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg></span>{% endif %}
+</a>

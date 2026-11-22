@@ -1,0 +1,154 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Aussehen{% endblock %}
+{% block inhalt %}
+<div class="mp-schmal">
+
+<div class="mp-karte">
+    <h2 style="margin:0 0 6px;font-size:20px">🎨 Aussehen</h2>
+    <p style="margin:0;color:var(--text-hell);font-size:14px">
+        Dein Verein hat Farben vorgeschlagen. Hier darfst du davon abweichen –
+        das gilt nur für dich, auf allen Geräten, an denen du dich anmeldest.
+        {% if eigen_gesetzt %}<br><br>Du weichst gerade ab.{% endif %}
+    </p>
+</div>
+
+<form method="post" id="aussehenform">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+<div class="mp-karte">
+    <h3 style="margin:0 0 10px;font-size:16px">Farbe</h3>
+    <div class="wahl">
+        {% for schluessel, s in schemata.items() %}
+        <label class="stueck {{ 'an' if werte.schema == schluessel }}">
+            <input type="radio" name="schema" value="{{ schluessel }}"
+                   {{ 'checked' if werte.schema == schluessel }} onchange="vorschau()"
+                   data-akzent="{{ s.werte.akzent or vereinsvorgabe.akzent or '' }}">
+            <span class="punkt" style="background:{{ s.werte.akzent or vereinsvorgabe.akzent or 'var(--mp)' }}"></span>
+            {{ s.name }}
+        </label>
+        {% endfor %}
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;margin-top:14px">
+        <label for="akzent" style="font-weight:600;font-size:14px;margin:0">Eigene Farbe</label>
+        <input type="color" id="akzent" name="akzent"
+               value="{{ werte.akzent or vereinsvorgabe.akzent or '#2563eb' }}"
+               oninput="vorschau()"
+               style="width:56px;height:40px;padding:2px;border-radius:10px;cursor:pointer">
+    </div>
+</div>
+
+<div class="mp-karte">
+    <h3 style="margin:0 0 10px;font-size:16px">Hell oder dunkel</h3>
+    <div class="wahl">
+        {% for schluessel, name in modi %}
+        <label class="stueck {{ 'an' if werte.modus == schluessel }}">
+            <input type="radio" name="modus" value="{{ schluessel }}"
+                   {{ 'checked' if werte.modus == schluessel }} onchange="vorschau()">
+            {{ name }}
+        </label>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="mp-karte">
+    <h3 style="margin:0 0 10px;font-size:16px">Textgröße</h3>
+    <div class="wahl">
+        {% for schluessel, name, faktor in groessen %}
+        <label class="stueck {{ 'an' if werte.schriftgroesse == schluessel }}">
+            <input type="radio" name="schriftgroesse" value="{{ schluessel }}"
+                   data-faktor="{{ faktor }}"
+                   {{ 'checked' if werte.schriftgroesse == schluessel }} onchange="vorschau()">
+            <span style="font-size:calc(14px * {{ faktor }})">{{ name }}</span>
+        </label>
+        {% endfor %}
+    </div>
+
+    <h3 style="margin:18px 0 10px;font-size:16px">Schriftart</h3>
+    <select name="schriftart" onchange="vorschau()"
+            style="width:100%;padding:11px;border-radius:12px;border:1px solid var(--linie);
+                   background:var(--flaeche);color:var(--text);font-size:16px">
+        <option value="">Wie der Verein</option>
+        {% for s in schriftarten %}
+        <option value="{{ s }}" {{ 'selected' if werte.schriftart == s }}>{{ s }}</option>
+        {% endfor %}
+    </select>
+    <p style="color:var(--text-hell);font-size:13px;margin:8px 0 0">
+        <b>Gut lesbar (Atkinson)</b> ist für Menschen mit Sehschwäche gemacht.
+    </p>
+</div>
+
+<div class="mp-karte">
+    <h3 style="margin:0 0 10px;font-size:16px">Damit es leichter fällt</h3>
+    <label class="schalter">
+        <input type="checkbox" name="kontrast" value="1" {{ 'checked' if werte.kontrast }}
+               onchange="vorschau()">
+        <span><b>Kontrast verstärken</b><br>
+            <span style="color:var(--text-hell);font-size:13px">Schwarze Schrift, kräftigere Ränder.</span></span>
+    </label>
+    <label class="schalter" style="margin-bottom:0">
+        <input type="checkbox" name="bewegung" value="0" {{ '' if werte.bewegung else 'checked' }}>
+        <span><b>Bewegung reduzieren</b><br>
+            <span style="color:var(--text-hell);font-size:13px">Keine Ein- und Ausblendungen.</span></span>
+    </label>
+</div>
+
+<button type="submit" class="mp-btn" style="margin-top:14px">Speichern</button>
+<button type="submit" name="zuruecksetzen" value="1" class="mp-btn"
+        style="margin-top:10px;background:var(--flaeche-3);color:var(--text)">
+    Wieder wie beim Verein
+</button>
+<p style="text-align:center;color:var(--text-hell);font-size:13px;margin-top:10px">
+    Du siehst die Änderung sofort. Gespeichert ist sie erst nach dem Tippen auf Speichern.
+</p>
+</form>
+
+<style>
+    .wahl { display: flex; flex-wrap: wrap; gap: 8px; }
+    .stueck { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;
+              border: 2px solid var(--linie); border-radius: 999px; padding: 10px 16px;
+              background: var(--flaeche); font-size: 15px; font-weight: 600; }
+    .stueck.an { border-color: var(--mp); background: var(--akzent-zart); }
+    .stueck input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .stueck .punkt { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--linie); }
+    .schalter { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; cursor: pointer; }
+    .schalter input { width: 22px; height: 22px; flex: none; margin-top: 2px; accent-color: var(--mp); }
+</style>
+<script>
+/* Spiegel von design.kontrastfarbe (app/design.py) – Schwelle dort gepflegt. */
+function kontrastfarbe(hex) {
+    if (!/^#[0-9a-f]{6}$/i.test(hex)) return '#ffffff';
+    const k = i => { const c = parseInt(hex.substr(i, 2), 16) / 255;
+                     return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+    return (0.2126 * k(1) + 0.7152 * k(3) + 0.0722 * k(5)) > 0.33 ? '#0f172a' : '#ffffff';
+}
+function vorschau() {
+    const w = document.documentElement.style;
+    const modus = document.querySelector('input[name=modus]:checked');
+    if (modus) document.documentElement.dataset.modus = modus.value;
+
+    const schema = document.querySelector('input[name=schema]:checked');
+    if (schema && schema.dataset.akzent) document.getElementById('akzent').value = schema.dataset.akzent;
+    const akzent = document.getElementById('akzent').value;
+    w.setProperty('--mp', akzent);
+    w.setProperty('--blau', akzent);
+    w.setProperty('--auf-primaer', kontrastfarbe(akzent));
+    const r = parseInt(akzent.substr(1, 2), 16), g = parseInt(akzent.substr(3, 2), 16),
+          b = parseInt(akzent.substr(5, 2), 16);
+    w.setProperty('--akzent-zart', `rgba(${r}, ${g}, ${b}, 0.14)`);
+
+    const groesse = document.querySelector('input[name=schriftgroesse]:checked');
+    if (groesse) {
+        w.setProperty('--schrift-skala', groesse.dataset.faktor);
+        /* Die App skaliert über zoom (siehe _layout) – neu anwenden, damit die
+           Vorschau die Größe sofort zeigt. Beim ersten Aufbau ist die Funktion
+           noch nicht geladen; dann übernimmt der Start im Layout. */
+        if (typeof schriftAendern === 'function') schriftAendern(0);
+    }
+
+    document.querySelectorAll('.stueck').forEach(l =>
+        l.classList.toggle('an', l.querySelector('input').checked));
+}
+vorschau();
+</script>
+</div>
+{% endblock %}

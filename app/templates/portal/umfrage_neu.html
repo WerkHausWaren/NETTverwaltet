@@ -1,0 +1,64 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Neue Umfrage{% endblock %}
+{% block inhalt %}
+<div class="mp-schmal">
+<p style="margin:14px 0 0"><a href="{{ url_for('portal.umfragen') }}" style="text-decoration:none;color:var(--mp);font-weight:600">‹ Zurück</a></p>
+
+<form method="post" class="mp-karte">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h2 style="margin:0 0 10px;font-size:18px">Neue Umfrage</h2>
+
+    <div class="feld"><label>Art</label>
+        <div style="display:flex;gap:8px">
+            <label class="typ-wahl an"><input type="radio" name="typ" value="auswahl" checked onchange="typWechsel()" style="display:none">🗳️ Abstimmung</label>
+            <label class="typ-wahl"><input type="radio" name="typ" value="termin" onchange="typWechsel()" style="display:none">📅 Terminfindung</label>
+        </div>
+    </div>
+
+    <div class="feld"><label>Frage / Titel</label>
+        <input type="text" name="titel" required placeholder="z. B. Wann machen wir das Sommerfest?"></div>
+    <div class="feld"><label>Beschreibung (optional)</label>
+        <textarea name="beschreibung" rows="2"></textarea></div>
+
+    <div class="feld">
+        <label id="opt-label">Antwort-Optionen</label>
+        <div id="opt-liste">
+            <div class="opt-zeile" style="display:flex;gap:8px;margin-bottom:6px"><input type="text" name="option" placeholder="Option 1" style="flex:1"><button type="button" class="btn-klein" onclick="this.parentNode.remove()">✕</button></div>
+            <div class="opt-zeile" style="display:flex;gap:8px;margin-bottom:6px"><input type="text" name="option" placeholder="Option 2" style="flex:1"><button type="button" class="btn-klein" onclick="this.parentNode.remove()">✕</button></div>
+        </div>
+        <button type="button" class="btn-klein" onclick="optHinzu()">+ Option</button>
+        <div class="feld-hinweis" id="opt-hinweis" style="margin-top:6px"></div>
+    </div>
+
+    <label class="opt-check" id="mehrfach-box"><input type="checkbox" name="mehrfach"> Mehrfachauswahl erlauben</label>
+    <label class="opt-check"><input type="checkbox" name="anonym"> Anonym abstimmen (keine Namen)</label>
+    <div class="feld"><label>Ende (optional)</label><input type="date" name="ende_am"></div>
+
+    <button type="submit" class="mp-btn" style="margin-top:8px">Umfrage erstellen</button>
+</form>
+
+<style>
+    .btn-klein { border:1px solid var(--mp); background:var(--flaeche); color:var(--mp); border-radius:9px; padding:8px 12px; font-size:13px; font-weight:600; cursor:pointer; }
+    .typ-wahl { flex:1; text-align:center; border:1px solid var(--linie); border-radius:10px; padding:10px; font-weight:600; color:var(--text); cursor:pointer; }
+    .typ-wahl.an { border-color:var(--mp); background:var(--mp); color:var(--auf-primaer); }
+    .opt-check { display:flex; align-items:center; gap:9px; padding:6px 0; cursor:pointer; font-size:14px; }
+    .opt-check input { width:19px; height:19px; accent-color:var(--mp); }
+</style>
+<script>
+    function optHinzu(wert){
+        var z=document.createElement('div'); z.className='opt-zeile'; z.style='display:flex;gap:8px;margin-bottom:6px';
+        var n=document.querySelectorAll('#opt-liste .opt-zeile').length+1;
+        z.innerHTML='<input type="text" name="option" placeholder="Option '+n+'" style="flex:1"><button type="button" class="btn-klein" onclick="this.parentNode.remove()">✕</button>';
+        document.getElementById('opt-liste').appendChild(z);
+    }
+    function typWechsel(){
+        var termin=document.querySelector('input[name=typ]:checked').value==='termin';
+        document.querySelectorAll('.typ-wahl').forEach(function(l){ l.classList.toggle('an', l.querySelector('input').checked); });
+        document.getElementById('opt-label').textContent = termin ? 'Termin-Vorschläge' : 'Antwort-Optionen';
+        document.getElementById('opt-hinweis').textContent = termin ? 'Als Text, z. B. „Sa 12.7. 18 Uhr". Mitglieder antworten je Termin mit Ja / Vielleicht / Nein.' : '';
+        document.getElementById('mehrfach-box').style.display = termin ? 'none' : '';
+        document.querySelectorAll('#opt-liste input').forEach(function(i,idx){ if(termin) i.placeholder='Termin '+(idx+1)+' (z. B. Sa 12.7. 18 Uhr)'; else i.placeholder='Option '+(idx+1); });
+    }
+</script>
+</div>
+{% endblock %}

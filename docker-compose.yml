@@ -1,0 +1,33 @@
+# Vereinsverwaltung (Selbst-Hosting): App (Gunicorn) hinter Caddy (automatisches HTTPS).
+# Vorbereitung: ./einrichten.sh ausführen – das erzeugt .env und Caddyfile.
+# Start:        docker compose up -d --build
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - VV_PRODUKTION=1
+      - VV_DATA_DIR=/data
+      - TZ=Europe/Berlin
+    volumes:
+      - ./data:/data          # Datenbanken, Logos, Schlüssel – DAS ist euer Backup-Ordner
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data       # Let's-Encrypt-Zertifikate
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:

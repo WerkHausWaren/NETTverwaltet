@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="de" data-modus="hell">
+<head>
+{% include "signage/_kopf.html" %}
+<meta http-equiv="refresh" content="5">
+<meta name="apple-mobile-web-app-title" content="Signage">
+<title>Gerät einrichten</title>
+<style>
+{% include "signage/_stil.html" %}
+.seite{min-height:100%;box-sizing:border-box;padding:5vmin 6vmin}
+.kopf{height:13vmin;margin-bottom:4.5vmin}
+h1{font-size:5.4vmin;font-weight:700;margin:1.4vmin 0 1.6vmin;line-height:1.1}
+.wege{-webkit-flex-wrap:wrap;flex-wrap:wrap;margin:0 -2.5vmin}
+.weg{-webkit-box-flex:1;-webkit-flex:1 1 40vmin;flex:1 1 40vmin;margin:2.5vmin;background:{{ m.f.flaeche }};border:1px solid {{ m.f.linie }};
+  border-radius:2vmin;padding:4vmin;box-sizing:border-box}
+.weg p{font-size:2.9vmin;line-height:1.45;margin:0 0 3vmin}
+.code{margin:1vmin 0 3vmin}
+.gruppe{font-family:"SF Mono",Menlo,Consolas,"Courier New",monospace;font-size:9.5vmin;font-weight:700;letter-spacing:.9vmin;
+  color:{{ m.f.tinte }};background:{{ m.f.grund }};border:.4vmin solid {{ m.f.linie }};border-radius:1.6vmin;padding:1.2vmin .9vmin 1.2vmin 1.8vmin;line-height:1}
+.gruppe + .gruppe{margin-left:3vmin}
+.qr{width:26vmin;height:26vmin;-webkit-flex-shrink:0;flex-shrink:0;background:#fff;border-radius:1.4vmin;padding:1.2vmin;box-sizing:border-box;border:1px solid {{ m.f.linie }}}
+.hinweis{font-size:2.3vmin;line-height:1.5;margin-top:3vmin}
+</style>
+</head>
+<body>
+<div class="seite">
+  <div class="kopf">{% with hoehe="13vmin" %}{% include "signage/_logo.html" %}{% endwith %}</div>
+  <span class="strich"></span>
+  <h1>Dieses Gerät einrichten</h1>
+  <div class="ueberzeile">Einmal koppeln – am Gerät tippt niemand etwas</div>
+  <div class="flex wege">
+    <div class="weg">
+      <div class="ueberzeile akzent">Am Computer</div>
+      <p style="margin-top:1.6vmin">Unter <strong>Öffentlichkeit → Signage</strong> diesen Code eingeben:</p>
+      <div class="flex code"><span class="gruppe zahl">{{ gruppen[0] }}</span><span class="gruppe zahl">{{ gruppen[1] }}</span></div>
+      <p class="leise" style="font-size:2.4vmin;margin:0">Leerzeichen und Groß-/Kleinschreibung sind egal.</p>
+    </div>
+    <div class="weg flex mitte-v">
+      <img class="qr" src="{{ koppel_qr }}" alt="QR-Code zum Koppeln">
+      <div style="margin-left:4vmin">
+        <div class="ueberzeile akzent">Mit dem Handy</div>
+        <p style="margin-top:1.6vmin">QR-Code scannen und angemeldet „Gerät koppeln“ tippen – der Code ist schon eingetragen.</p>
+      </div>
+    </div>
+  </div>
+  <div class="hinweis leise">Diese Seite wartet von selbst und zeigt nach der Kopplung sofort die Inhalte.
+    Der Code gilt 15 Minuten, danach erscheint automatisch ein neuer. · {{ verwaltung_url }}</div>
+</div>
+</body>
+</html>

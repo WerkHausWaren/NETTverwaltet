@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Schlüsselbuch{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Schlüsselbuch</h1><div class="sub">Wer hat welchen Schlüssel oder Zugangscode – dauerhaft oder befristet</div></div>
+</div>
+
+{% if nuki_bereit %}
+<div class="hilfe-box" style="margin-bottom:16px">🔓 <strong>Türöffnung per App ist aktiv.</strong>
+    Jedes Mitglied mit einem <strong>offenen Schlüsselbuch-Eintrag</strong> (unten) darf die Tür in der
+    Mitglieder-App öffnen und schließen. Eintrag zurückgeben = Türrecht endet automatisch.</div>
+{% endif %}
+
+<div class="karte">
+    <h2 style="margin-top:0">Schlüssel / Code ausgeben</h2>
+    <form method="post" action="{{ url_for('schluessel.neu') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld-reihe">
+            <div class="feld"><label>Bezeichnung</label><input type="text" name="bezeichnung" placeholder="z.B. Haustür WerkHaus / Kino-Alarmcode" required></div>
+            <div class="feld"><label>Art</label>
+                <select name="typ" onchange="document.getElementById('codefeld').style.display=(this.value=='Zugangscode')?'block':'none'">
+                    {% for t in typen %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="feld" id="codefeld" style="display:none"><label>Codewert (optional)</label><input type="text" name="code_wert"></div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Inhaber (Mitglied)</label>
+                <select name="inhaber_mitglied_id">
+                    <option value="">— kein Mitglied / siehe Name —</option>
+                    {% for m in mitglieder %}<option value="{{ m.id }}" {{ 'selected' if vorauswahl == m.id }}>{{ m.nachname }}, {{ m.vorname }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="feld"><label>oder Name (falls kein Mitglied)</label><input type="text" name="inhaber_name"></div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Ausgegeben am</label><input type="date" name="ausgegeben_am" value="{{ heute }}"></div>
+            <div class="feld"><label>Befristet bis (optional)</label><input type="date" name="befristet_bis">
+                <div class="feld-hinweis">Leer = dauerhaft.</div></div>
+        </div>
+        <div class="feld"><label>Notiz</label><input type="text" name="notiz"></div>
+        <button type="submit" class="btn">＋ Eintragen</button>
+    </form>
+</div>
+
+<h2>Aktuell ausgegeben ({{ offen|length }})</h2>
+{% if offen %}
+{% set tf_ziel = '#schluesselliste' %}
+{% include '_tabellen_filter.html' %}
+<div class="tabellen-scroll">
+<table id="schluesselliste">
+    <thead><tr><th>Bezeichnung</th><th>Art</th><th>Inhaber</th><th>Seit</th><th>Befristet</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for e in offen %}
+    <tr>
+        <td><strong>{{ e.bezeichnung }}</strong>{% if e.notiz %}<br><span class="feld-hinweis">{{ e.notiz }}</span>{% endif %}</td>
+        <td>{{ e.typ }}{% if e.code_wert %} <span class="feld-hinweis">({{ e.code_wert }})</span>{% endif %}</td>
+        <td>{% if e.inhaber_mitglied_id and e.vorname %}<a href="{{ url_for('mitglieder.detail', mid=e.inhaber_mitglied_id) }}">{{ e.vorname }} {{ e.nachname }}</a>{% elif e.vorname %}{{ e.vorname }} {{ e.nachname }}{% else %}{{ e.inhaber_name or '—' }}{% endif %}</td>
+        <td>{{ e.ausgegeben_am | datum_de }}</td>
+        <td>{{ e.befristet_bis | datum_de or 'dauerhaft' }}</td>
+        <td>
+            {% if e.befristet_bis and e.befristet_bis < heute %}<span class="badge badge-ausgetreten">überfällig</span>
+            {% else %}<span class="badge badge-aktiv">ausgegeben</span>{% endif %}
+        </td>
+        <td class="rechts">
+            <div class="aktionen" style="justify-content:flex-end">
+                <form method="post" action="{{ url_for('schluessel.zurueck', sid=e.id) }}" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-klein">Rückgabe</button>
+                </form>
+                <form method="post" action="{{ url_for('schluessel.loeschen', sid=e.id) }}" style="display:inline" onsubmit="return confirm('Löschen?')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein">✕</button>
+                </form>
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<div class="karte leer"><div class="icon">🔑</div><p>Aktuell ist nichts ausgegeben.</p></div>
+{% endif %}
+
+{% if zurueck %}
+<h2>Zurückgegeben ({{ zurueck|length }})</h2>
+<table>
+    <thead><tr><th>Bezeichnung</th><th>Inhaber</th><th>Ausgegeben</th><th>Zurück</th><th></th></tr></thead>
+    <tbody>
+    {% for e in zurueck %}
+    <tr>
+        <td>{{ e.bezeichnung }} <span class="feld-hinweis">({{ e.typ }})</span></td>
+        <td>{% if e.inhaber_mitglied_id and e.vorname %}<a href="{{ url_for('mitglieder.detail', mid=e.inhaber_mitglied_id) }}">{{ e.vorname }} {{ e.nachname }}</a>{% elif e.vorname %}{{ e.vorname }} {{ e.nachname }}{% else %}{{ e.inhaber_name or '—' }}{% endif %}</td>
+        <td>{{ e.ausgegeben_am | datum_de }}</td>
+        <td>{{ e.zurueckgegeben_am | datum_de }}</td>
+        <td class="rechts">
+            <form method="post" action="{{ url_for('schluessel.loeschen', sid=e.id) }}" style="display:inline" onsubmit="return confirm('Löschen?')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-sekundaer btn-klein">✕</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{% if nuki_bereit %}
+<div class="karte">
+    <h2 style="margin-top:0">🔓 Letzte Türöffnungen</h2>
+    {% if tuer_log %}
+    <table class="tabelle no-sort">
+        <thead><tr><th>Zeitpunkt</th><th>Wer</th><th>Aktion</th><th>Ergebnis</th></tr></thead>
+        <tbody>
+        {% for l in tuer_log %}
+        <tr>
+            <td>{{ l.zeitpunkt[:16].replace('T',' ') if l.zeitpunkt else '' }}</td>
+            <td>{{ l.name or '—' }}</td>
+            <td>{{ '🔓 geöffnet' if l.aktion == 'öffnen' else '🔒 geschlossen' }}</td>
+            <td>{% if l.ok %}<span class="badge badge-aktiv">ok</span>{% else %}<span class="badge badge-inaktiv" title="{{ l.meldung }}">Fehler</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="feld-hinweis" style="margin:0">Noch keine Türöffnungen protokolliert.</p>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

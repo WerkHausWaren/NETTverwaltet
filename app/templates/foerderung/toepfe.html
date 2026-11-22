@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Fördertöpfe{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🔍 Fördertöpfe</h1>
+        <div class="sub">Recherchierte Förderprogramme und Stiftungen, die zu einem Verein wie eurem passen</div></div>
+    <div class="aktionen">
+        <a href="{{ url_for('foerderung.index') }}" class="btn btn-sekundaer">← Übersicht</a>
+        <a href="#topf-neu" class="btn">+ Eigener Fördertopf</a>
+    </div>
+</div>
+
+<div class="karte" style="padding:14px">
+    <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <div style="flex:1 1 240px">
+            <label for="q">Suchen</label>
+            <input id="q" type="search" name="q" value="{{ q }}" placeholder="z. B. Jugend, Kino, Ausstattung, Stiftung …">
+        </div>
+        <div style="flex:0 1 240px">
+            <label for="bereich">Themenbereich</label>
+            <select id="bereich" name="bereich" onchange="this.form.submit()">
+                <option value="">alle Bereiche</option>
+                {% for b in bereiche %}<option value="{{ b }}" {{ 'selected' if b == bereich }}>{{ b }}</option>{% endfor %}
+            </select>
+        </div>
+        <div><button class="btn">Suchen</button>
+            {% if q or bereich %}<a href="{{ url_for('foerderung.toepfe') }}" class="btn btn-sekundaer">✕ Filter zurücksetzen</a>{% endif %}</div>
+    </form>
+</div>
+
+<p class="feld-hinweis" style="margin:0 0 10px">{{ geber | length }} Fördertopf{{ 'e' if (geber | length) != 1 }}
+    {%- if q or bereich %} gefunden{% endif %} · ⭐ markiert, was für euch besonders interessant ist</p>
+
+{% for g in geber %}
+<div class="karte" style="padding:16px;{{ 'border-left:4px solid var(--gelb)' if g.favorit }}">
+    <div style="display:flex;gap:12px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap">
+        <div style="flex:1 1 320px;min-width:0">
+            <h2 style="margin:0 0 2px;font-size:17px">
+                {% if g.url %}<a href="{{ g.url|sichere_url }}" target="_blank" rel="noopener">{{ g.name }} ↗</a>
+                {% else %}{{ g.name }}{% endif %}</h2>
+            {% if g.traeger %}<div class="feld-hinweis" style="margin-bottom:6px">{{ g.traeger }}</div>{% endif %}
+            {% if g.was %}<p style="margin:6px 0">{{ g.was }}</p>{% endif %}
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+                {% for b in (g.bereiche or '').split(',') if b.strip() %}
+                <a href="{{ url_for('foerderung.toepfe', bereich=b.strip()) }}"
+                   class="badge badge-gruppe" style="text-decoration:none">{{ b.strip() }}</a>
+                {% endfor %}
+            </div>
+        </div>
+        <div style="flex:0 0 auto;text-align:right">
+            {% if g.summe_bis %}
+            <div style="font-size:19px;font-weight:800;font-variant-numeric:tabular-nums">
+                {% if g.summe_von %}{{ g.summe_von | euro }} – {% else %}bis {% endif %}{{ g.summe_bis | euro }}</div>
+            <div class="feld-hinweis">Fördersumme</div>
+            {% endif %}
+            <div style="margin-top:8px;display:flex;gap:5px;justify-content:flex-end">
+                <form method="post" action="{{ url_for('foerderung.topf_speichern', gid=g.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="aktion" value="favorit">
+                    <input type="hidden" name="weiter" value="{{ request.full_path }}">
+                    <button class="btn btn-sekundaer btn-klein" title="Als interessant merken">{{ '⭐' if g.favorit else '☆' }}</button>
+                </form>
+                <a href="{{ url_for('foerderung.projekt_neu', geber=g.id) }}" class="btn btn-klein">→ Projekt daraus</a>
+            </div>
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px 16px;margin-top:12px;
+                padding-top:12px;border-top:1px solid var(--linie);font-size:13.5px">
+        {% for label, wert in [('Wer wird gefördert', g.zielgruppe), ('Region', g.region),
+                               ('Eigenanteil', g.eigenanteil), ('Fristen', g.fristen), ('Kontakt', g.kontakt)] %}
+        {% if wert %}<div><span class="feld-hinweis">{{ label }}</span><br>{{ wert }}</div>{% endif %}
+        {% endfor %}
+    </div>
+    {% if g.notiz %}<p class="feld-hinweis" style="margin:10px 0 0">📝 {{ g.notiz }}</p>{% endif %}
+
+    <details style="margin-top:10px">
+        <summary class="feld-hinweis" style="cursor:pointer">✏️ Bearbeiten / ausblenden</summary>
+        <form method="post" action="{{ url_for('foerderung.topf_speichern', gid=g.id) }}" style="margin-top:10px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="weiter" value="{{ request.full_path }}">
+            <div class="feld-reihe">
+                <div class="feld"><label>Name</label><input name="name" value="{{ g.name }}" required></div>
+                <div class="feld"><label>Träger / Herausgeber</label><input name="traeger" value="{{ g.traeger or '' }}"></div>
+            </div>
+            <div class="feld"><label>Webseite</label><input name="url" type="url" value="{{ g.url or '' }}"></div>
+            <div class="feld"><label>Was wird gefördert?</label>
+                <textarea name="was" rows="2">{{ g.was or '' }}</textarea></div>
+            <div class="feld"><label>Themenbereiche</label>
+                <div style="display:flex;gap:10px;flex-wrap:wrap">
+                    {% set gewaehlt = (g.bereiche or '').split(',') | map('trim') | list %}
+                    {% for b in alle_bereiche %}
+                    <label style="font-weight:400;font-size:13.5px"><input type="checkbox" name="bereiche" value="{{ b }}"
+                        {{ 'checked' if b in gewaehlt }}> {{ b }}</label>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="feld-reihe">
+                <div class="feld"><label>Fördersumme von (€)</label>
+                    <input name="summe_von" inputmode="decimal" value="{{ g.summe_von or '' }}"></div>
+                <div class="feld"><label>bis (€)</label>
+                    <input name="summe_bis" inputmode="decimal" value="{{ g.summe_bis or '' }}"></div>
+                <div class="feld"><label>Eigenanteil</label>
+                    <input name="eigenanteil" value="{{ g.eigenanteil or '' }}" placeholder="z. B. 10 %"></div>
+            </div>
+            <div class="feld-reihe">
+                <div class="feld"><label>Antragsfristen</label>
+                    <input name="fristen" value="{{ g.fristen or '' }}" placeholder="z. B. laufend / 1. März"></div>
+                <div class="feld"><label>Zielgruppe</label><input name="zielgruppe" value="{{ g.zielgruppe or '' }}"></div>
+                <div class="feld"><label>Region</label><input name="region" value="{{ g.region or '' }}"></div>
+            </div>
+            <div class="feld"><label>Kontakt</label><input name="kontakt" value="{{ g.kontakt or '' }}"></div>
+            <div class="feld"><label>Eigene Notiz</label>
+                <textarea name="notiz" rows="2" placeholder="Erfahrungen, Ansprechpartner, warum (nicht) passend …">{{ g.notiz or '' }}</textarea></div>
+            <button class="btn">Speichern</button>
+            <button class="btn btn-sekundaer" name="aktion" value="ausblenden" formnovalidate
+                    onclick="return confirm('Diesen Fördertopf ausblenden? Er passt dann nicht mehr in eure Liste.')">
+                Ausblenden</button>
+        </form>
+    </details>
+</div>
+{% else %}
+<div class="karte" style="text-align:center;padding:26px">
+    <p style="margin:0">Kein Fördertopf gefunden{% if q %} für „{{ q }}"{% endif %}.</p>
+    <p class="feld-hinweis">Probier einen anderen Suchbegriff – oder trag den Topf unten selbst ein.</p>
+</div>
+{% endfor %}
+
+<div class="karte" id="topf-neu">
+    <h2 style="margin-top:0">+ Eigenen Fördertopf eintragen</h2>
+    <p class="feld-hinweis">Wenn ihr ein Programm kennt, das hier noch fehlt – z. B. eine örtliche Stiftung,
+        die Sparkassen-Stiftung oder ein Programm der Gemeinde.</p>
+    <form method="post" action="{{ url_for('foerderung.topf_neu') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld-reihe">
+            <div class="feld"><label for="n-name">Name des Programms *</label>
+                <input id="n-name" name="name" required placeholder="z. B. Stiftung XY – Projektförderung"></div>
+            <div class="feld"><label>Träger / Herausgeber</label><input name="traeger"></div>
+        </div>
+        <div class="feld"><label>Webseite</label><input name="url" type="url" placeholder="https://…"></div>
+        <div class="feld"><label>Was wird gefördert?</label><textarea name="was" rows="2"></textarea></div>
+        <div class="feld"><label>Themenbereiche</label>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+                {% for b in alle_bereiche %}
+                <label style="font-weight:400;font-size:13.5px"><input type="checkbox" name="bereiche" value="{{ b }}"> {{ b }}</label>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Fördersumme von (€)</label><input name="summe_von" inputmode="decimal"></div>
+            <div class="feld"><label>bis (€)</label><input name="summe_bis" inputmode="decimal"></div>
+            <div class="feld"><label>Eigenanteil</label><input name="eigenanteil" placeholder="z. B. 10 %"></div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Antragsfristen</label><input name="fristen" placeholder="z. B. laufend"></div>
+            <div class="feld"><label>Zielgruppe</label><input name="zielgruppe"></div>
+            <div class="feld"><label>Region</label><input name="region"></div>
+        </div>
+        <div class="feld"><label>Kontakt</label><input name="kontakt"></div>
+        <div class="feld"><label>Notiz</label><textarea name="notiz" rows="2"></textarea></div>
+        <button class="btn">Fördertopf speichern</button>
+    </form>
+</div>
+
+<div class="hilfe-box" style="margin-top:14px">🧭 <strong>Noch mehr suchen:</strong> Die Liste hier ist ein
+    Startpunkt mit den Programmen, die für Vereine in Mecklenburg-Vorpommern am häufigsten in Frage kommen.
+    Für eine breite Suche gibt es außerdem die
+    <a href="https://www.foerderdatenbank.de" target="_blank" rel="noopener">Förderdatenbank des Bundes</a> (kostenlos)
+    und euren Zugang zum <a href="https://foerdermittelkompass.reflecta.org" target="_blank" rel="noopener">Reflecta
+    Fördermittelkompass</a>. Was du dort findest, trägst du unten ein – dann steht es dem ganzen Vorstand zur Verfügung.</div>
+{% endblock %}

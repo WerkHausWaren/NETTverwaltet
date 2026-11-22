@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Suche – Dateiablage{% endblock %}
+{% macro groesse(b) %}{% if b >= 1048576 %}{{ (b/1048576)|round(1) }} MB{% else %}{{ (b/1024)|round|int }} KB{% endif %}{% endmacro %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🔎 Suche</h1><div class="sub">{{ treffer|length }} Treffer für „{{ begriff }}“</div></div>
+    <a href="{{ url_for('dms.index') }}" class="btn btn-sekundaer">← Zur Dateiablage</a>
+</div>
+
+<div class="karte">
+    <form method="get" action="{{ url_for('dms.suche') }}" style="display:flex;gap:8px;margin-bottom:14px">
+        <input type="text" name="q" value="{{ begriff }}" placeholder="Dateiname …" style="flex:1;min-width:180px" autofocus>
+        <button class="btn">Suchen</button>
+    </form>
+    {% if treffer %}
+    <table>
+        <thead><tr><th>Datei</th><th>Ordner</th><th>Geändert</th><th class="rechts">Größe</th></tr></thead>
+        <tbody>
+        {% for d in treffer %}
+        <tr>
+            <td>{{ dms_icon(d.name) }} {% if dms_vorschau(d.name) %}<a href="{{ url_for('dms.vorschau', pfad=d.pfad) }}" target="_blank">{{ d.name }}</a>{% else %}<a href="{{ url_for('dms.download', pfad=d.pfad) }}">{{ d.name }}</a>{% endif %}</td>
+            <td class="sub">📁 {{ d.ordner }}</td>
+            <td class="sub">{{ d.geaendert }}</td>
+            <td class="rechts sub">{{ groesse(d.groesse) }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% elif begriff %}
+    <p class="feld-hinweis">Keine Dateien gefunden.</p>
+    {% else %}
+    <p class="feld-hinweis">Gib einen Suchbegriff ein.</p>
+    {% endif %}
+</div>
+{% endblock %}

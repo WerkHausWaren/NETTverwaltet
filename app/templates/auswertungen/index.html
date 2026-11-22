@@ -1,0 +1,396 @@
+{% extends "base.html" %}
+{% block title %}Auswertungen{% endblock %}
+
+{% macro balken(daten, farbe='var(--blau)', einheit='', dim='') %}
+    {% set maxw = (daten | map(attribute='wert') | max) if daten else 0 %}
+    <div class="balken-liste">
+    {% for d in daten %}
+        {% set href = d.url if d.url is defined else (url_for('auswertungen.detail', dim=dim, wert=d.label) if dim else '') %}
+        {% if href %}<a class="balken-zeile balken-klick" href="{{ href }}">{% else %}<div class="balken-zeile">{% endif %}
+            <div class="balken-label">{{ d.label }}</div>
+            <div class="balken-spur"><div class="balken-fuellung" style="width:{{ (100 * d.wert / maxw) if maxw else 0 }}%;background:{{ farbe }}"></div></div>
+            <div class="balken-wert">{{ d.wert }}{{ einheit }}</div>
+        {% if href %}</a>{% else %}</div>{% endif %}
+    {% endfor %}
+    </div>
+{% endmacro %}
+
+{% macro geldbalken(daten) %}
+    {# Höchstwert in EINEM Ausdruck bestimmen: Ein {% set %} innerhalb einer
+       {% for %}-Schleife wirkt in Jinja nicht nach außen – vorher blieben
+       dadurch alle Balken auf 0 % Breite stehen. #}
+    {% set maxw = ((daten | map(attribute='einnahmen') | list)
+                 + (daten | map(attribute='ausgaben') | list) + [0]) | max %}
+    <div class="balken-liste">
+    {% for d in daten %}
+        <div style="margin-bottom:12px">
+            <div class="balken-label" style="width:auto;margin-bottom:4px">{{ d.label }}</div>
+            <div class="balken-zeile"><div class="balken-spur"><div class="balken-fuellung" style="width:{{ (100*d.einnahmen/maxw) if maxw else 0 }}%;background:var(--gruen)"></div></div><div class="balken-wert" style="width:110px">{{ d.einnahmen | euro }}</div></div>
+            <div class="balken-zeile"><div class="balken-spur"><div class="balken-fuellung" style="width:{{ (100*d.ausgaben/maxw) if maxw else 0 }}%;background:var(--rot)"></div></div><div class="balken-wert" style="width:110px">{{ d.ausgaben | euro }}</div></div>
+        </div>
+    {% endfor %}
+    </div>
+{% endmacro %}
+
+{# Eine Kachel. `leer` = es gibt nichts zu zeigen -> dezent, damit sie nicht wie ein Fehler wirkt. #}
+{% macro karte(key, titel, leer=false) %}
+<div class="karte stat-karte {{ 'stat-leer' if leer }}" data-key="{{ key }}">
+    <div class="stat-kopf">
+        <span class="stat-griff" title="Zum Verschieben ziehen">⠿</span>
+        <h2 style="margin:0;flex:1">{{ titel }}</h2>
+        <button type="button" class="stat-pfeil" title="Nach vorn schieben"
+                onclick="karteSchieben(this, -1)">◀</button>
+        <button type="button" class="stat-pfeil" title="Nach hinten schieben"
+                onclick="karteSchieben(this, 1)">▶</button>
+        <button type="button" class="stat-auge" title="Diese Kachel ein-/ausblenden"
+                onclick="augeToggle(this)">👁</button>
+    </div>
+    <div>{{ caller() }}</div>
+</div>
+{% endmacro %}
+
+{% macro istleer(daten) %}{{ 'x' if not daten or (daten | map(attribute='wert') | select | list | length) == 0 }}{% endmacro %}
+{% block content %}
+<style>
+    .balken-liste { margin-top: 6px; }
+    .balken-zeile { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+    .balken-label { width: 130px; font-size: 13px; color: var(--text-stark); flex-shrink: 0; }
+    .balken-spur { flex: 1; background: var(--flaeche-3); border-radius: 6px; height: 18px; overflow: hidden; }
+    .balken-fuellung { height: 100%; border-radius: 6px; min-width: 2px; }
+    .balken-wert { width: 60px; text-align: right; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+    .balken-klick { text-decoration: none; color: inherit; border-radius: 6px; padding: 2px 4px; margin: 0 -4px 4px; }
+    .balken-klick:hover { background: var(--flaeche-2); }
+    .balken-klick:hover .balken-label { color: var(--blau); }
+
+    /* Kennzahlen-Kopf */
+    .kz-reihe { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                gap: 12px; margin-bottom: 18px; }
+    .kz { background: var(--weiss); border-radius: 12px; padding: 14px 16px;
+          box-shadow: 0 1px 3px rgba(20,35,60,.08); text-decoration: none; color: inherit;
+          display: block; border-left: 3px solid transparent; }
+    .kz:hover { box-shadow: 0 3px 10px rgba(20,35,60,.13); }
+    .kz .kz-titel { font-size: 11.5px; text-transform: uppercase; letter-spacing: .5px;
+                    color: var(--text-hell); }
+    .kz .kz-wert { font-size: 25px; font-weight: 800; line-height: 1.15; margin: 2px 0 1px;
+                   font-variant-numeric: tabular-nums; }
+    .kz .kz-hinweis { font-size: 12px; color: var(--text-hell); }
+    .kz.gruen { border-left-color: var(--gruen); } .kz.gruen .kz-wert { color: var(--gruen); }
+    .kz.rot { border-left-color: var(--rot); }     .kz.rot .kz-wert { color: var(--rot); }
+
+    /* Bereiche */
+    .bereich { margin-bottom: 22px; }
+    .bereich-kopf { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+                    padding: 6px 0 10px; border-bottom: 2px solid var(--grau-linie);
+                    margin-bottom: 14px; cursor: pointer; }
+    .bereich-kopf h2 { margin: 0; font-size: 18px; }
+    .bereich-kopf .bereich-sub { font-size: 13px; color: var(--text-hell); flex: 1; }
+    .bereich-kopf .bereich-pfeil { font-size: 13px; color: var(--text-hell); }
+    .bereich.zu .bereich-pfeil { transform: rotate(-90deg); display: inline-block; }
+    .bereich.zu .stat-grid { display: none; }
+    .sprungleiste { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 20px; align-items: start; }
+    .stat-grid h2 { font-size: 16px; }
+    .stat-hinweis { font-size: 11px; color: var(--text-hell); margin-top: 8px; }
+    .stat-kopf { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .stat-griff, .stat-auge, .stat-pfeil { display: none; background: none; border: none; cursor: pointer; font-size: 16px; color: var(--text-hell); padding: 0 2px; }
+    .stat-pfeil { font-size: 13px; }
+    .stat-pfeil:hover { color: var(--blau); }
+    .stat-karte.stat-leer { opacity: .62; }
+    body.anpassen .stat-griff { display: inline; cursor: grab; }
+    body.anpassen .stat-auge, body.anpassen .stat-pfeil { display: inline; }
+    .stat-karte.stat-hidden { display: none; }
+    body.anpassen .stat-karte.stat-hidden { display: block; opacity: .35; }
+    body.anpassen .stat-karte { outline: 1px dashed var(--grau-linie); }
+    body.anpassen .stat-karte a { pointer-events: none; }
+    body.anpassen .bereich.zu .stat-grid { display: grid; }
+    .stat-karte.ziehen { outline: 2px dashed var(--blau); opacity: .6; }
+</style>
+
+<div class="page-header">
+    <div><h1>Statistiken &amp; Auswertungen</h1>
+        <div class="sub">Mitglieder, Finanzen, Termine und App – nach Bereichen sortiert</div></div>
+    <div class="aktionen">
+        <form method="get" style="display:inline">
+            <label class="feld-hinweis">Jahr für Finanzen &amp; Termine:
+                <input type="number" name="jahr" value="{{ jahr }}" style="width:90px" onchange="this.form.submit()"></label>
+        </form>
+        <button id="anpassenBtn" class="btn btn-sekundaer" onclick="anpassenModus()">🔧 Anpassen</button>
+    </div>
+</div>
+
+<div id="anpassenLeiste" class="hilfe-box" style="display:none;align-items:center;gap:12px;flex-wrap:wrap">
+    <span>Kacheln mit <strong>◀ ▶</strong> verschieben – über den Bereichsrand hinaus landen sie
+        im nächsten Bereich. Wer lieber zieht, nimmt den Griff <strong>⠿</strong>.
+        Mit <strong>👁</strong> ein- und ausblenden (Ausgeblendete stehen hier blass).
+        Bereichs-Überschriften klappen auf und zu.</span>
+    <span style="margin-left:auto"></span>
+    <button class="btn btn-sekundaer btn-klein" onclick="aufStandard()">↩ Auf Standard zurücksetzen</button>
+    <button class="btn btn-klein" onclick="layoutSpeichern()">💾 Ansicht speichern</button>
+    <button class="btn btn-sekundaer btn-klein" onclick="anpassenModus()">Fertig</button>
+</div>
+
+{# ── Kennzahlen ──────────────────────────────────────────────────────── #}
+<div class="kz-reihe">
+    {% for k in kennzahlen %}
+    <a class="kz {{ k.farbe or '' }}" href="{{ k.ziel }}">
+        <div class="kz-titel">{{ k.titel }}</div>
+        <div class="kz-wert">{% if k.geld %}{{ k.wert | euro }}{% else %}{{ k.wert }}{% endif %}</div>
+        <div class="kz-hinweis">{{ k.hinweis }}</div>
+    </a>
+    {% endfor %}
+</div>
+
+<div class="sprungleiste">
+    <a href="#b-mitglieder" class="btn btn-sekundaer btn-klein">👥 Mitglieder</a>
+    <a href="#b-finanzen" class="btn btn-sekundaer btn-klein">💶 Beitrag &amp; Finanzen</a>
+    <a href="#b-termine" class="btn btn-sekundaer btn-klein">📆 Termine &amp; Ehrenamt</a>
+    <a href="#b-app" class="btn btn-sekundaer btn-klein">📱 App-Nutzung</a>
+</div>
+
+{# ── Bereich: Mitglieder ─────────────────────────────────────────────── #}
+<section class="bereich" id="b-mitglieder" data-bereich="mitglieder">
+    <div class="bereich-kopf" onclick="bereichKlappen(this)">
+        <span class="bereich-pfeil">▾</span>
+        <h2>👥 Mitglieder</h2>
+        <span class="bereich-sub">Wer ist im Verein, und wie verändert sich das? · Stand heute</span>
+    </div>
+    <div class="stat-grid">
+        {% call karte('status', 'Status', istleer(status) | trim == 'x') %}{{ balken(status, 'var(--blau)', '', 'status') }}{% endcall %}
+        {% call karte('alter', 'Altersstruktur', istleer(alter) | trim == 'x') %}{{ balken(alter, '#7c3aed', '', 'alter') }}{% endcall %}
+        {% call karte('eintritte', 'Eintritte pro Jahr', istleer(eintritte) | trim == 'x') %}
+            {% if istleer(eintritte) | trim != 'x' %}{{ balken(eintritte, 'var(--gruen)', '', 'eintritt') }}
+            {% else %}<p class="feld-hinweis">Noch keine Eintrittsdaten hinterlegt.</p>{% endif %}{% endcall %}
+        {% call karte('austritte', 'Austritte pro Jahr', istleer(austritte) | trim == 'x') %}
+            {% if istleer(austritte) | trim != 'x' %}{{ balken(austritte, 'var(--rot)', '', 'austritt') }}
+            {% else %}<p class="feld-hinweis">Bisher keine Austritte – schön.</p>{% endif %}{% endcall %}
+        {% call karte('orte', 'Wohnorte (Top 8)', istleer(orte) | trim == 'x') %}{{ balken(orte, '#0891b2', '', 'ort') }}{% endcall %}
+        {% call karte('anrede', 'Anrede', istleer(anrede) | trim == 'x') %}{{ balken(anrede, '#db2777', '', 'anrede') }}{% endcall %}
+        {% call karte('komm', 'Kommunikationswege', istleer(komm) | trim == 'x') %}{{ balken(komm, '#059669', '', 'komm') }}{% endcall %}
+    </div>
+</section>
+
+{# ── Bereich: Beitrag & Finanzen ─────────────────────────────────────── #}
+<section class="bereich" id="b-finanzen" data-bereich="finanzen">
+    <div class="bereich-kopf" onclick="bereichKlappen(this)">
+        <span class="bereich-pfeil">▾</span>
+        <h2>💶 Beitrag &amp; Finanzen</h2>
+        <span class="bereich-sub">Woher kommt das Geld, wohin geht es? · Jahreszahlen für {{ jahr }}</span>
+    </div>
+    <div class="stat-grid">
+        {% call karte('schnitt', 'Durchschnittsbeitrag') %}
+            <div style="font-size:26px;font-weight:700">{{ schnitt_beitrag | euro }}</div>
+            <div class="feld-hinweis">je aktivem Mitglied und Jahr</div>{% endcall %}
+        {% call karte('beitraege', 'Beiträge: offen vs. bezahlt') %}
+            <table style="box-shadow:none">
+                <tr><td>offen</td><td class="rechts" style="color:var(--rot)">{{ beitrag_offen | euro }}</td></tr>
+                <tr><td>bezahlt</td><td class="rechts" style="color:var(--gruen)">{{ beitrag_bezahlt | euro }}</td></tr>
+            </table>{% endcall %}
+        {% call karte('beitragsgruppen', 'Beitragsgruppen', istleer(beitragsgruppen) | trim == 'x') %}{{ balken(beitragsgruppen, 'var(--gelb)', '', 'beitragsgruppe') }}{% endcall %}
+        {% call karte('zahlungsarten', 'Zahlungsarten', istleer(zahlungsarten) | trim == 'x') %}{{ balken(zahlungsarten, 'var(--blau)', '', 'zahlungsart') }}{% endcall %}
+        {% call karte('finanzen', 'Einnahmen (grün) / Ausgaben (rot) pro Jahr', not finanzen) %}
+            {% if finanzen %}{{ geldbalken(finanzen) }}{% else %}<p class="feld-hinweis">Noch keine Buchungen im Kassenbuch.</p>{% endif %}{% endcall %}
+        {% call karte('sphaeren', 'Nach steuerlicher Sphäre ' ~ jahr, not sphaeren) %}
+            {% if sphaeren %}{{ geldbalken(sphaeren) }}{% else %}<p class="feld-hinweis">Für {{ jahr }} sind keine Buchungen einer Sphäre zugeordnet.</p>{% endif %}{% endcall %}
+        {% call karte('spenden', 'Spendenaufkommen pro Jahr', istleer(spenden) | trim == 'x') %}
+            {% if spenden %}{{ balken(spenden, 'var(--gelb)', ' €', 'spende') }}{% else %}<p class="feld-hinweis">Noch keine Spenden erfasst.</p>{% endif %}{% endcall %}
+        {% call karte('top_spender', 'Top-Spender:innen (gesamt)', istleer(top_spender) | trim == 'x') %}
+            {% if top_spender %}{{ balken(top_spender, '#ca8a04', ' €') }}<p class="stat-hinweis">Klick öffnet das Mitglied.</p>
+            {% else %}<p class="feld-hinweis">Noch keine Spende einem Mitglied zugeordnet.</p>{% endif %}{% endcall %}
+    </div>
+</section>
+
+{# ── Bereich: Termine & Ehrenamt ─────────────────────────────────────── #}
+<section class="bereich" id="b-termine" data-bereich="termine">
+    <div class="bereich-kopf" onclick="bereichKlappen(this)">
+        <span class="bereich-pfeil">▾</span>
+        <h2>📆 Termine &amp; Ehrenamt</h2>
+        <span class="bereich-sub">Was findet statt, und wer packt mit an?</span>
+    </div>
+    <div class="stat-grid">
+        {% call karte('besetzung', 'Schichtbesetzung') %}
+            <div style="font-size:26px;font-weight:700">{{ besetzung_quote }} %</div>
+            <div class="feld-hinweis">{{ slots_besetzt }} von {{ slots_gesamt }} Positionen besetzt</div>
+            <div class="balken-spur" style="margin-top:8px"><div class="balken-fuellung" style="width:{{ besetzung_quote }}%;background:var(--gruen)"></div></div>{% endcall %}
+        {% call karte('termine', 'Veranstaltungen pro Jahr', istleer(termine) | trim == 'x') %}{{ balken(termine, 'var(--blau)') }}{% endcall %}
+        {% call karte('monate', 'Veranstaltungen pro Monat ' ~ jahr, istleer(monate) | trim == 'x') %}
+            {% if istleer(monate) | trim != 'x' %}
+                {{ balken(monate, '#0891b2') }}
+                <p class="stat-hinweis">Zeigt, wann im Jahr viel los ist – und wo Lücken sind.</p>
+            {% else %}<p class="feld-hinweis">Für {{ jahr }} sind noch keine Veranstaltungen eingetragen.</p>{% endif %}{% endcall %}
+        {% call karte('teilnahme', 'Teilnahme-Status', istleer(teilnahme) | trim == 'x') %}
+            {% if teilnahme %}{{ balken(teilnahme, 'var(--gruen)') }}
+            {% else %}<p class="feld-hinweis">Noch keine Zu- oder Absagen zu Veranstaltungen.</p>{% endif %}{% endcall %}
+        {% call karte('abzeichen', 'Abzeichen', not abzeichen_stat) %}
+            {% if abzeichen_stat %}
+            <table style="box-shadow:none">
+                <thead><tr><th></th><th>Abzeichen</th><th>Kriterium</th><th class="rechts">Mitglieder</th></tr></thead>
+                <tbody>
+                {% for a in abzeichen_stat %}
+                <tr>
+                    <td style="font-size:18px">{{ a.symbol }}</td>
+                    <td><strong>{{ a.titel }}</strong>
+                        {% if a.namen %}<div class="feld-hinweis">{{ a.namen[:6] | join(', ') }}{% if a.namen | length > 6 %} … (+{{ a.namen | length - 6 }}){% endif %}</div>{% endif %}</td>
+                    <td class="sub">{{ a.kriterium }} ≥ {{ ('%g'|format(a.schwelle))|replace('.',',') }}</td>
+                    <td class="rechts" style="font-weight:700">{{ a.anzahl }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <p class="stat-hinweis">Nur vergebene Abzeichen. Definitionen unter <a href="{{ url_for('einstellungen.abzeichen') }}">Einstellungen → Abzeichen</a>.</p>
+            {% else %}<p class="feld-hinweis">Noch keine Abzeichen vergeben.</p>{% endif %}{% endcall %}
+    </div>
+</section>
+
+{# ── Bereich: App-Nutzung ────────────────────────────────────────────── #}
+<section class="bereich" id="b-app" data-bereich="app">
+    <div class="bereich-kopf" onclick="bereichKlappen(this)">
+        <span class="bereich-pfeil">▾</span>
+        <h2>📱 App-Nutzung</h2>
+        <span class="bereich-sub">Wie viele Mitglieder nutzen die Mitglieder-App wirklich?</span>
+    </div>
+    <div class="stat-grid">
+        {% call karte('appnutzung', 'Konten und Aktivität', not app_stat) %}
+            {% if app_stat %}
+            <table style="box-shadow:none">
+                <tr><td>App-Konten gesamt</td><td class="rechts" style="font-weight:700">{{ app_stat.konten }}</td></tr>
+                <tr><td>… davon Mitglieder / Vorstand</td><td class="rechts">{{ app_stat.mitglieder_konten }} / {{ app_stat.admin_konten }}</td></tr>
+                <tr><td>Mitglieder mit App-Konto</td><td class="rechts">{{ app_stat.mitglieder_konten }} von {{ app_stat.mitglieder_gesamt }}</td></tr>
+                <tr><td>schon einmal eingeloggt</td><td class="rechts">{{ app_stat.je_eingeloggt }}</td></tr>
+                <tr><td>aktiv in den letzten 7 Tagen</td><td class="rechts" style="font-weight:700;color:var(--gruen)">{{ app_stat.aktiv7 }}</td></tr>
+                <tr><td>aktiv in den letzten 30 Tagen</td><td class="rechts">{{ app_stat.aktiv30 }}</td></tr>
+                <tr><td>🔔 Push-Benachrichtigungen aktiv</td><td class="rechts">{{ app_stat.push }}</td></tr>
+            </table>
+            {% if app_letzte %}
+            <div class="feld-hinweis" style="margin-top:8px"><strong>Zuletzt aktiv:</strong>
+                {% for k in app_letzte %}{{ k.anzeigename or k.email }} ({{ k.letzter_login[:10] | datum_de }}){{ ', ' if not loop.last }}{% endfor %}</div>
+            {% endif %}
+            <p class="stat-hinweis">Aktivität = Tage mit App-/Verwaltungsnutzung (wird einmal täglich festgehalten, ab Juli 2026).</p>
+            {% else %}<p class="feld-hinweis">Noch keine App-Konten vorhanden.</p>{% endif %}{% endcall %}
+    </div>
+</section>
+
+<form id="layoutForm" method="post" action="{{ url_for('auswertungen.layout_speichern') }}" style="display:none">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="config" id="configInput">
+</form>
+
+<script>
+(function () {
+    var layout = {{ layout_json|safe }};
+    var bereiche = [].slice.call(document.querySelectorAll('.bereich'));
+    function alleKarten() { return [].slice.call(document.querySelectorAll('.stat-karte')); }
+
+    /* Gespeicherte Ansicht anwenden: ausgeblendete Kacheln, Reihenfolge, zugeklappte Bereiche.
+       Die Reihenfolge merkt sich auch, in welchem Bereich eine Kachel steckt. */
+    (layout.hidden || []).forEach(function (k) {
+        var c = document.querySelector('.stat-karte[data-key="' + k + '"]');
+        if (c) { c.classList.add('stat-hidden'); }
+    });
+    (layout.order || []).forEach(function (eintrag) {
+        var key = eintrag, ziel = null;
+        if (typeof eintrag === 'object') { key = eintrag.key; ziel = eintrag.bereich; }
+        var c = document.querySelector('.stat-karte[data-key="' + key + '"]');
+        if (!c) { return; }
+        var raster = ziel ? document.querySelector('.bereich[data-bereich="' + ziel + '"] .stat-grid')
+                          : c.parentNode;
+        if (raster) { raster.appendChild(c); }
+    });
+    (layout.zu || []).forEach(function (b) {
+        var s = document.querySelector('.bereich[data-bereich="' + b + '"]');
+        if (s) { s.classList.add('zu'); }
+    });
+
+    window.bereichKlappen = function (kopf) {
+        kopf.closest('.bereich').classList.toggle('zu');
+    };
+    window.anpassenModus = function () {
+        var an = document.body.classList.toggle('anpassen');
+        document.getElementById('anpassenLeiste').style.display = an ? 'flex' : 'none';
+        document.getElementById('anpassenBtn').textContent = an ? 'Fertig' : '🔧 Anpassen';
+        alleKarten().forEach(function (c) { c.draggable = an; });
+    };
+    window.augeToggle = function (btn) {
+        btn.closest('.stat-karte').classList.toggle('stat-hidden');
+    };
+    window.layoutSpeichern = function () {
+        var karten = alleKarten();
+        document.getElementById('configInput').value = JSON.stringify({
+            order: karten.map(function (c) {
+                return {key: c.dataset.key, bereich: c.closest('.bereich').dataset.bereich};
+            }),
+            hidden: karten.filter(function (c) { return c.classList.contains('stat-hidden'); })
+                          .map(function (c) { return c.dataset.key; }),
+            zu: bereiche.filter(function (s) { return s.classList.contains('zu'); })
+                        .map(function (s) { return s.dataset.bereich; })
+        });
+        document.getElementById('layoutForm').submit();
+    };
+    window.aufStandard = function () {
+        if (!confirm('Alle Anpassungen verwerfen und die Standard-Ansicht wiederherstellen?')) { return; }
+        document.getElementById('configInput').value = '';
+        document.getElementById('layoutForm').submit();
+    };
+
+    /* Kachel per Pfeil verschieben – klappt auch dort, wo Ziehen scheitert
+       (Tablet, Touchpad), und ist für viele schlicht einfacher. */
+    window.karteSchieben = function (btn, richtung) {
+        var karte = btn.closest('.stat-karte');
+        var raster = karte.parentNode;
+        var geschwister = [].slice.call(raster.children);
+        var i = geschwister.indexOf(karte);
+        var nachbar = geschwister[i + richtung];
+        if (nachbar) {
+            raster.insertBefore(richtung < 0 ? karte : nachbar,
+                                richtung < 0 ? nachbar : karte);
+        } else {
+            // Am Rand: in den nächsten bzw. vorigen Bereich wechseln
+            var alle = [].slice.call(document.querySelectorAll('.bereich'));
+            var b = alle.indexOf(karte.closest('.bereich'));
+            var ziel = alle[b + richtung];
+            if (!ziel) { return; }
+            var zielRaster = ziel.querySelector('.stat-grid');
+            if (richtung < 0) { zielRaster.appendChild(karte); }
+            else { zielRaster.insertBefore(karte, zielRaster.firstChild); }
+            ziel.classList.remove('zu');
+        }
+        karte.scrollIntoView({block: 'nearest'});
+    };
+
+    /* Ziehen – auch über Bereichsgrenzen hinweg */
+    var gezogen = null;
+    document.addEventListener('dragstart', function (e) {
+        var c = e.target.closest && e.target.closest('.stat-karte');
+        if (c && document.body.classList.contains('anpassen')) {
+            gezogen = c;
+            c.classList.add('ziehen');
+            // Ohne setData startet Safari den Ziehvorgang gar nicht erst
+            if (e.dataTransfer) {
+                e.dataTransfer.effectAllowed = 'move';
+                try { e.dataTransfer.setData('text/plain', c.dataset.key); } catch (x) {}
+            }
+        }
+    });
+    document.addEventListener('drop', function (e) {
+        if (gezogen) { e.preventDefault(); }
+    });
+    document.addEventListener('dragend', function () {
+        if (gezogen) { gezogen.classList.remove('ziehen'); gezogen = null; }
+    });
+    document.addEventListener('dragover', function (e) {
+        if (!gezogen) { return; }
+        var raster = e.target.closest && e.target.closest('.stat-grid');
+        if (!raster) { return; }
+        e.preventDefault();
+        if (e.dataTransfer) { e.dataTransfer.dropEffect = 'move'; }
+        var ziel = e.target.closest('.stat-karte');
+        if (!ziel || ziel === gezogen) {
+            if (raster !== gezogen.parentNode) { raster.appendChild(gezogen); }
+            return;
+        }
+        var r = ziel.getBoundingClientRect();
+        raster.insertBefore(gezogen, (e.clientY - r.top) < r.height / 2 ? ziel : ziel.nextSibling);
+    });
+})();
+</script>
+{% endblock %}

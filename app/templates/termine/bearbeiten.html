@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% block title %}Veranstaltung bearbeiten{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Veranstaltung bearbeiten</h1><div class="sub">{{ t.titel }}</div></div>
+    <a href="{{ url_for('termine.detail', tid=t.id) }}" class="btn btn-sekundaer">← Zurück</a>
+</div>
+
+<div class="karte">
+    <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld"><label>Titel</label><input type="text" name="titel" value="{{ t.titel }}" required></div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Datum</label><input type="date" name="datum" value="{{ t.datum }}" required></div>
+            <div class="feld"><label>Uhrzeit von</label><input type="time" name="uhrzeit" value="{{ t.uhrzeit }}"></div>
+            <div class="feld"><label>bis</label><input type="time" name="uhrzeit_bis" value="{{ t.uhrzeit_bis or '' }}"></div>
+            <div class="feld"><label>Einlass ab <span class="feld-hinweis">(optional)</span></label><input type="time" name="einlass_ab" value="{{ t.einlass_ab or '' }}"></div>
+            <div class="feld"><label>Ort</label><input type="text" name="ort" value="{{ t.ort }}"></div>
+            <div class="feld"><label>Hinweise zum Ort <span class="feld-hinweis">(Anfahrt, Eingang, Parken – erscheinen auf Anmeldeseite &amp; Voucher)</span></label>
+                <input type="text" name="ort_hinweise" value="{{ t.ort_hinweise or '' }}" placeholder="z. B. Eingang über den Hof, Parkplätze an der Schule"></div>
+            <div class="feld"><label>Kategorie</label>
+                <select name="kategorie_id">
+                    <option value="">— ohne —</option>
+                    {% for k in kategorien %}<option value="{{ k.id }}" {{ 'selected' if t.kategorie_id==k.id }}>{{ k.name }}</option>{% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="feld" style="max-width:220px"><label>Eintrittspreis (€)</label><input type="text" name="preis" value="{{ '%.2f'|format(t.preis or 0) }}"><div class="feld-hinweis">0 = kostenlos</div></div>
+        <div class="feld">
+            <label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" name="nur_mitglieder" {{ 'checked' if t.nur_mitglieder }} style="width:auto"> <strong>👥 Nur für Mitglieder</strong></label>
+            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin-top:6px"><input type="checkbox" name="presse_wunsch" {{ 'checked' if t.presse_wunsch }} style="width:auto"> <strong>📰 Pressemitteilung vorbereiten</strong>
+                <span class="feld-hinweis" style="font-weight:400">– legt der Öffentlichkeitsarbeit einen vorbefüllten Entwurf in den Redaktionsplan</span></label>
+            <div class="feld-hinweis">Für interne Termine wie Vorstandssitzung oder Mitgliederversammlung – Gäste sehen einen
+                Hinweis, die öffentliche Anmeldung ist gesperrt.</div>
+        </div>
+        <div class="feld"><label>Beschreibung</label><textarea name="beschreibung">{{ t.beschreibung }}</textarea></div>
+        <div class="feld"><label>Kurztext / Teaser (optional) <span class="feld-hinweis">(ein Satz, was beim Termin passiert – erscheint groß auf den Bildschirmen im Haus; leer = automatisch der Anfang der Beschreibung)</span></label>
+            <input type="text" name="teaser" maxlength="200" value="{{ t.teaser or '' }}" placeholder="z. B. Ein Abend mit Live-Musik, Geschichten vom See und Getränken im Hof"></div>
+        <div class="feld"><label>Mitwirkende (optional) <span class="feld-hinweis">(Referent:in, Band, Ensemble – mehrere mit Komma trennen; erscheint öffentlich und bei Google)</span></label>
+            <input type="text" name="mitwirkende" maxlength="300" value="{{ t.mitwirkende or '' }}" placeholder="z. B. Anna Beispiel, Trio Seeblick"></div>
+        <div class="feld"><label>Gut zu wissen <span class="feld-hinweis">(optional – erscheint auf der Terminseite, z. B. „Bitte Hausschuhe mitbringen“, „Rollstuhlgerecht über den Hof“, „Getränke vor Ort“)</span></label>
+            <textarea name="gut_zu_wissen" maxlength="600" rows="2">{{ t.gut_zu_wissen or '' }}</textarea></div>
+        <div class="feld"><label style="display:flex;gap:8px;align-items:center;font-weight:600">
+            <input type="checkbox" name="draussen" value="1" {{ 'checked' if t.draussen }}> Findet draußen statt
+            <span class="feld-hinweis" style="font-weight:400">(zeigt auf der Terminseite in den letzten 7 Tagen davor die Wettervorhersage)</span></label></div>
+        <div class="feld" style="background:var(--warn-grund);border:1px solid var(--gelb);border-radius:10px;padding:10px 12px">
+            <label style="display:flex;gap:8px;align-items:center;font-weight:700;margin:0">
+                <input type="checkbox" name="highlight" value="1" style="width:auto"{{ ' checked' if t.highlight }}> ⭐ Als Highlight hervorheben</label>
+            <div class="feld-hinweis" style="margin:4px 0 8px">Erscheint groß oben in der Terminliste, auf der Startseite der App
+                und automatisch auf der Website. Endet von selbst nach dem Termin. Gäste sehen interne Termine nie als Highlight.</div>
+            <input type="text" name="highlight_text" maxlength="60" value="{{ t.highlight_text or '' }}" placeholder="Kurzzeile, z. B. Saisonabschluss! (optional)">
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Eintritt</label>
+                <select name="eintritt_art">
+                    {% for k, n in eintritt_arten %}<option value="{{ k }}"{{ ' selected' if (t.eintritt_art or '') == k }}>{{ n }}</option>{% endfor %}
+                </select>
+                <div class="feld-hinweis">Steht als Etikett auf der Karte. Mit Preis (oben) erscheint stattdessen der Betrag.</div></div>
+            <div class="feld"><label>Für wen? <span class="feld-hinweis">(Etiketten + Filter in der Terminliste)</span></label>
+                <div style="display:flex;flex-wrap:wrap;gap:6px 14px">
+                {% for k, n in zielgruppen %}<label style="font-weight:400;display:inline-flex;gap:5px;align-items:center;margin:0">
+                    <input type="checkbox" name="zielgruppen" value="{{ k }}" style="width:auto"{{ ' checked' if k in (t.zielgruppen or '').split(',') }}> {{ n }}</label>{% endfor %}
+                </div></div>
+        </div>
+        <div class="feld"><label>Trailer- oder Hörproben-Link (optional)</label><input type="url" name="trailer_url" value="{{ t.trailer_url or '' }}" placeholder="z. B. YouTube-, Bandcamp- oder SoundCloud-Link"><div class="feld-hinweis">Kino/Film: erscheint als „▶ Trailer ansehen“, alle anderen Termine (z. B. MusikZeit): „▶ Hörprobe anhören“ – in der App, in der Terminliste und auf der Website.</div></div>
+        <div class="feld" style="border-top:1px solid var(--linie);padding-top:12px;margin-top:8px">
+            <label><strong>🖼️ Veranstaltungsbild (optional)</strong></label>
+            {% if t.bild %}
+            <div style="margin-bottom:8px">
+                <img src="{{ url_for('termine.bild', tid=t.id, v=t.bild) }}" alt="Aktuelles Veranstaltungsbild"
+                     style="max-height:90px;border-radius:8px;vertical-align:middle">
+                <label style="font-weight:400;margin-left:10px"><input type="checkbox" name="bild_entfernen" style="width:auto"> Bild entfernen</label>
+            </div>
+            {% endif %}
+            <div class="feld-reihe">
+                <div class="feld"><label>{{ 'Neues Bild hochladen' if t.bild else 'Bild hochladen' }}</label>
+                    <input type="file" name="bild_datei" accept="image/*"></div>
+                <div class="feld"><label>… oder von einem Link übernehmen</label>
+                    <input type="url" name="bild_url" placeholder="https://… (wird heruntergeladen und verkleinert)"></div>
+            </div>
+            <p class="feld-hinweis" style="margin:4px 0 0">Das Bild erscheint auf der Termin-Seite,
+                der öffentlichen Anmeldeseite und beim Teilen. Es wird automatisch auf Webgröße verkleinert.</p>
+        </div>
+        {% if design and design.modul_veranstaltungen %}
+        <div class="feld" style="border-top:1px solid var(--linie);padding-top:12px;margin-top:8px">
+            <label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" name="anmeldung_aktiv" onclick="document.getElementById('anm-felder').style.display=this.checked?'block':'none'" {{ 'checked' if t.anmeldung_aktiv }} style="width:auto"> <strong>🎟️ Teilnehmenden-Anmeldung aktivieren</strong></label>
+            <div class="feld-hinweis">Für Veranstaltungen mit Anmeldung (Teilnehmendenliste, öffentlicher Link, Voucher, Feedback). Ohne Häkchen = normaler Termin.</div>
+        </div>
+        <div id="anm-felder" style="display:{{ 'block' if t.anmeldung_aktiv else 'none' }}">
+            <div class="feld-reihe">
+                <div class="feld"><label>Min. Teilnehmende</label><input type="number" name="min_teilnehmer" min="0" value="{{ t.min_teilnehmer or 0 }}"></div>
+                <div class="feld"><label>Max. Teilnehmende</label><input type="number" name="max_teilnehmer" min="0" value="{{ t.max_teilnehmer or 0 }}"></div>
+                <div class="feld"><label>Anmeldeschluss</label><input type="date" name="anmeldeschluss" value="{{ t.anmeldeschluss or '' }}"></div>
+                <div class="feld"><label>Preis Mitglieder (€)</label>
+                    <input type="text" name="preis_mitglied" value="{{ '%.2f'|format(t.preis_mitglied) if t.preis_mitglied is not none else '' }}" placeholder="leer = wie regulär">
+                    <div class="feld-hinweis">gilt automatisch für angemeldete Mitglieder</div></div>
+                <div class="feld"><label>Storno bis (Std. vor Beginn)</label>
+                    <input type="number" name="storno_frist_stunden" min="0" value="{{ t.storno_frist_stunden or 0 }}">
+                    <div class="feld-hinweis">0 = Online-Storno jederzeit · wirkt nur, wenn der Termin eine Uhrzeit hat</div></div>
+                <div class="feld"><label>Nachrücken von der Warteliste</label>
+                    <select name="nachrueck_modus">
+                        <option value="auto" {{ 'selected' if (t.nachrueck_modus or 'auto') == 'auto' }}>sofort fest (Standard)</option>
+                        <option value="bestaetigen" {{ 'selected' if t.nachrueck_modus == 'bestaetigen' }}>Angebot mit 24-Std.-Frist</option>
+                    </select>
+                    <div class="feld-hinweis">Mit Frist: Platz muss per Link bestätigt werden, sonst rückt die nächste Person nach</div></div>
+            </div>
+            <div class="feld"><label>Stornierungsbedingungen</label>
+                <select name="stornobedingung">
+                    {% for opt in storno_optionen %}<option value="{{ opt }}" {{ 'selected' if t.stornobedingung==opt }}>{{ opt or '— keine Angabe —' }}</option>{% endfor %}
+                </select>
+            </div>
+            <label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" name="oeffentlich" {{ 'checked' if t.anmeldung_token }} style="width:auto"> Öffentliche Anmeldung über teilbaren Link erlauben</label>
+            <label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" name="feedback_aktiv" {{ 'checked' if t.feedback_aktiv }} style="width:auto"> Feedback-Bogen aktivieren</label>
+            <div class="feld"><label>Ausführliche Beschreibung (für die Anmeldeseite)</label><textarea name="langbeschreibung">{{ t.langbeschreibung or '' }}</textarea></div>
+        </div>
+        {% endif %}
+
+
+        <div class="feld" style="border-top:1px solid var(--linie);padding-top:12px;margin-top:8px">
+            <label><strong>🤝 Sponsor / Förderer (optional)</strong></label>
+            <div class="feld-reihe">
+                <div class="feld"><label>Name</label><input type="text" name="sponsor_name" value="{{ t.sponsor_name or '' }}"></div>
+                <div class="feld"><label>Link (URL)</label><input type="url" name="sponsor_url" value="{{ t.sponsor_url or '' }}" placeholder="https://…"></div>
+            </div>
+            <div class="feld"><label>Kleines Logo</label>
+                {% if t.sponsor_logo %}<div style="margin-bottom:6px"><img src="{{ url_for('termine.sponsor_logo', tid=t.id) }}" style="max-height:40px;vertical-align:middle"> <label style="font-weight:400;margin-left:10px"><input type="checkbox" name="sponsor_logo_entfernen" style="width:auto"> entfernen</label></div>{% endif %}
+                <input type="file" name="sponsor_logo" accept="image/*"></div>
+        </div>
+
+        <div class="feld"><label>Status</label>
+            <select name="status">
+                <option value="aktiv" {{ 'selected' if t.aktiv }}>Aktiv (veröffentlicht){% if design and design.ncc_url %} – in Nextcloud{% endif %}</option>
+                <option value="entwurf" {{ 'selected' if not t.aktiv }}>Entwurf (nur intern)</option>
+            </select>
+        </div>
+        <div class="aktionen">
+            <button type="submit" class="btn">💾 Speichern</button>
+            <a href="{{ url_for('termine.detail', tid=t.id) }}" class="btn btn-sekundaer">Abbrechen</a>
+        </div>
+    </form>
+</div>
+
+{% set weiter_url = url_for('termine.bearbeiten', tid=t.id) ~ '#schichten' %}
+<div class="karte" id="schichten" style="scroll-margin-top:16px">
+    <h2 style="margin-top:0">🧑‍🤝‍🧑 Schichten & Helfer</h2>
+    <p class="feld-hinweis" style="margin-top:-6px">{% if slots_map %}Je Platz Rolle und Mitglied wählen, dann unten
+        <strong>💾 Speichern</strong>. Die kleinen Knöpfe (＋ / – / ✕) wirken sofort.{% else %}Lege unten
+        die erste Schicht an – danach erscheinen hier die Plätze zum Besetzen.{% endif %}</p>
+    {# Trägerformular für ALLE Rollen-/Mitglied-Felder (ein Speichern-Knopf wie
+       beim Termin, 06.11.); die Felder hängen per form-Attribut daran,
+       damit die kleinen Aktions-Formulare nicht verschachtelt werden. #}
+    <form method="post" id="plaetze-form"
+          action="{{ url_for('schichten.plaetze_speichern', tid=t.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="weiter" value="{{ weiter_url }}">
+    </form>
+
+    {% set mit_ids = mitglieder_aktiv | map(attribute='id') | list %}
+    {% for s in schichten_liste %}
+    <div style="border:1px solid var(--grau-linie,#e5e7eb);border-radius:10px;padding:12px 14px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <strong>{{ s.titel }}</strong>
+            <span class="feld-hinweis">{% if s.zeit_von and s.zeit_bis %}🕒 {{ s.zeit_von }}–{{ s.zeit_bis }} Uhr{% else %}<span style="color:var(--rot)">⚠️ Zeit fehlt</span>{% endif %}
+                {% if s.ort %} · {{ s.ort }}{% endif %}
+                · <a href="{{ url_for('schichten.detail', sid=s.id) }}#bearbeiten" title="Titel, Datum und Uhrzeit dieser Schicht ändern">✏️ bearbeiten</a>
+                · <a href="{{ url_for('schichten.detail', sid=s.id) }}">große Ansicht</a></span>
+            <form method="post" action="{{ url_for('schichten.loeschen', sid=s.id) }}" style="display:inline"
+                  onsubmit="return confirm('Schicht „{{ s.titel }}“ samt Plätzen löschen?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="weiter" value="{{ weiter_url }}">
+                <button class="btn btn-sekundaer btn-klein" title="Schicht löschen">✕</button>
+            </form>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:6px;margin-top:8px">
+            {% for sl in slots_map.get(s.id, []) %}
+            <div style="display:flex;gap:5px;align-items:center">
+                <div style="flex:1;display:flex;gap:5px;align-items:center;flex-wrap:wrap;min-width:0">
+                    {# Der beim Laden gesehene Stand wandert mit – trägt sich
+                       währenddessen jemand per App ein, wird das beim Speichern
+                       NICHT überschrieben (optimistische Sperre, Audit 06.11.). #}
+                    <input type="hidden" name="alt_mitglied_{{ sl.id }}" form="plaetze-form"
+                           value="{{ sl.mitglied_id or '' }}">
+                    {% if rollen %}
+                    <select name="rolle_{{ sl.id }}" form="plaetze-form" style="max-width:140px;min-width:0"
+                            title="Rolle dieses Platzes">
+                        <option value="">– Rolle –</option>
+                        {% for r in rollen %}<option value="{{ r.id }}" {{ 'selected' if r.id == sl.rolle_id }}>{{ r.name }}</option>{% endfor %}
+                    </select>
+                    {% endif %}
+                    <select name="mitglied_{{ sl.id }}" form="plaetze-form" style="flex:1;min-width:0"
+                            title="{{ sl.rolle_name or 'Helfer-Platz' }}{{ ' – Tausch gesucht!' if sl.tausch_gesucht }}">
+                        <option value="">— frei{% if sl.zeit_von and sl.zeit_bis %} ({{ sl.zeit_von }}–{{ sl.zeit_bis }}){% endif %} —</option>
+                        {# Eingeteilte außerhalb der Auswahlliste (z. B. Status
+                           geändert) bleiben sichtbar und werden beim Speichern
+                           nicht still ausgetragen (Audit 06.11.) #}
+                        {% if sl.mitglied_id and sl.mitglied_id not in mit_ids %}
+                        <option value="{{ sl.mitglied_id }}" selected>{{ sl.m_nachname }}, {{ sl.m_vorname }} (außerhalb der Auswahl)</option>
+                        {% endif %}
+                        {% for m in mitglieder_aktiv %}
+                        <option value="{{ m.id }}" {{ 'selected' if m.id == sl.mitglied_id }}>{{ m.nachname }}, {{ m.vorname }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if sl.zeit_von and sl.zeit_bis %}<span class="feld-hinweis" title="Eigene Zeit dieser Position">🕒 {{ sl.zeit_von }}–{{ sl.zeit_bis }}</span>{% endif %}
+                    {% if sl.tausch_gesucht %}<span title="Tausch gesucht">🔄</span>{% endif %}
+                </div>
+                <form method="post" action="{{ url_for('schichten.slot_entfernen', slot_id=sl.id) }}" style="display:inline"
+                      onsubmit="return confirm('Diesen Platz entfernen?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="schicht_id" value="{{ s.id }}">
+                    <input type="hidden" name="weiter" value="{{ weiter_url }}">
+                    <button class="btn btn-sekundaer btn-klein" title="Platz entfernen">–</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        <form method="post" action="{{ url_for('schichten.slots_hinzufuegen', sid=s.id) }}"
+              style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="weiter" value="{{ weiter_url }}">
+            <input type="number" name="anzahl" value="1" min="1" max="50" style="width:70px" title="Anzahl neuer Plätze">
+            {% if rollen %}
+            <select name="rolle_id" style="min-width:140px" title="Rolle (optional)">
+                <option value="">– ohne Rolle –</option>
+                {% for r in rollen %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
+            </select>
+            {% endif %}
+            {# bewusst LEER: nur wer wirklich eine Sonderzeit will, füllt sie aus –
+               vorbefüllte Felder froren die Schichtzeit als Kopie ein (Audit 06.11.) #}
+            <input type="time" name="zeit_von" title="von – leer lassen = Zeit der Schicht gilt" style="width:104px">
+            <input type="time" name="zeit_bis" title="bis – leer lassen = Zeit der Schicht gilt" style="width:104px">
+            <button class="btn btn-sekundaer btn-klein">＋ Plätze</button>
+        </form>
+    </div>
+    {% else %}
+    <p class="feld-hinweis">Noch keine Schichten für diese Veranstaltung.</p>
+    {% endfor %}
+
+    {% if slots_map %}
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+        <button type="submit" form="plaetze-form" class="btn">💾 Speichern</button>
+    </div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('schichten.neu') }}"
+          style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;border-top:1px solid var(--linie);padding-top:12px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="termin_id" value="{{ t.id }}">
+        <input type="hidden" name="weiter" value="{{ weiter_url }}">
+        {% if rollen %}
+        <div class="feld" style="margin:0;min-width:150px"><label>Rolle</label>
+            <select name="rolle_id" title="Rolle der neuen Plätze – ihr Name wird als Titel vorgeschlagen"
+                    onchange="var t=this.form.titel; if (this.value && !t.value) { t.value = this.options[this.selectedIndex].text; }">
+                <option value="">– ohne Rolle –</option>
+                {% for r in rollen %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
+            </select></div>
+        {% endif %}
+        <div class="feld" style="flex:2;min-width:170px;margin:0"><label>Titel <span class="feld-hinweis">(leer = Rollenname)</span></label>
+            <input type="text" name="titel" placeholder="z. B. Einlass / Kasse / Aufbau"></div>
+        {# Vorschlag: 15 Minuten vor Terminbeginn bis 15 Minuten nach Terminende #}
+        <div class="feld" style="margin:0"><label>von *</label><input type="time" name="zeit_von" value="{{ vs_von or '' }}" required title="Ab wann? (Vorschlag: 15 Min. vor Terminbeginn)" style="width:110px"></div>
+        <div class="feld" style="margin:0"><label>bis *</label><input type="time" name="zeit_bis" value="{{ vs_bis or '' }}" required title="Bis wann? (Vorschlag: 15 Min. nach Terminende)" style="width:110px"></div>
+        <div class="feld" style="margin:0"><label>Plätze</label>
+            <input type="number" name="plaetze" value="1" min="1" max="50" style="width:70px"></div>
+        <button class="btn">＋ Schicht anlegen</button>
+    </form>
+    <script>
+    /* Schutz vor stillem Eingabeverlust (Audit 06.11.): Die Sofort-Knöpfe
+       (＋ Plätze, – Platz, ✕ Schicht, ＋ Schicht anlegen) laden die Seite neu –
+       ungespeicherte Rollen-/Mitglied-Auswahl im Sammelformular ginge verloren.
+       Deshalb vorher nachfragen. */
+    (function () {
+        var dirty = false;
+        document.querySelectorAll('select[form="plaetze-form"]').forEach(function (el) {
+            el.addEventListener('change', function () { dirty = true; });
+        });
+        var pf = document.getElementById('plaetze-form');
+        if (pf) { pf.addEventListener('submit', function () { dirty = false; }); }
+        document.querySelectorAll('#schichten form').forEach(function (f) {
+            if (f.id === 'plaetze-form') { return; }
+            f.addEventListener('submit', function (e) {
+                if (dirty && !window.confirm('Es gibt ungespeicherte Rollen-/Mitglied-Auswahl – '
+                        + 'die geht bei dieser Aktion verloren. Trotzdem fortfahren?')) {
+                    e.preventDefault();
+                }
+            });
+        });
+    })();
+    </script>
+</div>
+{% endblock %}

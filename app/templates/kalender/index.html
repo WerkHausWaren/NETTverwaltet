@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Kalender{% endblock %}
+{% block content %}
+{% include "kalender/_switcher.html" %}
+
+{% if (design and design.modul_veranstaltungen) or (design and design.event_import_url) %}
+<div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    {% if design and design.modul_veranstaltungen %}
+    <a href="{{ url_for('veranstaltungen.index') }}" class="btn btn-sekundaer">🎟️ Anmeldungen</a>
+    <a href="{{ url_for('veranstaltungen.auswertung') }}" class="btn btn-sekundaer">📈 Auswertung</a>
+    {% endif %}
+    {% if design and design.event_import_url %}
+    <form method="post" action="{{ url_for('kalender.import_veranstaltungen') }}" style="display:inline"
+          onsubmit="var b=this.querySelector('button');b.disabled=true;b.textContent='⏳ Importiere … (kann etwas dauern)';">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-sekundaer" title="Fehlende Termine von der hinterlegten Quelle importieren (inkl. Bild)">📥 Von auf-nach-mv importieren</button>
+    </form>
+    {% endif %}
+</div>
+{% endif %}
+
+{% for f in fehler %}<div class="flash flash-fehler">Externer Kalender nicht ladbar – {{ f }}</div>{% endfor %}
+
+{% macro pager(seite, seiten, ist_k, k_akt, v_akt) %}
+{% if seiten > 1 %}
+<nav class="pager" aria-label="Seitennavigation" style="display:flex;gap:5px;justify-content:center;align-items:center;flex-wrap:wrap;margin:14px 0">
+    {% if seite > 1 %}<a class="btn btn-sekundaer btn-klein" href="{{ url_for('kalender.index', ansicht='liste', kat=aktiver_kat, sk=(seite-1 if ist_k else k_akt), sv=(v_akt if ist_k else seite-1)) }}">‹ zurück</a>{% else %}<span class="btn btn-sekundaer btn-klein" style="opacity:.35;pointer-events:none">‹ zurück</span>{% endif %}
+    {% for n in range(1, seiten+1) %}
+        {% if n==1 or n==seiten or (n>=seite-2 and n<=seite+2) %}
+            {% if n==seite %}<span class="btn btn-klein" style="pointer-events:none">{{ n }}</span>
+            {% else %}<a class="btn btn-sekundaer btn-klein" href="{{ url_for('kalender.index', ansicht='liste', kat=aktiver_kat, sk=(n if ist_k else k_akt), sv=(v_akt if ist_k else n)) }}">{{ n }}</a>{% endif %}
+        {% elif n==seite-3 or n==seite+3 %}<span style="padding:0 3px;color:var(--text-schwach)">…</span>{% endif %}
+    {% endfor %}
+    {% if seite < seiten %}<a class="btn btn-sekundaer btn-klein" href="{{ url_for('kalender.index', ansicht='liste', kat=aktiver_kat, sk=(seite+1 if ist_k else k_akt), sv=(v_akt if ist_k else seite+1)) }}">vor ›</a>{% else %}<span class="btn btn-sekundaer btn-klein" style="opacity:.35;pointer-events:none">vor ›</span>{% endif %}
+    <span class="feld-hinweis" style="margin-left:8px">Seite {{ seite }} / {{ seiten }}</span>
+</nav>
+{% endif %}
+{% endmacro %}
+
+{% if kat_vorhanden %}
+<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+    <span class="feld-hinweis" style="margin-right:2px">Filter:</span>
+    <a href="{{ url_for('kalender.index') }}" class="badge {{ 'badge-aktiv' if not aktiver_kat else 'badge-gruppe' }}" style="text-decoration:none">Alle</a>
+    {% for k in kat_vorhanden %}
+    <a href="{{ url_for('kalender.index', kat=k) }}" class="badge {{ 'badge-aktiv' if aktiver_kat==k else 'badge-gruppe' }}" style="text-decoration:none">{{ k }}</a>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if kommend %}
+<h2 style="margin-bottom:6px">Kommende Termine <span class="feld-hinweis" style="font-weight:400">({{ k_gesamt }}){% if aktiver_kat %} · {{ aktiver_kat }}{% endif %}</span></h2>{% endif %}
+{% if kommend %}
+<table>
+    <thead><tr><th>Datum</th><th>Titel</th><th>Ort</th><th>Kategorie</th><th class="rechts">Status</th></tr></thead>
+    <tbody>
+    {% for e in kommend %}
+    <tr {% if e.art=='eigen' %}onclick="window.location='{{ url_for('termine.detail', tid=e.id) }}'" style="cursor:pointer"{% endif %}>
+        <td>{{ e.datum | datum_wt }}{% if e.uhrzeit %} · {{ e.uhrzeit }}{% endif %}</td>
+        <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ e.farbe|hexfarbe }};margin-right:7px;vertical-align:middle"></span><strong class="kal-ev" style="cursor:pointer"
+            data-art="{{ e.art }}" data-titel="{{ e.titel|e }}" data-datum="{{ e.datum|datum_wt }}"
+            data-zeit="{{ e.uhrzeit|e }}" data-ort="{{ e.ort|e }}" data-besch="{{ e.beschreibung|e }}"
+            data-kat="{{ e.kategorie|e if e.art=='eigen' else '' }}" data-quelle="{{ e.quelle|e if e.art=='extern' else '' }}"
+            data-farbe="{{ e.farbe|hexfarbe }}">{% if e.serie_id %}<span title="Teil einer Serie">🔁</span> {% endif %}{{ e.titel }}</strong></td>
+        <td>{{ e.ort }}</td>
+        <td>
+            {% if e.art=='eigen' %}
+                {% if e.kategorie %}<span class="badge" style="background:{{ e.farbe|hexfarbe }};color:{{ e.farbe|kontrast }}">{{ e.kategorie }}</span>{% endif %}
+            {% else %}<span class="badge badge-gruppe">{{ e.quelle }}</span>{% endif %}
+        </td>
+        <td class="rechts" style="white-space:nowrap">
+            {% if e.art=='eigen' %}
+                <form method="post" action="{{ url_for('termine.aktiv_setzen', tid=e.id) }}" style="display:inline" onclick="event.stopPropagation()">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    {% if e.aktiv %}<button type="submit" class="badge badge-aktiv" style="border:none;cursor:pointer;font:inherit" title="Klicken: offline / auf Entwurf setzen">👁 online</button>
+                    {% else %}<button type="submit" class="badge badge-ehrenmitglied" style="border:none;cursor:pointer;font:inherit" title="Klicken: veröffentlichen (online)">✎ Entwurf</button>{% endif %}
+                </form>
+                {% if e.anmeldung_aktiv %} <span class="feld-hinweis" title="Externe Anmeldungen">🎟️ {{ e.anmeldungen }}{% if e.max_teilnehmer %}/{{ e.max_teilnehmer }}{% endif %}</span>{% endif %}
+                {% if e.schichten %} <span class="feld-hinweis" title="Schichten">🧑‍🤝‍🧑 {{ e.schichten }}</span>{% endif %}
+                {% set gesamt_teil = (e.zusagen or 0) + (e.anmeldungen or 0) %}
+                <span class="feld-hinweis" title="Teilnehmende gesamt: {{ e.zusagen }} Mitglieder{% if e.anmeldung_aktiv %} + {{ e.anmeldungen }} Anmeldungen{% endif %}">👥 {{ gesamt_teil }}</span>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{{ pager(k_seite, k_seiten, true, k_seite, v_seite) }}
+{% else %}
+<div class="karte leer"><div class="icon">📆</div><p>Keine kommenden Termine. Lege oben eine Veranstaltung an oder binde unter „Kalenderquellen" einen externen Kalender ein.</p></div>
+{% endif %}
+
+{% if weblinks %}
+<h2>Verlinkte Programme</h2>
+<div class="karte">
+    {% for q in weblinks %}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0">
+        <div>🔗 <strong>{{ q.name }}</strong></div>
+        <a href="{{ q.url|sichere_url }}" target="_blank" rel="noopener" class="btn btn-sekundaer btn-klein">Öffnen ↗</a>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if vergangen %}
+<h2>Vergangene Veranstaltungen <span class="feld-hinweis" style="font-weight:400">({{ v_gesamt }})</span></h2>
+<table>
+    <tbody>
+    {% for e in vergangen %}
+    <tr onclick="window.location='{{ url_for('termine.detail', tid=e.id) }}'" style="cursor:pointer;opacity:0.75">
+        <td style="width:150px">{{ e.datum | datum_wt }}</td>
+        <td>{% if e.serie_id %}<span title="Teil einer Serie">🔁</span> {% endif %}{{ e.titel }}</td>
+        <td>{{ e.ort }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{{ pager(v_seite, v_seiten, false, k_seite, v_seite) }}
+{% endif %}
+{% endblock %}

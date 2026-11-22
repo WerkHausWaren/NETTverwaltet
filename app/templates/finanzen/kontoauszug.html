@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Kontoauszug (PDF){% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>📄 Kontoauszug als PDF einlesen</h1><div class="sub">Umsätze aus dem PDF-Auszug erkennen und verbuchen</div></div>
+    <div class="aktionen"><a href="{{ url_for('bank.index') }}" class="btn btn-sekundaer">← Konten</a></div>
+</div>
+
+<div class="hilfe-box" style="margin-bottom:16px">💡 Lade den <strong>Original-PDF-Kontoauszug</strong> deiner Bank hoch
+    (kein Scan/Foto). Die erkannten Umsätze erscheinen unten zur <strong>Sichtprüfung</strong> – verbucht wird erst,
+    wenn du es bestätigst. Klappt die Erkennung bei deinem Auszug nicht sauber, nutze den
+    <a href="{{ url_for('finanzen.sparkasse_import') }}">CSV-Import</a> – der ist zu 100 % zuverlässig.</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">PDF hochladen</h2>
+    <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld"><label>Kontoauszug (PDF)</label><input type="file" name="pdf" accept=".pdf,application/pdf" required></div>
+        <button class="btn">📤 Einlesen</button>
+    </form>
+</div>
+
+{% if fehler %}<div class="flash flash-fehler">{{ fehler }}</div>{% endif %}
+
+{% if zugeordnet or vorschlaege %}
+<div class="karte" style="border:2px solid var(--gruen)">
+    <h2 style="margin-top:0">🎟️ Zahlungsabgleich Anmeldungen</h2>
+    {% if zugeordnet %}
+    <p style="margin:0 0 6px"><strong>✅ Automatisch als bezahlt verbucht ({{ zugeordnet|length }}):</strong></p>
+    {% for z in zugeordnet %}
+    <div style="padding:6px 0">{{ z.name }} – {{ z.titel }} · {{ '%.2f'|format(z.erhalten)|replace('.', ',') }} €
+        <span class="feld-hinweis">(Zahlcode {{ z.zahlcode }})</span></div>
+    {% endfor %}
+    {% endif %}
+    {% if vorschlaege %}
+    <p style="margin:10px 0 6px"><strong>⚠️ Zahlcode erkannt, Betrag weicht ab – bitte prüfen:</strong></p>
+    {% for z in vorschlaege %}
+    <div style="padding:6px 0">{{ z.name }} – {{ z.titel }}: erhalten {{ '%.2f'|format(z.erhalten)|replace('.', ',') }} €,
+        erwartet {{ '%.2f'|format(z.erwartet)|replace('.', ',') }} €</div>
+    {% endfor %}
+    {% endif %}
+</div>
+{% endif %}
+
+{% if umsaetze %}
+<div class="karte">
+    <h2 style="margin-top:0">Erkannte Umsätze ({{ umsaetze|length }})</h2>
+    <div class="feld-hinweis" style="margin-bottom:8px">Bitte kurz prüfen, ob Datum, Text und Beträge stimmen –
+        PDF-Erkennung ist nie ganz perfekt. Zweifelhafte Zeilen einfach abhaken.</div>
+    {% set ziel_konto = bank_konto %}
+    {% set zurueck = url_for('finanzen.liste') %}
+    {% include "finanzen/_umsatz_tabelle.html" %}
+</div>
+{% endif %}
+{% endblock %}

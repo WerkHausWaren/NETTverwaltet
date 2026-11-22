@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="{{ sprache_aktiv }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>{{ ue('Anmeldestand') }} – {{ t.titel }}</title>
+{% with akzent = (einst.farbe_primaer if einst else '') %}{% include "_oeffentlich_stil.html" %}{% endwith %}
+<style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; color: var(--text, #1e293b); margin: 0; background: var(--grund, #eef1f5); }
+    .wrap { max-width: 620px; margin: 0 auto; padding: 0 14px 40px; }
+    .kopf { background: var(--flaeche, #fff); color: var(--text, #1b2a34); padding: calc(14px + env(safe-area-inset-top)) 16px 16px;
+            border-radius: 0 0 22px 22px; border-bottom: 1px solid var(--linie, #eceff3);
+            box-shadow: 0 2px 10px rgba(20,40,70,.05); display: flex; align-items: center; gap: 14px; }
+    .kopf img { height: 72px; width: auto; max-width: 44%; object-fit: contain; flex: none;
+                background: var(--logo-teller, transparent); border-radius: 8px; }
+    .kopf .vn { font-weight: 800; font-size: 21px; line-height: 1.1; min-width: 0; }
+    .karte { background: var(--flaeche, #fff); border-radius: 14px; padding: 20px; margin-top: 16px; box-shadow: 0 3px 14px rgba(0,0,0,.05); }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    .meta { color: var(--text-hell, #64748b); font-size: 14.5px; }
+    .kacheln { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin: 18px 0 8px; }
+    .kachel { background: var(--neutral-grund, #f1f5f9); border-radius: 10px; padding: 12px; text-align: center; }
+    .kachel .zahl { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .kachel .label { font-size: 13px; color: var(--neutral-text, #475569); }
+    .balken { background: var(--neutral-grund, #e2e8f0); border-radius: 999px; height: 12px; overflow: hidden; margin: 12px 0 6px; }
+    .balken div { background: var(--akz-text, #2563eb); height: 100%; border-radius: 999px; }
+    .sponsor { margin-top: 16px; font-size: 14px; color: var(--text-hell, #64748b); text-align: center; }
+    .hinweis { font-size: 12.5px; color: var(--text-hell, #64748b); text-align: center; margin: 16px 0 0; }
+    a { color: var(--akz-text, var(--akz)); }
+</style>
+</head>
+<body>
+<div class="kopf">
+    {% if einst.logo_dateiname %}<img src="{{ url_for('einstellungen.logo', verein_id=einst.id) }}" alt="{{ einst.vereinsname }}">{% endif %}
+    <span class="vn">{{ einst.vereinsname }}</span>
+    <span style="margin-left:auto;font-size:13px;white-space:nowrap">
+        {% for code, name in SPRACHEN.items() %}{% if not loop.first %} · {% endif %}<a href="?lang={{ code }}"
+            style="text-decoration:none;font-weight:{{ '800' if code == sprache_aktiv else '400' }};color:var(--text, #1b2a34)">{{ name }}</a>{% endfor %}
+    </span>
+</div>
+<div class="wrap">
+    <div class="karte">
+        <h1>📊 {{ ue('Anmeldestand') }}</h1>
+        <div class="meta">{{ t.titel }} · 📅 {{ t.datum | datum_de }}{% if t.uhrzeit %} · {{ t.uhrzeit }} Uhr{% endif %}{% if t.ort %} · 📍 {{ t.ort }}{% endif %}</div>
+
+        {% if t.abgesagt %}
+        <div class="karte" style="background:var(--sidebar, #17233a);color:var(--auf-sidebar, #fff);text-align:center">
+            <div style="font-size:18px;font-weight:800">{{ ue('⛔ Diese Veranstaltung wurde abgesagt') }}</div>
+        </div>
+        {% endif %}
+
+        <div class="kacheln">
+            <div class="kachel"><div class="zahl">{{ belegt }}</div><div class="label">{{ ue('Angemeldet') }}</div></div>
+            {% if frei is not none %}<div class="kachel"><div class="zahl">{{ frei }}</div><div class="label">{{ ue('Freie Plätze') }}</div></div>{% endif %}
+            {% if warteliste %}<div class="kachel"><div class="zahl">{{ warteliste }}</div><div class="label">{{ ue('Warteliste') }}</div></div>{% endif %}
+        </div>
+
+        {% if t.max_teilnehmer %}
+        {% set anteil = [100, (100 * belegt / t.max_teilnehmer) | round | int] | min %}
+        {# dekorativ: die Zeile darunter trägt dieselbe Zahl – sonst doppelt vorgelesen #}
+        <div class="balken" aria-hidden="true"><div style="width: {{ anteil }}%"></div></div>
+        <p class="meta" style="text-align:center;margin:0">{{ ue('%s von %s Plätzen belegt') % (belegt, t.max_teilnehmer) }}</p>
+        {% endif %}
+
+        {% if geschlossen and not t.abgesagt %}
+        <p class="meta" style="text-align:center;margin-top:10px">🔒 {{ ue('Die Anmeldung ist geschlossen.') }}</p>
+        {% endif %}
+
+        {% if t.sponsor_name or t.sponsor_logo %}
+        <p class="sponsor">{{ ue('Mit Unterstützung von') }}
+            {% if t.sponsor_logo %}<img src="{{ url_for('termine.sponsor_logo', tid=t.id, token=t.anmeldung_token) }}" alt="{{ t.sponsor_name or ue('Sponsor:in') }}" style="max-height:44px;max-width:150px;object-fit:contain;vertical-align:middle;margin:0 4px;background:var(--logo-teller, transparent);border-radius:8px;padding:3px">{% endif %}
+            {% if t.sponsor_name %}<strong>{{ t.sponsor_name }}</strong>{% endif %}</p>
+        {% endif %}
+
+        <p class="hinweis">{{ ue('Stand:') }} {{ jetzt }} ·
+            {{ ue('Diese Übersicht zeigt nur Zahlen – keine Namen und keine Kontaktdaten.') }}</p>
+    </div>
+    <p style="text-align:center;margin-top:14px"><a href="{{ url_for('veranstaltungen.oeffentlich', token=t.anmeldung_token) }}">‹ {{ ue('Zur Anmeldeseite') }}</a></p>
+</div>
+</body>
+</html>

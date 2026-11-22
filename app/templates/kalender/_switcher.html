@@ -1,0 +1,81 @@
+<div class="page-header">
+    <div><h1>Kalender</h1><div class="sub">Eigene Veranstaltungen und externe Kalender</div></div>
+    <div class="aktionen">
+        <a href="{{ url_for('termine.neu') }}" class="btn">＋ Neue Veranstaltung</a>
+        {% if nc_konfiguriert %}
+        <form method="post" action="{{ url_for('kalender.nextcloud_sync') }}" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sekundaer" title="Alle Termine der App nach Nextcloud übertragen und Ansicht aktualisieren">🔄 Synchronisieren</button>
+        </form>
+        {% endif %}
+        <a href="{{ url_for('kalender.kategorien') }}" class="btn btn-sekundaer">🏷️ Kategorien</a>
+        <a href="{{ url_for('kalender.quellen') }}" class="btn btn-sekundaer">🔗 Quellen{% if anzahl_quellen %} ({{ anzahl_quellen }}){% endif %}</a>
+        <a href="{{ url_for('kalender.export') }}" class="btn btn-sekundaer">📅 Export / Abo</a>
+    </div>
+</div>
+
+<div class="werkzeug" style="align-items:center">
+    <div class="kal-tabs">
+        <a href="{{ url_for('kalender.index', ansicht='liste', d=ref_iso) }}" class="{{ 'aktiv' if ansicht=='liste' }}">Liste</a>
+        <a href="{{ url_for('kalender.index', ansicht='woche', d=ref_iso) }}" class="{{ 'aktiv' if ansicht=='woche' }}">Woche</a>
+        <a href="{{ url_for('kalender.index', ansicht='monat', d=ref_iso) }}" class="{{ 'aktiv' if ansicht=='monat' }}">Monat</a>
+        <a href="{{ url_for('kalender.index', ansicht='jahr', d=ref_iso) }}" class="{{ 'aktiv' if ansicht=='jahr' }}">Jahr</a>
+    </div>
+    {% if ansicht != 'liste' %}
+    <div class="aktionen" style="margin-left:auto">
+        <a href="{{ url_for('kalender.index', ansicht=ansicht, d=prev_iso) }}" class="btn btn-sekundaer btn-klein">←</a>
+        <a href="{{ url_for('kalender.index', ansicht=ansicht, d=heute_iso) }}" class="btn btn-sekundaer btn-klein">Heute</a>
+        <a href="{{ url_for('kalender.index', ansicht=ansicht, d=next_iso) }}" class="btn btn-sekundaer btn-klein">→</a>
+        <strong style="margin-left:10px">{{ titel }}</strong>
+    </div>
+    {% endif %}
+</div>
+
+{# Tooltip (Hover) und Detail-Fenster (Klick) für Termine – gilt für alle Ansichten #}
+<div id="kal-tip" class="kal-tip"></div>
+<div id="kal-modal" class="kal-modal-bg" onclick="if(event.target===this)this.style.display='none'">
+    <div class="kal-modal-box">
+        <button type="button" class="kal-modal-x" onclick="document.getElementById('kal-modal').style.display='none'">✕</button>
+        <div id="kal-modal-inhalt"></div>
+    </div>
+</div>
+<script>
+(function(){
+    var tip=document.getElementById('kal-tip');
+    function esc(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+    function info(el){var d=el.dataset,t=[];
+        if(d.datum)t.push('📅 '+d.datum);
+        if(d.zeit)t.push('🕒 '+d.zeit);
+        if(d.ort)t.push('📍 '+d.ort);
+        return t.join(' · ');}
+    // Event-Delegation: funktioniert für alle Termin-Chips, egal wann sie im DOM stehen
+    document.addEventListener('mousemove',function(e){
+        var el=e.target.closest ? e.target.closest('.kal-ev') : null;
+        if(!el){ tip.style.display='none'; return; }
+        tip.innerHTML='<strong>'+esc(el.dataset.titel)+'</strong>'+(info(el)?'<br>'+esc(info(el)):'');
+        tip.style.display='block';
+        var x=e.clientX+14, y=e.clientY+14;
+        if(x+250>window.innerWidth)x=e.clientX-264;
+        tip.style.left=x+'px'; tip.style.top=y+'px';
+    });
+    document.addEventListener('click',function(e){
+        var el=e.target.closest ? e.target.closest('.kal-ev') : null;
+        if(el && el.dataset.art==='extern'){ e.preventDefault(); e.stopPropagation(); zeigeDetail(el); }
+    });
+    function zeigeDetail(el){
+        var d=el.dataset;
+        var h='<h2 style="margin-top:0">'+esc(d.titel)+'</h2>';
+        if(d.kat)h+='<span class="badge" style="background:'+(/^#[0-9a-fA-F]{3,8}$/.test(d.farbe||'')?d.farbe:'#64748b')+';color:#fff">'+esc(d.kat)+'</span>';
+        h+='<dl class="detail-grid" style="margin-top:14px">';
+        if(d.datum)h+='<dt>Datum</dt><dd>'+esc(d.datum)+'</dd>';
+        if(d.zeit)h+='<dt>Uhrzeit</dt><dd>'+esc(d.zeit)+'</dd>';
+        if(d.ort)h+='<dt>Ort</dt><dd>'+esc(d.ort)+'</dd>';
+        if(d.quelle)h+='<dt>Kalender</dt><dd>'+esc(d.quelle)+'</dd>';
+        if(d.besch)h+='<dt>Details</dt><dd style="white-space:pre-wrap">'+esc(d.besch)+'</dd>';
+        h+='</dl><p class="feld-hinweis">Dieser Termin stammt aus einem verbundenen Kalender und wird dort bearbeitet.</p>';
+        document.getElementById('kal-modal-inhalt').innerHTML=h;
+        document.getElementById('kal-modal').style.display='flex';
+    }
+    tip.addEventListener('mouseleave',function(){tip.style.display='none';});
+})();
+</script>

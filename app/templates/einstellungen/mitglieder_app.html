@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+{% block title %}Mitglieder-App{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h1>📱 Mitglieder-App</h1>
+        <div class="sub">Was Mitglieder auf dem Handy sehen – und wie es aussieht</div>
+    </div>
+    <div class="aktionen">
+        <a href="{{ url_for('portal.home') }}" target="_blank" rel="noopener"
+           class="btn btn-sekundaer">App ansehen ↗</a>
+        <button type="submit" form="appform" class="btn">Speichern</button>
+    </div>
+</div>
+
+<div class="hilfe-box">
+    <strong>Die App ist keine eigene Software.</strong>
+    Sie ist dieselbe Anwendung in der Ansicht fürs Handy. Was du hier einstellst,
+    gilt für alle Mitglieder deines Vereins. Jedes Mitglied darf davon abweichen –
+    in der App unter <b>Ich → Aussehen</b>. Deine Vorgabe ist also ein Vorschlag,
+    kein Zwang; wer nichts ändert, sieht genau das hier.
+</div>
+
+<form method="post" id="appform" enctype="multipart/form-data">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+<div class="karte">
+    <h2 style="margin-top:0">Aussehen der App</h2>
+    <p class="feld-hinweis" style="margin-top:0">
+        Getrennt von der Verwaltung: Die App darf ruhiger oder freundlicher wirken
+        als der Schreibtisch des Vorstands.
+    </p>
+
+    <div class="feld">
+        <label>Farbschema</label>
+        <div class="schema-liste">
+            {% for schluessel, s in schemata.items() %}
+            <label class="schema {{ 'an' if vorgabe.schema == schluessel }}">
+                <input type="radio" name="schema" value="{{ schluessel }}"
+                       {{ 'checked' if vorgabe.schema == schluessel }}
+                       onchange="markieren()"
+                       data-akzent="{{ s.werte.akzent or e.farbe_primaer or '' }}">
+                <span class="probe" style="background:{{ s.werte.akzent or e.farbe_primaer or 'var(--blau)' }}"></span>
+                <span class="txt"><b>{{ s.name }}</b></span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="feld-reihe">
+        <div class="feld">
+            <label for="akzent">Akzentfarbe der App</label>
+            <div style="display:flex;gap:10px;align-items:center">
+                <input type="color" id="akzent" name="akzent"
+                       value="{{ vorgabe.akzent or e.farbe_primaer or '#2563eb' }}"
+                       style="width:64px;height:40px;padding:2px;cursor:pointer">
+                <span class="feld-hinweis" style="margin:0">Knöpfe, aktiver Reiter, Fortschritt.</span>
+            </div>
+        </div>
+        <div class="feld">
+            <label for="modus">Hell oder dunkel</label>
+            <select id="modus" name="modus">
+                {% for schluessel, name in modi %}
+                <option value="{{ schluessel }}" {{ 'selected' if vorgabe.modus == schluessel }}>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="feld">
+            <label for="schriftgroesse">Textgröße</label>
+            <select id="schriftgroesse" name="schriftgroesse">
+                {% for schluessel, name, faktor in groessen %}
+                <option value="{{ schluessel }}" {{ 'selected' if vorgabe.schriftgroesse == schluessel }}>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    <div class="feld-reihe">
+        <div class="feld">
+            <label for="schriftart">Schriftart</label>
+            <select id="schriftart" name="schriftart">
+                <option value="">Standard</option>
+                {% for s in schriftarten %}
+                <option value="{{ s }}" {{ 'selected' if vorgabe.schriftart == s }}>{{ s }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="feld">
+            <label for="ecken">Ecken</label>
+            <select id="ecken" name="ecken">
+                {% for schluessel, name, radius in ecken %}
+                <option value="{{ schluessel }}" {{ 'selected' if vorgabe.ecken == schluessel }}>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="feld">
+            <label>Barrierefreiheit</label>
+            <label style="font-weight:500;display:flex;gap:8px;align-items:center;margin-top:6px">
+                <input type="checkbox" name="kontrast" value="1" style="width:auto"
+                       {{ 'checked' if vorgabe.kontrast }}> Kontrast verstärken
+            </label>
+        </div>
+    </div>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Was auf der Startseite steht</h2>
+    <p class="feld-hinweis" style="margin-top:0">
+        Abgewählte Blöcke sind für <b>alle</b> Mitglieder aus. Die Reihenfolge darf
+        jedes Mitglied selbst bestimmen.
+    </p>
+    <div class="tag-auswahl">
+        {% for key, label in portal_bloecke %}
+        <label>
+            <input type="checkbox" name="block_{{ key }}"
+                   {{ 'checked' if key not in portal_bloecke_aus }}> {{ label }}
+        </label>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Begrüßung</h2>
+    <div class="feld">
+        <label for="portal_willkommen">Willkommenstext</label>
+        <textarea id="portal_willkommen" name="portal_willkommen"
+                  placeholder="Schön, dass du da bist!">{{ e.portal_willkommen or '' }}</textarea>
+        <div class="feld-hinweis">Steht ganz oben auf der Startseite der App.</div>
+    </div>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Tür, Dateien und Gäste</h2>
+    <div class="feld" style="background:var(--flaeche-2);border-radius:var(--radius);padding:12px 14px">
+        <label style="margin-bottom:2px">🔓 Türöffnung per App</label>
+        <div class="feld-hinweis" style="margin-bottom:8px">
+            Empfohlen ist <b class="akz">Nuki Web</b>: Berechtigte Mitglieder öffnen und
+            schließen die Tür direkt in der App, ohne die Nuki-App auf dem Handy.
+            {% if e.nuki_smartlock_id %}
+            <span class="badge badge-aktiv">aktiv: {{ e.nuki_smartlock_name or 'Tür gewählt' }}</span>
+            {% endif %}
+        </div>
+        <a href="{{ url_for('einstellungen.nuki') }}" class="btn btn-sekundaer btn-klein">
+            Nuki-Türöffnung einrichten →</a>
+    </div>
+    <div class="feld">
+        <label for="tuer_url">Verweis zur Türöffnung</label>
+        <input type="text" id="tuer_url" name="tuer_url" value="{{ e.tuer_url or '' }}"
+               placeholder="https://…">
+        <div class="feld-hinweis">
+            Rückfallebene ohne Nuki-Web-Anbindung: öffnet die Nuki-App auf dem Handy.
+            Ist unter <a href="{{ url_for('einstellungen.nuki') }}">Türöffnung</a> ein
+            Zugang hinterlegt, wird dieser Verweis nicht gebraucht.
+        </div>
+    </div>
+    <div class="feld">
+        <label for="dateien_quelle">Woher die Dateien kommen</label>
+        <select id="dateien_quelle" name="dateien_quelle">
+            <option value="" {{ 'selected' if not e.dateien_quelle }}>Automatisch</option>
+            <option value="nextcloud" {{ 'selected' if e.dateien_quelle == 'nextcloud' }}>Nur Vereins-Cloud</option>
+            <option value="server" {{ 'selected' if e.dateien_quelle == 'server' }}>Nur Dateiablage</option>
+            <option value="beide" {{ 'selected' if e.dateien_quelle == 'beide' }}>Beides</option>
+        </select>
+    </div>
+    <div class="feld" style="margin-bottom:0">
+        <label style="font-weight:500;display:flex;gap:10px;align-items:flex-start">
+            <input type="checkbox" name="freunde_registrierung" value="1" style="width:auto;margin-top:3px"
+                   {{ 'checked' if e.freunde_registrierung }}>
+            <span>
+                <b>Freunde dürfen sich selbst anmelden</b>
+                <span class="feld-hinweis">
+                    Gäste können ein eigenes Konto anlegen und sich zu Terminen anmelden.
+                    Sie sehen weder Mitgliederdaten noch Beiträge, Schichten oder den Ausweis.
+                </span>
+            </span>
+        </label>
+    </div>
+    <div class="feld" style="margin:12px 0 0">
+        <label style="font-weight:500;display:flex;gap:10px;align-items:flex-start">
+            <input type="checkbox" name="seo_index" value="1" style="width:auto;margin-top:3px"
+                   {{ 'checked' if e.seo_index is none or e.seo_index }}>
+            <span>
+                <b>🔎 Öffentliche Termine bei Google &amp; Co. zeigen</b>
+                <span class="feld-hinweis">
+                    Suchmaschinen finden dann eure öffentlichen Termine (mit Datum, Ort und Preis) –
+                    z. B. bei „Veranstaltungen {{ e.ort or 'in eurer Stadt' }}“. Termine „Nur für Mitglieder“
+                    und die Kategorie „nicht-öffentlich“ bleiben immer draußen. Wirkt nur, solange Gäste
+                    die App ohne Anmeldung ansehen dürfen.
+                </span>
+            </span>
+        </label>
+    </div>
+    <div class="feld" style="margin:12px 0 0">
+        <label style="font-weight:500;display:flex;gap:10px;align-items:flex-start">
+            <input type="checkbox" name="website_stil" value="1" style="width:auto;margin-top:3px"
+                   {{ 'checked' if e.website_stil }}>
+            <span>
+                <b>🖥️ Computeransicht für Gäste im Stil unserer Website</b>
+                <span class="feld-hinweis">
+                    Wer ohne Anmeldung am Computer kommt (z. B. über „Programm &amp; Termine“ auf eurer
+                    Website), sieht die App mit weißem Kopf, Textmenü, Terminkarten mit Bild über die
+                    volle Breite und einem Link zurück zu {{ e.website or 'eurer Website (oben unter „Website“ eintragen)' }}.
+                    Mitglieder und alle Handys sehen die App unverändert.
+                </span>
+            </span>
+        </label>
+        <div style="margin:10px 0 0 30px;display:grid;gap:10px;max-width:560px">
+            <div class="feld" style="margin:0"><label>Überschrift der Terminseite</label>
+                <input type="text" name="website_titel" maxlength="80" value="{{ e.website_titel or '' }}"
+                       placeholder="z. B. Termine im {{ (e.vereinsname or 'Verein')|replace(' e.V.', '') }}">
+                <div class="feld-hinweis">Steht in weißer Schrift auf dem Titelbild. Leer = „Termine“.</div></div>
+            <div class="feld" style="margin:0"><label>Titelbild (Foto, breites Querformat)</label>
+                {% if e.website_titelbild %}
+                <img src="{{ url_for('portal.titelbild', v=e.website_titelbild) }}" alt="Aktuelles Titelbild"
+                     style="display:block;max-width:100%;height:90px;object-fit:cover;border-radius:8px;margin-bottom:6px">
+                <label style="font-weight:400;display:inline-flex;gap:6px;align-items:center">
+                    <input type="checkbox" name="website_titelbild_weg" value="1" style="width:auto"> Titelbild entfernen</label>
+                {% endif %}
+                <input type="file" name="website_titelbild" accept=".jpg,.jpeg,.png,.webp">
+                <div class="feld-hinweis">Am besten dasselbe Bild wie auf eurer Website, mindestens 1.600 px breit.
+                    Ohne Bild erscheint die Überschrift auf einer Fläche in Website-Blau.</div></div>
+        </div>
+    </div>
+</div>
+
+<div class="aktionen" style="margin-bottom:30px">
+    <button type="submit" class="btn">Speichern</button>
+    <a href="{{ url_for('einstellungen.index') }}" class="btn btn-sekundaer">Zurück zu den Einstellungen</a>
+</div>
+</form>
+
+<style>
+    .schema-liste { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+    .schema { display: flex; gap: 10px; align-items: center; cursor: pointer;
+              border: 2px solid var(--linie); border-radius: var(--radius);
+              padding: 10px 12px; background: var(--flaeche); margin: 0; font-weight: 500; }
+    .schema.an { border-color: var(--blau); background: var(--akzent-zart); }
+    .schema input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .schema .probe { width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--linie); flex: none; }
+</style>
+<script>
+function markieren() {
+    document.querySelectorAll('.schema').forEach(l =>
+        l.classList.toggle('an', l.querySelector('input').checked));
+    const gewaehlt = document.querySelector('.schema input:checked');
+    if (gewaehlt && gewaehlt.dataset.akzent) {
+        document.getElementById('akzent').value = gewaehlt.dataset.akzent;
+    }
+}
+</script>
+{% endblock %}

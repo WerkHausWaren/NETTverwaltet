@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Offline – {{ e.vereinsname if e else 'Mitglieder-App' }}</title>
+{% with akzent = (e.farbe_primaer if e else '') %}{% include "_oeffentlich_stil.html" %}{% endwith %}
+<style>
+    body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; background: var(--grund, #f3f5f8); color: var(--text, #1e293b);
+           margin: 0; min-height: 100vh; display: grid; place-items: center; text-align: center; }
+    .karte { background: var(--flaeche, #fff); border-radius: 18px; padding: 36px 30px; max-width: 340px; margin: 20px;
+             box-shadow: 0 8px 30px rgba(0,0,0,.08); }
+    .icon { font-size: 52px; }
+    h1 { font-size: 20px; margin: 12px 0 6px; }
+    p { color: var(--text-hell, #64748b); font-size: 14px; line-height: 1.5; margin: 0 0 20px; }
+    .btn { display: inline-block; background: var(--akz); color: var(--auf-primaer, #fff); text-decoration: none;
+           padding: 11px 22px; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; }
+    .vn { margin-top: 18px; font-size: 12px; color: var(--text-schwach, #94a3b8); }
+</style>
+</head>
+<body>
+<div class="karte">
+    <div class="icon">📡</div>
+    <h1>Du bist offline</h1>
+    <p>Gerade besteht keine Internetverbindung. Zuletzt besuchte Seiten sind weiter verfügbar –
+       alles andere lädt, sobald du wieder online bist.</p>
+    <button class="btn" onclick="location.href='/portal/'">🔄 Erneut versuchen</button>
+    <div class="vn">{{ e.vereinsname if e else '' }}</div>
+</div>
+</body>
+</html>

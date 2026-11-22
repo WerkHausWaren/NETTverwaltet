@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Serie: {{ serie.titel }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🔁 {{ serie.titel }}</h1>
+        <div class="sub">Serie · {{ regel }} · {{ termine | length }} Termine
+            {% if serie.erstellt_von %} · angelegt von {{ serie.erstellt_von }}{% endif %}</div></div>
+    <a href="{{ url_for('kalender.index') }}" class="btn btn-sekundaer">← Zum Kalender</a>
+</div>
+
+<div class="karte">
+    <div class="tabellen-scroll">
+    <table>
+        <thead><tr><th>#</th><th>Datum</th><th>Uhrzeit</th><th>Status</th>
+            <th class="rechts">Anmeldungen</th><th></th></tr></thead>
+        <tbody>
+        {% for t in termine %}
+        <tr style="{{ 'opacity:.55;' if t.abgesagt }}{{ 'background:var(--info-grund);' if t.id == naechster_id }}">
+            <td class="z">{{ loop.index }}</td>
+            <td><strong>{{ t.datum | datum_wt }}</strong>{% if t.datum < heute %} <span class="feld-hinweis">(vorbei)</span>{% elif t.id == naechster_id %} <span class="badge badge-gruppe" style="font-size:10.5px">nächster</span>{% endif %}</td>
+            <td>{{ t.uhrzeit or '–' }}{{ '–' + t.uhrzeit_bis if t.uhrzeit_bis }}</td>
+            <td>
+                {% if t.abgesagt %}<span class="badge" style="background:var(--fehler-grund);color:var(--fehler-text)">⛔ abgesagt</span>
+                {% elif not t.aktiv %}<span class="badge badge-inaktiv">Entwurf</span>
+                {% else %}<span class="badge" style="background:var(--gut-grund);color:var(--gut-text)">geplant</span>{% endif %}
+            </td>
+            <td class="rechts">{{ t.anmeldungen or 0 }}</td>
+            <td class="rechts"><a href="{{ url_for('termine.detail', tid=t.id) }}" class="btn btn-klein btn-sekundaer">Öffnen ›</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    <p class="feld-hinweis" style="margin:10px 0 0">Jeder Termin ist eigenständig – mit eigener
+        Anmeldung und eigenen Schichten. Absagen oder Löschen für die ganze Serie geht auf der
+        Seite eines Termins über den ▾-Knopf.</p>
+</div>
+{% endblock %}

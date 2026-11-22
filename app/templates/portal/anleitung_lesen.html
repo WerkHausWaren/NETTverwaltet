@@ -1,0 +1,22 @@
+{% extends "portal/_layout.html" %}
+{% block title %}{{ eintrag.name }}{% endblock %}
+{% block inhalt %}
+<div class="mp-schmal">
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:14px 0 10px">
+    <a href="{{ url_for('portal.hilfe') }}" class="mp-btn" style="flex:none;background:var(--linie);color:inherit">‹ Zurück</a>
+    <button type="button" class="mp-btn" style="flex:none;background:var(--linie);color:inherit"
+            onclick="pdfTeilen(this, '{{ url_for('portal.hilfe_unterlage', dateiname=eintrag.datei) }}', '{{ eintrag.datei }}')">📄 PDF teilen/drucken</button>
+    {% if naechste %}
+    <a href="{{ url_for('portal.hilfe_lesen', schluessel=naechste.schluessel) }}"
+       class="mp-btn" style="flex:none;margin-left:auto">{{ naechste.symbol }} Nächste ›</a>
+    {% endif %}
+</div>
+
+<div class="mp-karte" style="padding:0;overflow:hidden">
+    <iframe id="anleitung" src="{{ url_for('portal.hilfe_unterlage', dateiname=eintrag.web) }}"
+            style="width:100%;border:none;display:block;min-height:70vh"
+            onload="try{this.style.height=(this.contentDocument.body.scrollHeight+40)+'px'}catch(e){}"></iframe>
+</div>
+
+</div>
+{% endblock %}

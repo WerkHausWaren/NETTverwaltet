@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="de" data-modus="hell">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer"><title>Hub-Cockpit wird geöffnet …</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;background:#F5F5F4;color:#1D1D1B;margin:0;padding:48px 16px;text-align:center}
+button{font:inherit;font-weight:600;background:#1D4ED8;color:#fff;border:0;border-radius:8px;padding:12px 22px;cursor:pointer}</style>
+</head>
+<body>
+<form id="sprung" method="post" action="{{ ziel }}">
+    <input type="hidden" name="code" value="{{ code }}">
+    <p>Das Hub-Cockpit wird geöffnet …</p>
+    <noscript><p>Bitte auf „Weiter“ tippen.</p></noscript>
+    <button type="submit">Weiter zum Hub-Cockpit</button>
+</form>
+<script>document.getElementById('sprung').submit();</script>
+</body>
+</html>

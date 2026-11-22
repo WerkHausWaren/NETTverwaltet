@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ {'einladung': 'Einladung', 'liste': 'Anwesenheitsliste', 'protokoll': 'Protokoll'}[was] }} – {{ v.titel }}</title>
+<style>
+    :root { --akz: {{ einst.farbe_primaer or '#174290' }}; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; color: #1e293b; margin: 0;
+           background: #eef1f5; line-height: 1.55; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .leiste { text-align: center; padding: 14px; }
+    .btn { background: var(--akz); color: #fff; padding: 10px 18px; border: none; border-radius: 10px;
+           cursor: pointer; font-size: 14px; font-weight: 700; }
+    .blatt { background: #fff; max-width: 760px; margin: 0 auto 40px; padding: 44px 50px;
+             box-shadow: 0 6px 24px rgba(23,35,58,.12); min-height: 900px; }
+    .kopf { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;
+            border-bottom: 2px solid var(--akz); padding-bottom: 12px; margin-bottom: 24px; }
+    .kopf img { max-height: 66px; max-width: 190px; object-fit: contain; }
+    .vn { font-weight: 800; font-size: 18px; color: var(--akz); }
+    h1 { font-size: 21px; margin: 0 0 6px; }
+    h2 { font-size: 16px; margin: 22px 0 8px; color: var(--akz); }
+    .meta { color: #475569; font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+    th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .4px;
+         color: #64748b; border-bottom: 1.5px solid var(--akz); padding: 6px 8px; }
+    td { padding: 7px 8px; border-bottom: 1px solid #eef1f5; font-size: 14px; vertical-align: top; }
+    .unterschrift { margin-top: 46px; display: flex; gap: 40px; }
+    .unterschrift div { flex: 1; border-top: 1px solid #64748b; padding-top: 5px; font-size: 12.5px; color: #64748b; }
+    pre.text { white-space: pre-wrap; font-family: inherit; font-size: 14px; margin: 0; }
+    @media print { body { background: #fff; } .leiste { display: none; } .blatt { box-shadow: none; margin: 0; padding: 0; } }
+</style>
+</head>
+<body>
+<div class="leiste"><button class="btn" onclick="window.print()">🖨️ Drucken / Als PDF sichern</button></div>
+<div class="blatt">
+    <div class="kopf">
+        <div>
+            {% if einst.logo_dateiname %}<img src="{{ url_for('einstellungen.logo', verein_id=einst.id) }}" alt="">
+            {% else %}<div class="vn">{{ einst.vereinsname }}</div>{% endif %}
+        </div>
+        <div style="text-align:right;font-size:13px;color:#475569">
+            <strong>{{ einst.vereinsname }}</strong><br>
+            {% if einst.strasse %}{{ einst.strasse }}<br>{% endif %}
+            {% if einst.ort %}{{ einst.plz }} {{ einst.ort }}{% endif %}
+        </div>
+    </div>
+
+    {% if was == 'einladung' %}
+    <h1>Einladung zur {{ arten.get(v.art, 'Versammlung') }}</h1>
+    <p class="meta">{{ einst.ort }}, {{ heute | datum_de }}</p>
+    <p>Liebe Mitglieder,</p>
+    <p>hiermit laden wir euch herzlich zur <strong>{{ v.titel }}</strong> ein:</p>
+    <p style="font-size:16px">
+        📅 <strong>{{ v.datum | datum_de }}</strong>{% if v.uhrzeit %}, <strong>{{ v.uhrzeit }} Uhr</strong>{% endif %}<br>
+        📍 <strong>{{ v.ort or '(Ort wird noch bekannt gegeben)' }}</strong></p>
+    <h2>Tagesordnung</h2>
+    <pre class="text">{{ v.tagesordnung }}</pre>
+    <p style="margin-top:18px">Anträge zur Tagesordnung richtet bitte rechtzeitig an den Vorstand.
+        Wir freuen uns auf eure Teilnahme – jede Stimme zählt.</p>
+    <p style="margin-top:24px">Freundliche Grüße<br><strong>{{ einst.vorstand or 'Der Vorstand' }}</strong><br>{{ einst.vereinsname }}</p>
+
+    {% elif was == 'liste' %}
+    <h1>Anwesenheitsliste</h1>
+    <p class="meta">{{ v.titel }} · {{ v.datum | datum_de }}{% if v.uhrzeit %}, {{ v.uhrzeit }} Uhr{% endif %}{% if v.ort %} · {{ v.ort }}{% endif %}</p>
+    <table>
+        <thead><tr><th style="width:34px">Nr.</th><th>Name</th><th style="width:38%">Unterschrift</th></tr></thead>
+        <tbody>
+        {% for m in mitglieder %}
+        <tr><td>{{ loop.index }}</td><td>{{ m.nachname }}, {{ m.vorname }}</td><td></td></tr>
+        {% endfor %}
+        {% for i in range(6) %}<tr><td>{{ mitglieder | length + loop.index }}</td><td></td><td></td></tr>{% endfor %}
+        </tbody>
+    </table>
+    <p class="meta" style="margin-top:14px">Anwesend: ______ von {{ mitglieder | length }} stimmberechtigten Mitgliedern</p>
+
+    {% else %}
+    <h1>Protokoll der {{ arten.get(v.art, 'Versammlung') }}</h1>
+    <p class="meta">
+        {{ v.titel }}<br>
+        Datum: {{ v.datum | datum_de }}{% if v.uhrzeit %}, Beginn {{ v.uhrzeit }} Uhr{% endif %}<br>
+        Ort: {{ v.ort or '–' }}<br>
+        {% if v.leitung %}Versammlungsleitung: {{ v.leitung }}<br>{% endif %}
+        {% if v.protokoll_fuehrung %}Protokollführung: {{ v.protokoll_fuehrung }}<br>{% endif %}
+        {% if v.einladung_am %}Einladung versandt am: {{ v.einladung_am | datum_de }}
+            (Frist: {{ v.frist_tage }} Tage){% endif %}
+    </p>
+
+    {% set stimmen = anwesend | rejectattr('gast') | list | length %}
+    <h2>Anwesenheit</h2>
+    <p>Anwesend waren <strong>{{ stimmen }}</strong> stimmberechtigte Mitglieder{% if v.stimmberechtigt %}
+        von {{ v.stimmberechtigt }}{% endif %}{% set g = anwesend | selectattr('gast') | list | length %}{% if g %},
+        dazu {{ g }} Gäste{% endif %}. Die Versammlung wurde form- und fristgerecht einberufen und ist beschlussfähig.</p>
+    {% if anwesend %}
+    <table>
+        <thead><tr><th style="width:34px">Nr.</th><th>Name</th><th style="width:150px">Art</th></tr></thead>
+        <tbody>
+        {% for a in anwesend %}
+        <tr><td>{{ loop.index }}</td>
+            <td>{{ (a.vorname ~ ' ' ~ a.nachname) | trim if a.mitglied_id else a.name }}</td>
+            <td>{{ 'Gast' if a.gast else ('Mitglied (Vollmacht)' if a.vollmacht_von else 'Mitglied') }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if v.tagesordnung %}
+    <h2>Tagesordnung</h2>
+    <pre class="text">{{ v.tagesordnung }}</pre>
+    {% endif %}
+
+    {% if v.protokoll %}
+    <h2>Verlauf</h2>
+    <pre class="text">{{ v.protokoll }}</pre>
+    {% endif %}
+
+    {% if beschluesse %}
+    <h2>Beschlüsse</h2>
+    <table>
+        <thead><tr><th style="width:34px">Nr.</th><th>Beschluss</th><th style="width:150px">Abstimmung</th></tr></thead>
+        <tbody>
+        {% for b in beschluesse %}
+        <tr>
+            <td>{{ b.nummer }}</td>
+            <td><strong>{{ b.titel }}</strong>{% if b.text %}<br>{{ b.text }}{% endif %}</td>
+            <td>Ja {{ b.ja }} · Nein {{ b.nein }} · Enth. {{ b.enthaltung }}<br>
+                <strong>{{ b.ergebnis }}</strong></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    <div class="unterschrift">
+        <div>{{ v.leitung or 'Versammlungsleitung' }}<br>Versammlungsleitung</div>
+        <div>{{ v.protokoll_fuehrung or 'Protokollführung' }}<br>Protokollführung</div>
+    </div>
+    {% endif %}
+</div>
+</body>
+</html>

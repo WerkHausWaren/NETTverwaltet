@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Förderprojekt bearbeiten' if p else 'Neues Förderprojekt' }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>{{ '✏️ Förderprojekt bearbeiten' if p else '🎯 Neues Förderprojekt' }}</h1>
+        <div class="sub">{{ p.titel if p else 'Ein Vorhaben, für das ihr Fördergeld beantragt oder schon bekommen habt' }}</div></div>
+    <div class="aktionen">
+        <a href="{{ url_for('foerderung.projekt', pid=p.id) if p else url_for('foerderung.index') }}"
+           class="btn btn-sekundaer">← Zurück</a>
+    </div>
+</div>
+
+<form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="karte">
+        <h2 style="margin-top:0">Das Vorhaben</h2>
+        <div class="feld"><label for="titel">Titel des Projekts *</label>
+            <input id="titel" name="titel" required value="{{ p.titel if p else '' }}"
+                   placeholder="z. B. Barrierefreier Zugang zum Vereinshaus"></div>
+        <div class="feld"><label for="beschreibung">Kurzbeschreibung</label>
+            <textarea id="beschreibung" name="beschreibung" rows="4"
+                      placeholder="Was soll passieren, für wen, und warum ist es wichtig? Diesen Text könnt ihr später für den Antrag weiterverwenden.">{{ p.beschreibung if p else '' }}</textarea></div>
+        <div class="feld-reihe">
+            <div class="feld"><label for="foerdergeber_id">Fördergeber aus der Liste</label>
+                <select id="foerdergeber_id" name="foerdergeber_id">
+                    <option value="">— keiner / eigener —</option>
+                    {% for g in geber %}
+                    <option value="{{ g.id }}"
+                        {{ 'selected' if (p and p.foerdergeber_id == g.id) or (not p and vor_geber == g.id) }}>
+                        {{ g.name }}{% if g.traeger %} ({{ g.traeger }}){% endif %}</option>
+                    {% endfor %}
+                </select>
+                <div class="feld-hinweis">Steht der Geldgeber nicht dabei?
+                    <a href="{{ url_for('foerderung.toepfe') }}#topf-neu">Erst eintragen</a> – oder rechts frei benennen.</div>
+            </div>
+            <div class="feld"><label for="geber_name">…oder frei eintragen</label>
+                <input id="geber_name" name="geber_name" value="{{ p.geber_name if p else '' }}"
+                       placeholder="Name des Geldgebers"></div>
+        </div>
+        <div class="feld" style="max-width:300px"><label for="ansprechpartner">Ansprechpartner beim Geldgeber</label>
+            <input id="ansprechpartner" name="ansprechpartner" value="{{ p.ansprechpartner if p else '' }}"></div>
+    </div>
+
+    <div class="karte">
+        <h2 style="margin-top:0">Stand &amp; Aktenzeichen</h2>
+        <div class="feld-reihe">
+            <div class="feld"><label for="status">Wo steht ihr gerade?</label>
+                <select id="status" name="status">
+                    {% for key, name, hilfe in status_liste %}
+                    <option value="{{ key }}" {{ 'selected' if p and p.status == key }}>{{ name }} – {{ hilfe }}</option>
+                    {% endfor %}
+                </select></div>
+            <div class="feld" style="max-width:230px"><label for="aktenzeichen">Aktenzeichen / Antragsnummer</label>
+                <input id="aktenzeichen" name="aktenzeichen" value="{{ p.aktenzeichen if p else '' }}"
+                       placeholder="steht im Bescheid"></div>
+        </div>
+    </div>
+
+    <div class="karte">
+        <h2 style="margin-top:0">Geld</h2>
+        <div class="feld-reihe">
+            <div class="feld"><label for="gesamtkosten">Gesamtkosten (€)</label>
+                <input id="gesamtkosten" name="gesamtkosten" inputmode="decimal"
+                       value="{{ p.gesamtkosten or '' if p else '' }}" placeholder="12.000,00">
+                <div class="feld-hinweis">was das Vorhaben insgesamt kostet</div></div>
+            <div class="feld"><label for="antragssumme">Beantragt (€)</label>
+                <input id="antragssumme" name="antragssumme" inputmode="decimal"
+                       value="{{ p.antragssumme or '' if p else '' }}"></div>
+            <div class="feld"><label for="bewilligt">Bewilligt (€)</label>
+                <input id="bewilligt" name="bewilligt" inputmode="decimal" value="{{ p.bewilligt or '' if p else '' }}">
+                <div class="feld-hinweis">erst ausfüllen, wenn der Bescheid da ist</div></div>
+            <div class="feld"><label for="eigenanteil">Eigenanteil (€)</label>
+                <input id="eigenanteil" name="eigenanteil" inputmode="decimal"
+                       value="{{ p.eigenanteil or '' if p else '' }}">
+                <div class="feld-hinweis">euer eigener Beitrag</div></div>
+        </div>
+        <div class="feld"><label for="finanzierungsart">Finanzierungsart</label>
+            <select id="finanzierungsart" name="finanzierungsart" onchange="finanzHinweis()">
+                {% for key, name, hilfe in finanzierungsarten %}
+                <option value="{{ key }}" data-hilfe="{{ hilfe }}"
+                    {{ 'selected' if p and (p.finanzierungsart or '') == key }}>{{ name }}</option>
+                {% endfor %}
+            </select>
+            <div class="feld-hinweis" id="finanz-hilfe"></div>
+            <div class="feld-hinweis">Steht im Bescheid. Sie entscheidet, was passiert, wenn ihr
+                weniger ausgebt als geplant.</div>
+        </div>
+    </div>
+
+    <div class="karte">
+        <h2 style="margin-top:0">Termine</h2>
+        <p class="feld-hinweis" style="margin-top:0">Die App erinnert euch rechtzeitig – 30, 14 und 3 Tage
+            vor Antragsfrist und Nachweisfrist.</p>
+        <div class="feld-reihe">
+            <div class="feld"><label for="antragsfrist">Antragsfrist</label>
+                <input id="antragsfrist" type="date" name="antragsfrist" value="{{ p.antragsfrist if p else '' }}"></div>
+            <div class="feld"><label for="eingereicht_am">Eingereicht am</label>
+                <input id="eingereicht_am" type="date" name="eingereicht_am" value="{{ p.eingereicht_am if p else '' }}"></div>
+            <div class="feld"><label for="bescheid_am">Bescheid vom</label>
+                <input id="bescheid_am" type="date" name="bescheid_am" value="{{ p.bescheid_am if p else '' }}"></div>
+        </div>
+        <div class="feld" style="max-width:320px"><label for="vmb_am">Vorzeitiger Maßnahmenbeginn genehmigt am</label>
+            <input id="vmb_am" type="date" name="vmb_am" value="{{ p.vmb_am if p else '' }}">
+            <div class="feld-hinweis">Nur ausfüllen, wenn ihr eine <strong>schriftliche</strong> Zustimmung
+                habt, schon vor dem Bescheid loszulegen. Ohne diese Zustimmung dürfen keine Kosten vor der
+                Bewilligung entstehen – maßgeblich ist der Vertragsabschluss, nicht die Bezahlung.</div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label for="projekt_von">Projekt läuft von</label>
+                <input id="projekt_von" type="date" name="projekt_von" value="{{ p.projekt_von if p else '' }}">
+                <div class="feld-hinweis">wichtig: Ausgaben zählen meist nur ab diesem Tag</div></div>
+            <div class="feld"><label for="projekt_bis">bis</label>
+                <input id="projekt_bis" type="date" name="projekt_bis" value="{{ p.projekt_bis if p else '' }}"></div>
+            <div class="feld"><label for="nachweis_bis">Verwendungsnachweis bis</label>
+                <input id="nachweis_bis" type="date" name="nachweis_bis" value="{{ p.nachweis_bis if p else '' }}">
+                <div class="feld-hinweis">steht im Bescheid – oft 3 Monate nach Projektende</div></div>
+        </div>
+    </div>
+
+    <div class="karte">
+        <div class="feld"><label for="notiz">Notizen</label>
+            <textarea id="notiz" name="notiz" rows="3"
+                      placeholder="Auflagen aus dem Bescheid, Absprachen am Telefon, was beim nächsten Mal besser laufen soll …">{{ p.notiz if p else '' }}</textarea></div>
+        <button class="btn">{{ 'Änderungen speichern' if p else 'Förderprojekt anlegen' }}</button>
+        <a href="{{ url_for('foerderung.projekt', pid=p.id) if p else url_for('foerderung.index') }}"
+           class="btn btn-sekundaer">Abbrechen</a>
+    </div>
+</form>
+
+{% if p %}
+<form method="post" action="{{ url_for('foerderung.projekt_loeschen', pid=p.id) }}"
+      onsubmit="return confirm('Dieses Förderprojekt wirklich löschen? Die zugeordneten Buchungen bleiben im Kassenbuch erhalten.')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn btn-sekundaer btn-klein">🗑 Projekt löschen</button>
+</form>
+{% endif %}
+<script>
+function finanzHinweis() {
+    var s = document.getElementById("finanzierungsart");
+    document.getElementById("finanz-hilfe").textContent =
+        s.options[s.selectedIndex].dataset.hilfe || "";
+}
+finanzHinweis();
+// Nachweisfrist vorschlagen: Der Regelfall sind 6 Monate nach Projektende.
+document.getElementById("projekt_bis").addEventListener("change", function () {
+    var ziel = document.getElementById("nachweis_bis");
+    if (!this.value || ziel.value) { return; }
+    var d = new Date(this.value);
+    d.setMonth(d.getMonth() + 6);
+    ziel.value = d.toISOString().slice(0, 10);
+    ziel.parentNode.querySelector(".feld-hinweis").textContent =
+        "Vorschlag: 6 Monate nach Projektende – bitte mit dem Bescheid abgleichen.";
+});
+</script>
+{% endblock %}

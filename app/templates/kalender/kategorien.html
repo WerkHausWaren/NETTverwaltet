@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Termin-Kategorien{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Termin-Kategorien</h1><div class="sub">Farben für die Kalenderansichten</div></div>
+    <a href="{{ url_for('kalender.index') }}" class="btn btn-sekundaer">← Zum Kalender</a>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Neue Kategorie</h2>
+    <form method="post" action="{{ url_for('kalender.kategorien') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld-reihe" style="align-items:end">
+            <div class="feld" style="margin-bottom:0"><label>Name</label><input type="text" name="name" placeholder="z.B. Mitgliederversammlung" required></div>
+            <div class="feld" style="margin-bottom:0"><label>Farbe</label><input type="color" name="farbe" value="#2563eb" style="height:42px"></div>
+            <div class="feld" style="margin-bottom:0"><button type="submit" class="btn">＋ Anlegen</button></div>
+        </div>
+    </form>
+</div>
+
+{% if kategorien %}
+<datalist id="kat-gruppen">{% for g in kategorien|map(attribute='gruppe')|select|unique|sort %}<option value="{{ g }}">{% endfor %}</datalist>
+<table>
+    <thead><tr><th>Kategorie</th><th class="rechts">Termine</th><th></th></tr></thead>
+    <tbody>
+    {% for k in kategorien %}
+    <tr>
+        <td>
+            <form method="post" action="{{ url_for('kalender.kategorie_speichern', kat_id=k.id) }}" enctype="multipart/form-data"
+                  style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="color" name="farbe" value="{{ k.farbe }}" style="width:44px;height:34px;padding:2px">
+                <input type="text" name="name" value="{{ k.name }}" style="max-width:280px">
+                <input type="text" name="gruppe" value="{{ k.gruppe or '' }}" list="kat-gruppen" maxlength="40"
+                       placeholder="Gruppe (optional)" title="Kategorien mit gleicher Gruppe erscheinen in der Terminliste als EIN Filterknopf"
+                       style="max-width:170px">
+                {% if k.bild %}<img src="{{ url_for('portal.kategorie_bild', kid=k.id, v=k.bild) }}" alt="Standardbild"
+                     style="height:34px;width:60px;object-fit:cover;border-radius:6px">
+                <label class="feld-hinweis" style="display:inline-flex;gap:4px;align-items:center;margin:0">
+                    <input type="checkbox" name="bild_weg" value="1" style="width:auto"> Bild entfernen</label>{% endif %}
+                <label class="feld-hinweis" style="margin:0" title="Erscheint auf Terminkarten ohne eigenes Bild">🖼️ Standardbild
+                    <input type="file" name="bild" accept=".jpg,.jpeg,.png,.webp" style="max-width:200px"></label>
+                <button type="submit" class="btn btn-sekundaer btn-klein">Speichern</button>
+            </form>
+        </td>
+        <td class="rechts">{{ k.anzahl }}</td>
+        <td class="rechts">
+            <form method="post" action="{{ url_for('kalender.kategorie_loeschen', kat_id=k.id) }}" style="display:inline"
+                  onsubmit="return confirm('Kategorie löschen? Die Termine bleiben erhalten (ohne Kategorie).')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-sekundaer btn-klein">Löschen</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+<p class="feld-hinweis">Die Farbe erscheint in Monats-, Wochen-, Jahres- und Listenansicht sowie im Termin.
+    Das Standardbild zeigt die Terminliste bei allen Terminen dieser Kategorie, die kein eigenes Bild haben
+    (z. B. das Kino-Banner für alle Filme). Die <strong>Gruppe</strong> fasst Kategorien in der Terminliste zu einem
+    Filterknopf zusammen – z. B. Doppelkopf, Skatrunde und SpieleZeit zu „Spiele“.</p>
+{% else %}
+<div class="karte leer"><div class="icon">🏷️</div><p>Noch keine Kategorien.</p></div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Zugänge{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🔐 Zugänge</h1><div class="sub">Login-Konten anlegen und Mitgliedern zuordnen</div></div>
+    <a href="{{ url_for('einstellungen.index') }}" class="btn btn-sekundaer">Zurück zu Einstellungen</a>
+</div>
+
+<div class="hilfe-box">
+    <strong>So funktioniert's:</strong> Lege einen Zugang mit E-Mail und Rolle an. Setze entweder direkt ein
+    Passwort <em>oder</em> lass das Feld leer – dann bekommst du einen <strong>Passwort-Link</strong>, den die
+    Person selbst öffnet, um ihr Passwort zu vergeben. Ordne den Zugang optional einem Mitglied zu, damit die
+    Person in der Mitglieder-App ihre eigenen Daten sieht.
+</div>
+
+{% if neuer_link %}
+<div class="karte" style="border:2px solid var(--gruen)">
+    <h2 style="margin-top:0">🔑 Passwort-Link für {{ neuer_link.email }}</h2>
+    <p class="feld-hinweis">Diesen Link an die Person weitergeben (48 Stunden gültig). Damit setzt sie ihr eigenes Passwort:</p>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input id="pwlink" type="text" readonly value="{{ neuer_link.link }}" style="flex:1;min-width:280px;font-family:monospace;font-size:13px">
+        <button type="button" class="btn" onclick="navigator.clipboard.writeText(document.getElementById('pwlink').value); this.textContent='✓ Kopiert';">📋 Kopieren</button>
+    </div>
+</div>
+{% endif %}
+
+<div class="karte">
+    <h2 style="margin-top:0">➕ Neuen Zugang anlegen</h2>
+    <form method="post" action="{{ url_for('zugaenge.neu') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div class="feld" style="flex:1;min-width:220px"><label>E-Mail (Login)</label>
+                <input type="email" name="email" required placeholder="name@example.de"></div>
+            <div class="feld" style="flex:1;min-width:180px"><label>Name (optional)</label>
+                <input type="text" name="anzeigename" placeholder="wird sonst aus dem Mitglied übernommen"></div>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div class="feld" style="flex:1;min-width:200px"><label>Rolle</label>
+                <select name="rolle">
+                    {% for wert, bez in rollen %}<option value="{{ wert }}" {{ 'selected' if wert=='mitglied' }}>{{ bez }}</option>{% endfor %}
+                </select></div>
+            <div class="feld" style="flex:1;min-width:200px"><label>Mit Mitglied verknüpfen (optional)</label>
+                <select name="mitglied_id">
+                    <option value="">— kein Mitglied —</option>
+                    {% for m in mitglieder %}<option value="{{ m.id }}" {{ 'selected' if m.id==vorbelegt_mitglied }}>{{ m.vorname }} {{ m.nachname }}{% if m.email %} ({{ m.email }}){% endif %}</option>{% endfor %}
+                </select></div>
+            <div class="feld" style="flex:1;min-width:200px"><label>Passwort (optional)</label>
+                <input type="text" name="passwort" placeholder="leer = Passwort-Link erzeugen" autocomplete="off"></div>
+        </div>
+        <p class="feld-hinweis">Die Rollen <strong>Schatzmeister:in</strong> und <strong>Öffentlichkeitsarbeit</strong>
+            bleiben auch bei Konten mit Vereins-Konto-Anmeldung (Nextcloud) erhalten – sie werden hier von Hand
+            vergeben und hier auch wieder geändert.</p>
+        <button type="submit" class="btn">Zugang anlegen</button>
+    </form>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Vorhandene Zugänge</h2>
+    {% if benutzer %}
+{% set tf_ziel = '#zugangsliste' %}
+{% include '_tabellen_filter.html' %}
+    <table id="zugangsliste">
+        <thead><tr><th>Konto</th><th>Rolle & Mitglied</th><th>Status</th><th class="rechts">Aktionen</th></tr></thead>
+        <tbody>
+        {% for b in benutzer %}
+        <tr>
+            <td>
+                <strong>{{ b.anzeigename or b.email }}</strong><br>
+                <span class="sub">{{ b.email }}</span><br>
+                {% if b.nc_benutzer %}<span class="badge badge-gruppe">Nextcloud</span>
+                {% else %}<span class="badge badge-gruppe">Passwort</span>{% endif %}
+                {% if b.verein_id is none %}<span class="badge badge-aktiv" title="gilt vereinsübergreifend">Notfall-Admin</span>{% endif %}
+            </td>
+            <td>
+                <form method="post" action="{{ url_for('zugaenge.bearbeiten', uid=b.id) }}" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="email" name="email" value="{{ b.email }}" placeholder="E-Mail"
+                           title="Anmelde-E-Mail dieses Zugangs" style="min-width:210px">
+                    <select name="rolle" style="min-width:120px">
+                        {% for wert, bez in rollen %}<option value="{{ wert }}" {{ 'selected' if wert==b.rolle }}>{{ wert|capitalize }}</option>{% endfor %}
+                    </select>
+                    <select name="mitglied_id" style="min-width:150px">
+                        <option value="">— kein Mitglied —</option>
+                        {% for m in mitglieder %}<option value="{{ m.id }}" {{ 'selected' if m.id==b.mitglied_id }}>{{ m.vorname }} {{ m.nachname }}</option>{% endfor %}
+                    </select>
+                    <button class="btn btn-sekundaer" style="padding:5px 10px">Speichern</button>
+                </form>
+            </td>
+            <td>
+                {% if b.aktiv %}<span class="badge badge-aktiv">aktiv</span>{% else %}<span class="badge badge-inaktiv">inaktiv</span>{% endif %}
+                {% if b.letzter_login %}<br><span class="sub">zuletzt: {{ b.letzter_login[:10] | datum_de }}</span>{% endif %}
+                {% for g in geraete.get(b.id, []) %}
+                <form method="post" action="{{ url_for('zugaenge.geraet_entfernen', pid=g.id) }}" class="faceid-geraet"
+                      onsubmit="return confirm('Face-ID-Gerät „{{ g.name }}“ von {{ b.anzeigename or b.email }} entfernen?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <span class="sub" title="eingerichtet {{ (g.erstellt_am or '')[:10] | datum_de }}{% if g.zuletzt_am %}, zuletzt benutzt {{ g.zuletzt_am[:10] | datum_de }}{% endif %}">🔐 Face ID: {{ g.name }}</span>
+                    <button class="btn btn-sekundaer" style="padding:1px 7px;font-size:12px" title="Gerät entfernen">✕</button>
+                </form>
+                {% endfor %}
+            </td>
+            <td class="rechts" style="white-space:nowrap">
+                <form method="post" action="{{ url_for('zugaenge.passwort_link', uid=b.id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer" style="padding:5px 9px" title="Passwort-Setzen-Link erzeugen">🔑 Passwort-Link</button>
+                </form>
+                {% if b.id != ich_id %}
+                <form method="post" action="{{ url_for('zugaenge.aktiv', uid=b.id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer" style="padding:5px 9px">{{ '⏸️ Deaktivieren' if b.aktiv else '▶️ Aktivieren' }}</button>
+                </form>
+                <form method="post" action="{{ url_for('zugaenge.loeschen', uid=b.id) }}" style="display:inline"
+                      onsubmit="return confirm('Zugang „{{ b.email }}“ wirklich löschen?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-gefahr" style="padding:5px 9px">🗑️</button>
+                </form>
+                {% else %}<span class="sub">(du)</span>{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="feld-hinweis">Noch keine Zugänge angelegt.</p>
+    {% endif %}
+</div>
+{% endblock %}

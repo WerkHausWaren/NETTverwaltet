@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{ name }}</title>
+<style>
+    body { margin: 0; background: #101418; color: #fff; font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+           display: flex; flex-direction: column; min-height: 100vh; }
+    .leiste { display: flex; align-items: center; gap: 10px; padding: calc(10px + env(safe-area-inset-top)) 12px 10px;
+              background: rgba(16,20,24,.92); position: sticky; top: 0; z-index: 5; }
+    .leiste .titel { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 600;
+                     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .knopf { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,.12); color: #fff;
+             border: none; border-radius: 10px; padding: 9px 13px; font-size: 14px; cursor: pointer; text-decoration: none; }
+    .inhalt { flex: 1; display: grid; place-items: center; padding: 8px; }
+    .inhalt img { max-width: 100%; max-height: calc(100vh - 90px); object-fit: contain; border-radius: 6px; }
+    .inhalt iframe { width: 100%; height: calc(100vh - 80px); border: none; background: #fff; border-radius: 6px; }
+</style>
+</head>
+<body>
+<div class="leiste">
+    <button type="button" class="knopf" onclick="zurueck()">← Zurück</button>
+    <div class="titel">{{ name }}</div>
+    <button type="button" class="knopf" id="teilen" onclick="teilen()">📤 Teilen</button>
+    {% if download_url %}<a class="knopf" href="{{ download_url }}">⬇️</a>{% endif %}
+    {% if loeschen_url %}<form method="post" action="{{ loeschen_url }}" style="margin:0"
+          onsubmit="return confirm('Dieses Foto endgültig löschen? Das lässt sich nicht rückgängig machen.')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="knopf" title="Foto löschen" aria-label="Foto löschen">🗑</button></form>{% endif %}
+</div>
+<div class="inhalt">
+    {% if ist_bild %}
+    <img src="{{ inhalt_url }}" alt="{{ name }}">
+    {% else %}
+    <iframe src="{{ inhalt_url }}" title="{{ name }}"></iframe>
+    {% endif %}
+</div>
+<script>
+function zurueck() {
+    if (history.length > 1) history.back(); else location.href = {{ zurueck | tojson }};
+}
+async function teilen() {
+    var url = new URL({{ inhalt_url | tojson }}, location.origin).href;
+    try {
+        // Bevorzugt die Datei selbst teilen (z. B. in WhatsApp/Mail einfügen)
+        var r = await fetch(url);
+        var blob = await r.blob();
+        var datei = new File([blob], {{ name | tojson }}, { type: blob.type });
+        if (navigator.canShare && navigator.canShare({ files: [datei] })) {
+            await navigator.share({ files: [datei], title: {{ name | tojson }} });
+            return;
+        }
+    } catch (e) { /* weiter mit Link-Teilen */ }
+    try {
+        if (navigator.share) { await navigator.share({ title: {{ name | tojson }}, url: url }); return; }
+    } catch (e) {}
+    try {
+        await navigator.clipboard.writeText(url);
+        document.getElementById("teilen").textContent = "✓ Link kopiert";
+    } catch (e) { alert("Teilen wird auf diesem Gerät nicht unterstützt."); }
+}
+</script>
+</body>
+</html>

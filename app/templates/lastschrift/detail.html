@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+{% block title %}{{ lauf.bezeichnung }}{% endblock %}
+{% block content %}
+
+<p><a href="{{ url_for('lastschrift.index') }}" class="feld-hinweis">‹ Alle Lastschriftläufe</a></p>
+
+<div class="karte">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap">
+        <div>
+            <h1 style="margin:0 0 4px;font-size:22px">{{ lauf.bezeichnung }}</h1>
+            <span class="badge {{ 'badge-gut' if lauf.status == 'verbucht'
+                                  else 'badge-offen' if lauf.status == 'eingereicht'
+                                  else 'badge-neutral' }}">{{ status_text.get(lauf.status, lauf.status) }}</span>
+            {% if lauf.eingereicht_am %}<span class="feld-hinweis">eingereicht am {{ lauf.eingereicht_am[:10] | datum_de }}</span>{% endif %}
+        </div>
+        <div style="text-align:right">
+            <div style="font-size:26px;font-weight:800">{{ summe | euro }}</div>
+            <div class="feld-hinweis">{{ dabei | length }} Posten</div>
+        </div>
+    </div>
+</div>
+
+{% if lauf.status == 'entwurf' %}
+<div class="karte">
+    <h2 style="margin-top:0;font-size:17px">📅 Wann soll abgebucht werden?</h2>
+    <form method="post" action="{{ url_for('lastschrift.datum', lid=lauf.id) }}"
+          style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld" style="margin:0">
+            <label>Einzugstag</label>
+            <input type="date" name="faellig_am" value="{{ lauf.faellig_am }}" min="{{ frueheste }}">
+        </div>
+        <button class="btn btn-sekundaer">Übernehmen</button>
+        <div class="feld-hinweis" style="flex:1;min-width:240px">
+            Fällt der gewählte Tag auf ein Wochenende oder einen Feiertag, rückt der Einzug
+            automatisch auf den nächsten Bankarbeitstag. Reiche die Datei mindestens einen
+            Bankarbeitstag vorher bei deiner Bank ein.
+        </div>
+    </form>
+</div>
+{% endif %}
+
+{% if alt %}
+<div class="karte" style="border-left:4px solid var(--gelb)">
+    <h2 style="margin-top:0;font-size:17px">⏳ Mandat womöglich verfallen ({{ alt | length }})</h2>
+    <p class="feld-hinweis" style="margin-top:0">Ein Mandat verfällt, wenn es <strong>36 Monate</strong>
+        lang nicht benutzt wurde. Bei diesen Personen liegt die letzte bekannte Nutzung länger zurück.
+        Sie bleiben im Einzug – falls du zwischendurch abgebucht hast, ist alles in Ordnung.
+        Wenn nicht, hol bitte ein neues Mandat ein.</p>
+    <ul class="punkte" style="margin:0">
+        {% for a in alt %}<li>{{ a.name }} <span class="feld-hinweis">– wäre verfallen seit {{ a.verfall | datum_de }}</span></li>{% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% if dabei and lauf.status in ('entwurf', 'eingereicht') %}
+<div class="karte">
+    <h2 style="margin-top:0;font-size:17px">📧 Vorabankündigung
+        {% if angekuendigt >= dabei | length %}<span class="badge badge-gut">verschickt</span>
+        {% elif angekuendigt %}<span class="badge badge-offen">teilweise</span>
+        {% else %}<span class="badge badge-neutral">offen</span>{% endif %}
+    </h2>
+    <p class="feld-hinweis" style="margin-top:0">Vor jedem Einzug muss jede Person wissen, wann
+        welcher Betrag von ihrem Konto geht. Die Verwaltung verschickt das per E-Mail – mit Betrag,
+        Einzugstag, Mandatsreferenz und eurer Gläubiger-Identifikationsnummer.
+        {% if vorlauf is not none %}
+            {% if vorlauf < 14 and angekuendigt == 0 %}
+            <br><strong>⚠️ Bis zum Einzug sind es nur noch {{ vorlauf }} Tage.</strong> Üblich sind
+            14 Tage Vorlauf – kürzer geht nur, wenn ihr das mit euren Mitgliedern vereinbart habt
+            (etwa in der Beitragsordnung). Sonst verschieb den Einzugstag lieber nach hinten.
+            {% else %}
+            <br>Bis zum Einzug sind es {{ vorlauf }} Tage.
+            {% endif %}
+        {% endif %}
+    </p>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <form method="post" action="{{ url_for('lastschrift.ankuendigen', lid=lauf.id) }}" style="margin:0">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            {% if angekuendigt %}<input type="hidden" name="nur_offene" value="1">{% endif %}
+            <button class="btn {{ 'btn-sekundaer' if angekuendigt }}">
+                {% if angekuendigt and angekuendigt < dabei | length %}📧 Restliche ankündigen
+                {% elif angekuendigt %}📧 Erneut verschicken
+                {% else %}📧 Jetzt ankündigen{% endif %}</button>
+        </form>
+        {% if ohne_mail %}
+        <a class="btn btn-sekundaer" href="{{ url_for('lastschrift.ankuendigung_drucken', lid=lauf.id) }}">
+            🖨️ {{ ohne_mail }} zum Ausdrucken</a>
+        {% endif %}
+        <span class="feld-hinweis">{{ angekuendigt }} von {{ dabei | length }} benachrichtigt{% if ohne_mail %},
+            {{ ohne_mail }} ohne E-Mail-Adresse{% endif %}</span>
+    </div>
+</div>
+{% endif %}
+
+<div class="karte">
+    <h2 style="margin-top:0;font-size:17px">✅ Wird eingezogen ({{ dabei | length }})</h2>
+    {% if dabei %}
+    <div class="tabellen-scroll">
+    <table>
+        <thead><tr><th>Name</th><th>IBAN</th><th>Mandat</th><th>Angekündigt</th><th class="num">Betrag</th>{% if lauf.status == 'verbucht' %}<th></th>{% endif %}</tr></thead>
+        <tbody>
+        {% for p in dabei %}
+        <tr>
+            <td><strong>{{ p.name }}</strong></td>
+            <td class="feld-hinweis">{{ p.iban[:4] }}&nbsp;…&nbsp;{{ p.iban[-4:] }}</td>
+            <td class="feld-hinweis">{{ p.mandatsreferenz }} · {{ p.mandatsdatum | datum_de }}</td>
+            <td class="feld-hinweis">
+                {% if p.angekuendigt_am %}✅ {{ p.angekuendigt_am[:10] | datum_de }}
+                {% else %}—{% endif %}</td>
+            <td class="num">{{ p.betrag | euro }}</td>
+            {% if lauf.status == 'verbucht' %}
+            <td class="rechts">
+                <button type="button" class="btn btn-sekundaer btn-klein"
+                        onclick="ruecklaeuferOeffnen({{ p.id }}, {{ p.name | tojson }})"
+                        title="Diese Abbuchung kam von der Bank zurück">↩️ Kam zurück</button>
+            </td>
+            {% endif %}
+        </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot><tr><th colspan="4">Summe</th><th class="num">{{ summe | euro }}</th>
+            {% if lauf.status == 'verbucht' %}<th></th>{% endif %}</tr></tfoot>
+    </table>
+    </div>
+    {% else %}
+    <p class="feld-hinweis">Kein einziger Posten ist vollständig – siehe unten.</p>
+    {% endif %}
+</div>
+
+{% if ausgelassen %}
+<div class="karte" style="border-left:4px solid var(--warn-rand)">
+    <h2 style="margin-top:0;font-size:17px">⚠️ Nicht dabei ({{ ausgelassen | length }})</h2>
+    <p class="feld-hinweis" style="margin-top:0">Diese Mitglieder haben eine Lastschrift vereinbart,
+        aber es fehlt etwas. Sobald du es nachträgst, kannst du einen weiteren Lauf für sie anlegen.</p>
+    {% if 'Mandatsreferenz' in (ausgelassen | map(attribute='grund') | join(' ')) %}
+    <form method="post" action="{{ url_for('mitglieder.mandate_nachtragen') }}" style="margin:0 0 12px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-sekundaer btn-klein">✨ Fehlende Mandatsreferenzen automatisch vergeben</button>
+        <span class="feld-hinweis">Für alle, bei denen nur die Referenz fehlt – die Verwaltung
+            vergibt eine eindeutige. Das Unterschriftsdatum setzt sie auf heute; wenn du das
+            echte Datum kennst, trag es bitte nach.</span>
+    </form>
+    {% endif %}
+    <table>
+        <thead><tr><th>Name</th><th>Was fehlt</th><th class="num">Betrag</th><th></th></tr></thead>
+        <tbody>
+        {% for p in ausgelassen %}
+        <tr>
+            <td><strong>{{ p.name }}</strong></td>
+            <td>{{ p.grund }}</td>
+            <td class="num feld-hinweis">{{ p.betrag | euro }}</td>
+            <td class="rechts">
+                {% if p.mitglied_id %}
+                <a class="btn btn-sekundaer btn-klein"
+                   href="{{ url_for('mitglieder.zahlungsdaten', mid=p.mitglied_id) }}">Nachtragen →</a>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<div class="karte">
+    <h2 style="margin-top:0;font-size:17px">Und jetzt?</h2>
+    {% if lauf.status == 'entwurf' %}
+    <ol class="schritte" style="margin-top:0">
+        <li><strong>Vorabankündigung verschicken</strong> – oben mit einem Klick. Das gehört sich
+            nicht nur, es ist auch vorgeschrieben.</li>
+        <li><strong>Datei herunterladen</strong> und im Online-Banking deiner Bank hochladen
+            (dort heißt es meist „SEPA-Datei einreichen" oder „Sammellastschrift").</li>
+        <li>Danach hier auf <strong>„Ist eingereicht"</strong> klicken. Erst dann sind diese
+            Posten gebunden und geraten in keinen zweiten Lauf.</li>
+    </ol>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+        {% if dabei %}
+        <a class="btn" href="{{ url_for('lastschrift.datei', lid=lauf.id) }}">⬇️ SEPA-Datei herunterladen</a>
+        <form method="post" action="{{ url_for('lastschrift.eingereicht', lid=lauf.id) }}" style="margin:0"
+              onsubmit="return confirm('Liegt die Datei wirklich bei der Bank? Danach sind diese Posten gebunden.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sekundaer">✅ Ist eingereicht</button>
+        </form>
+        {% endif %}
+        <form method="post" action="{{ url_for('lastschrift.verwerfen', lid=lauf.id) }}" style="margin:0"
+              onsubmit="return confirm('Entwurf verwerfen? Die Beiträge sind danach wieder frei.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sekundaer">Verwerfen</button>
+        </form>
+    </div>
+    {% elif lauf.status == 'eingereicht' %}
+    <p style="margin-top:0">Die Datei liegt bei der Bank
+        {% if lauf.datei_am %}(zuletzt erzeugt am {{ lauf.datei_am[:10] | datum_de }}){% endif %}.
+        <strong>Sobald das Geld auf dem Konto ist</strong>, schließt du den Lauf hier ab: Die
+        Beiträge gelten dann als bezahlt, und im Kassenbuch entsteht <em>eine</em> Sammelbuchung
+        über die Gesamtsumme – genau wie es auf dem Kontoauszug steht.</p>
+    <form method="post" action="{{ url_for('lastschrift.verbuchen', lid=lauf.id) }}"
+          style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin:0 0 12px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld" style="margin:0">
+            <label>Wertstellung</label>
+            <input type="date" name="datum" value="{{ lauf.faellig_am }}">
+        </div>
+        <label style="display:flex;gap:6px;align-items:center;padding-bottom:8px">
+            <input type="checkbox" name="ins_kassenbuch" value="1" checked>
+            <span>Sammelbuchung im Kassenbuch anlegen</span>
+        </label>
+        <button class="btn">✅ Geld ist da – Lauf verbuchen</button>
+    </form>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <a class="btn btn-sekundaer" href="{{ url_for('lastschrift.datei', lid=lauf.id) }}">⬇️ Datei erneut herunterladen</a>
+    </div>
+    {% elif lauf.status == 'verbucht' %}
+    <p style="margin-top:0">✅ Abgeschlossen am {{ lauf.verbucht_am[:10] | datum_de }}.
+        Die Beiträge sind als bezahlt vermerkt{% if lauf.buchung_id %}, die Sammelbuchung steht
+        im Kassenbuch{% endif %}. Kommt später eine Abbuchung zurück, erfasse sie unten beim
+        jeweiligen Posten.</p>
+    {% elif lauf.status == 'verworfen' %}
+    <p style="margin-top:0" class="feld-hinweis">Dieser Lauf wurde verworfen. Die Beiträge sind
+        wieder frei und können in einen neuen Lauf.</p>
+    {% endif %}
+</div>
+
+{% if lauf.msg_id %}
+<p class="feld-hinweis">Kennung der Datei: <code>{{ lauf.msg_id }}</code> — die kannst du angeben,
+    wenn du mit deiner Bank über diesen Einzug sprichst.</p>
+{% endif %}
+
+
+{% if lauf.status == 'verbucht' %}
+<dialog id="rl-dialog" style="border:none;border-radius:14px;padding:22px;max-width:520px;width:92vw;background:var(--flaeche);color:var(--text);box-shadow:var(--schatten-hoch)">
+    <form method="post" id="rl-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <h3 style="margin:0 0 6px">↩️ Abbuchung kam zurück</h3>
+        <p class="feld-hinweis" style="margin:0 0 14px" id="rl-name"></p>
+        <div class="feld">
+            <label>Was sagt die Bank?</label>
+            <select name="grund">
+                <option value="Konto nicht gedeckt">Konto nicht gedeckt</option>
+                <option value="Konto erloschen oder falsch">Konto erloschen oder falsch</option>
+                <option value="Widerspruch der Person">Widerspruch der Person</option>
+                <option value="kein gültiges Mandat">kein gültiges Mandat</option>
+                <option value="von der Bank zurückgegeben">anderer Grund</option>
+            </select>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Datum der Rückgabe</label>
+                <input type="date" name="datum" value="{{ heute_iso }}"></div>
+            <div class="feld"><label>Bankgebühr <span class="feld-hinweis">(optional)</span></label>
+                <input type="text" name="gebuehr" placeholder="z. B. 3,00"></div>
+        </div>
+        <label style="display:flex;gap:8px;align-items:center;margin:6px 0 4px">
+            <input type="checkbox" name="benachrichtigen" value="1" checked>
+            <span>Die Person freundlich per E-Mail informieren</span>
+        </label>
+        <p class="feld-hinweis" style="margin:0">Der Beitrag gilt danach wieder als offen. Rückbuchung
+            und Gebühr landen im Kassenbuch, damit der Kassenstand stimmt.</p>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+            <button type="button" class="btn btn-sekundaer" onclick="document.getElementById('rl-dialog').close()">Abbrechen</button>
+            <button class="btn">Rückläufer erfassen</button>
+        </div>
+    </form>
+</dialog>
+<script>
+var RL_URL = {{ url_for('lastschrift.ruecklaeufer', lid=lauf.id, pid=0) | tojson }};
+function ruecklaeuferOeffnen(pid, name) {
+    document.getElementById('rl-form').action = RL_URL.replace(/0$/, pid);
+    document.getElementById('rl-name').textContent = name;
+    document.getElementById('rl-dialog').showModal();
+}
+</script>
+{% endif %}
+
+{% if ruecklaeufer %}
+<div class="karte" style="border-left:4px solid var(--rot)">
+    <h2 style="margin-top:0;font-size:17px">↩️ Zurückgekommen ({{ ruecklaeufer | length }})</h2>
+    <p class="feld-hinweis" style="margin-top:0">Diese Beiträge sind wieder offen. Die Rückbuchung
+        steht im Kassenbuch – sprich die Personen an, damit es beim nächsten Mal klappt.</p>
+    <table>
+        <thead><tr><th>Name</th><th>Grund</th><th class="num">Betrag</th></tr></thead>
+        <tbody>
+        {% for p in ruecklaeufer %}
+        <tr>
+            <td><strong>{{ p.name }}</strong></td>
+            <td>{{ p.grund }}</td>
+            <td class="num">{{ p.betrag | euro }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% endblock %}

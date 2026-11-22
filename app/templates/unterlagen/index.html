@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Vereinsunterlagen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Vereinsunterlagen</h1><div class="sub">Wichtige Dokumente zentral ablegen und schnell finden</div></div>
+</div>
+
+<div class="hilfe-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
+        <div>
+            <strong>Speicherort:</strong>
+            {% if einst.dok_speicherort == 'nextcloud' %}☁️ Nextcloud{% elif einst.dok_speicherort == 'onedrive' %}☁️ OneDrive (automatische Cloud-Sicherung){% else %}💻 Lokal {{ 'auf diesem Server' if config.PRODUKTION else 'auf diesem Mac' }}{% endif %}<br>
+            <span class="feld-hinweis">{{ speicher_pfad }}</span>
+        </div>
+        <form method="post" action="{{ url_for('unterlagen.speicherort') }}" class="aktionen">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <select name="dok_speicherort">
+                <option value="lokal" {{ 'selected' if einst.dok_speicherort=='lokal' }}>💻 Lokal speichern</option>
+                <option value="nextcloud" {{ 'selected' if einst.dok_speicherort=='nextcloud' }} {{ '' if nextcloud_da else 'disabled' }}>☁️ In Nextcloud speichern {{ '' if nextcloud_da else '(kein Zugang)' }}</option>
+                <option value="onedrive" {{ 'selected' if einst.dok_speicherort=='onedrive' }} {{ '' if onedrive_da else 'disabled' }}>☁️ In OneDrive speichern {{ '' if onedrive_da else '(nicht gefunden)' }}</option>
+            </select>
+            <button class="btn btn-klein">Übernehmen</button>
+        </form>
+    </div>
+    {% if einst.dok_speicherort == 'nextcloud' %}
+    <div class="feld-hinweis" style="margin-top:8px">✅ Dokumente werden in deiner <strong>Nextcloud</strong> gespeichert (Ordner „Vereinsverwaltung"). Zugriff über die App; Mitglieder können freigegebene Dateien sehen.</div>
+    {% elif onedrive_da %}
+    <div class="feld-hinweis" style="margin-top:8px">✅ OneDrive-Ordner auf diesem Rechner erkannt. Dokumente dort werden automatisch in die Cloud synchronisiert.</div>
+    {% endif %}
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Dokument hochladen</h2>
+    <form method="post" action="{{ url_for('unterlagen.hochladen') }}" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld-reihe">
+            <div class="feld"><label>Kategorie</label>
+                <select name="kategorie">{% for k in kategorien %}<option value="{{ k }}">{{ k }}</option>{% endfor %}</select>
+            </div>
+            <div class="feld"><label>Titel (optional)</label><input type="text" name="titel" placeholder="z.B. Freistellungsbescheid 2025"></div>
+        </div>
+        <div class="feld"><label>Datei</label><input type="file" name="datei" required></div>
+        <div class="feld"><label>Notiz (optional)</label><input type="text" name="notiz"></div>
+        <button type="submit" class="btn">⬆️ Hochladen</button>
+    </form>
+</div>
+
+<div class="werkzeug" style="margin-top:8px">
+    <span class="feld-hinweis">Schnell springen zu:</span>
+    {% for k in kategorien %}<a href="#{{ k }}" class="badge badge-gruppe">{{ k }}</a>{% endfor %}
+</div>
+
+{% for k in kategorien %}
+{% if nach_kat.get(k) %}
+<h2 id="{{ k }}">{{ k }}</h2>
+<table>
+    <thead><tr><th>Titel</th><th>Datei</th><th>Hochgeladen</th><th></th></tr></thead>
+    <tbody>
+    {% for d in nach_kat[k] %}
+    <tr>
+        <td><strong>{{ d.titel }}</strong>{% if d.notiz %}<br><span class="feld-hinweis">{{ d.notiz }}</span>{% endif %}</td>
+        <td>{{ d.original_name }}</td>
+        <td>{{ d.hochgeladen_am }}</td>
+        <td class="rechts">
+            <div class="aktionen" style="justify-content:flex-end">
+                <a href="{{ url_for('unterlagen.ansehen', did=d.id) }}" target="_blank" class="btn btn-sekundaer btn-klein">Öffnen</a>
+                <form method="post" action="{{ url_for('unterlagen.mitglieder_sichtbar', did=d.id) }}" style="display:inline"
+                      title="Für Mitglieder in der App sichtbar?">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-klein {{ '' if d.fuer_mitglieder else 'btn-sekundaer' }}">{{ '👁 Mitglieder' if d.fuer_mitglieder else '🔒 intern' }}</button>
+                </form>
+                <form method="post" action="{{ url_for('unterlagen.loeschen', did=d.id) }}"
+                      onsubmit="return confirm('Dokument löschen?')" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein">✕</button>
+                </form>
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endfor %}
+
+{% set gesamt = nach_kat.values() | map('length') | sum %}
+{% if gesamt == 0 %}
+<div class="karte leer"><div class="icon">📁</div><p>Noch keine Unterlagen abgelegt. Lade oben dein erstes Dokument hoch.</p></div>
+{% endif %}
+{% endblock %}

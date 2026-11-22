@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="de">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Danke – {{ einst.vereinsname }}</title>
+{% with akzent = (einst.farbe_primaer if einst else '') %}{% include "_oeffentlich_stil.html" %}{% endwith %}
+<style>
+    body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; background: var(--grund, #eef1f5); margin: 0;
+           color: var(--text, #1e293b); line-height: 1.55; }
+    .karte { background: var(--flaeche, #ffffff); border-radius: 14px; padding: 30px; max-width: 540px; margin: 60px auto 18px;
+             text-align: center; box-shadow: 0 3px 14px rgba(0,0,0,.05); }
+    .btn { display: inline-block; background: var(--akz); color: var(--auf-primaer, #ffffff);
+           text-decoration: none; border-radius: 11px; padding: 12px 20px; font-weight: 700; margin-top: 16px; }
+    .schritte { text-align: left; max-width: 540px; margin: 0 auto; padding: 0 34px 60px;
+                color: var(--text-hell, #64748b); font-size: 14px; }
+    .schritte li { margin-bottom: 7px; }
+</style></head>
+<body>
+<div class="karte">
+    <div style="font-size:46px">🎉</div>
+    <h1 style="font-size:22px;margin:8px 0 6px">Dein Antrag ist da!</h1>
+    <p style="color:var(--text, #475569);margin:0">Schön, dass du dabei sein möchtest.
+        <strong>Wir melden uns innerhalb von {{ stunden }} Stunden bei dir</strong> –
+        per E-Mail oder Telefon.</p>
+    {% if einst.email %}
+    <p style="color:var(--text-hell, #64748b);font-size:14px;margin:14px 0 0">Dringend? Schreib uns an
+        <a href="mailto:{{ einst.email }}" style="color:inherit">{{ einst.email }}</a>.</p>
+    {% endif %}
+    <a class="btn" href="{{ url_for('portal.home') }}">‹ Zur Startseite</a>
+</div>
+<ul class="schritte">
+    <li>Gleich kommt eine Bestätigung per E-Mail – schau notfalls im Spam-Ordner nach.</li>
+    <li>Deine Mitgliedschaft beginnt erst, wenn der Vorstand sie bestätigt hat.</li>
+    <li>Bis dahin musst du nichts tun, und es wird nichts abgebucht.</li>
+</ul>
+</body></html>

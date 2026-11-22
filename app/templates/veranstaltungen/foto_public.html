@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="{{ sprache_aktiv }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ ue('Fotoerlaubnis') }} – {{ a.titel }}</title>
+{% with akzent = (einst.farbe_primaer if einst else '') %}{% include "_oeffentlich_stil.html" %}{% endwith %}
+<style>
+    body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; color: var(--text, #1e293b); margin: 0; background: var(--grund, #eef1f5); }
+    .kopf { background: var(--akz); color: var(--auf-primaer, #fff); padding: 18px 20px; display: flex; align-items: center; gap: 12px; }
+    .kopf img { height: 40px; background: var(--logo-teller, #fff); border-radius: 6px; padding: 3px; }
+    .kopf .vn { font-weight: 800; font-size: 17px; }
+    .wrap { max-width: 600px; margin: 0 auto; padding: 30px 16px; }
+    .karte { background: var(--flaeche, #fff); border-radius: 14px; padding: 26px; box-shadow: 0 3px 14px rgba(0,0,0,.05); }
+    h1 { font-size: 21px; margin: 4px 0 12px; }
+    .frage { border: 1px solid var(--linie, #e2e8f0); border-radius: 12px; padding: 16px; margin: 14px 0; }
+    .frage h2 { font-size: 16px; margin: 0 0 6px; }
+    .frage p { font-size: 13.5px; color: var(--text-hell, #64748b); margin: 0 0 10px; }
+    .wahl { display: flex; gap: 10px; }
+    .wahl label { flex: 1; border: 2px solid var(--linie, #e2e8f0); border-radius: 10px; padding: 10px;
+                  text-align: center; cursor: pointer; font-weight: 700; }
+    .wahl input { margin-right: 6px; }
+    .wahl label:has(input:checked) { border-color: var(--akz); background: color-mix(in srgb, var(--akz) 12%, var(--flaeche, #fff)); }
+    .btn { display: inline-block; background: var(--akz); color: var(--auf-primaer, #fff); border: none;
+           border-radius: 11px; padding: 12px 26px; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 14px; }
+    .hinweis { font-size: 12.5px; color: var(--text-hell, #64748b); margin-top: 16px; }
+    .stand { background: var(--flaeche-2, #f4f6fb); border-radius: 10px; padding: 10px 14px; font-size: 14px; margin-bottom: 8px; }
+    .flash { background: var(--gut-grund, #e8f6ec); color: var(--gut-text, #1b6b34); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="kopf">
+    {% if einst and einst.logo_dateiname %}<img src="{{ url_for('einstellungen.logo', verein_id=einst.id) }}" alt="">{% endif %}
+    <span class="vn">{{ einst.vereinsname if einst else '' }}</span>
+</div>
+<div class="wrap">
+    <div class="karte">
+        {% with meldungen = get_flashed_messages() %}
+            {% for m in meldungen %}<div class="flash">✅ {{ m }}</div>{% endfor %}
+        {% endwith %}
+
+        <h1>📷 {{ ue('Dürfen wir Fotos von dir zeigen?') }}</h1>
+        <p style="font-size:14.5px">{{ ue('Es geht um deine Anmeldung zu') }}
+            <strong>„{{ a.titel }}“</strong>{% if a.datum %} ({{ a.datum | datum_de }}){% endif %}.
+            {{ ue('Beides ist freiwillig – dir entsteht kein Nachteil, wenn du Nein sagst.') }}</p>
+
+        {% if a.foto_status %}
+        <div class="stand">{{ ue('Deine bisherige Entscheidung') }}:
+            {{ '✅ ' + ue('Ja') if a.foto_status == 'ja' else '🚫 ' + ue('Nein') }}
+            ({{ ue('Vereinsarbeit') }}) ·
+            {{ '✅ ' + ue('Ja') if a.foto_social == 'ja' else '🚫 ' + ue('Nein') }}
+            (Facebook/Instagram/WhatsApp) — {{ ue('du kannst sie hier jederzeit ändern.') }}</div>
+        {% endif %}
+
+        <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="frage">
+                <h2>1. {{ ue('Fotos für die Vereinsarbeit') }}</h2>
+                <p>{{ ue('Vereinswebsite, Mitglieder-App, Aushänge, Programmhefte und Berichte an die örtliche Presse.') }}</p>
+                <div class="wahl">
+                    <label><input type="radio" name="foto" value="ja" {{ 'checked' if a.foto_status == 'ja' }}> ✅ {{ ue('Ja, einverstanden') }}</label>
+                    <label><input type="radio" name="foto" value="nein" {{ 'checked' if a.foto_status == 'nein' }}> 🚫 {{ ue('Nein, bitte nicht') }}</label>
+                </div>
+            </div>
+
+            <div class="frage">
+                <h2>2. {{ ue('Zusätzlich: Facebook, Instagram und WhatsApp-Kanal') }}</h2>
+                <p>{{ ue('Beiträge dort sind weltweit sichtbar. Die Plattformen gehören zu Meta; Daten können dabei in die USA übertragen werden, und eine Weiterverbreitung durch Dritte lässt sich nicht ausschließen.') }}</p>
+                <div class="wahl">
+                    <label><input type="radio" name="social" value="ja" {{ 'checked' if a.foto_social == 'ja' }}> ✅ {{ ue('Ja, auch dort') }}</label>
+                    <label><input type="radio" name="social" value="nein" {{ 'checked' if a.foto_social == 'nein' or not a.foto_social }}> 🚫 {{ ue('Nein, dort nicht') }}</label>
+                </div>
+            </div>
+
+            <button class="btn">{{ ue('Entscheidung speichern') }}</button>
+        </form>
+
+        <p class="hinweis">{{ ue('Rechtsgrundlage ist deine Einwilligung (Art. 6 Abs. 1 a DSGVO, § 22 KunstUrhG). Du kannst sie jederzeit über diese Seite mit Wirkung für die Zukunft widerrufen; bereits veröffentlichte Fotos entfernen wir dann, soweit uns das möglich ist. Fragen beantwortet der Vorstand') }}{% if einst and einst.email %} ({{ einst.email }}){% endif %}.</p>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,25 @@
+{% extends "auth/_layout.html" %}
+{% block title %}Als Freund registrieren{% endblock %}
+{% block inhalt %}
+<div class="auth-logo">🤝</div>
+<h2 class="auth-titel">Freund von {{ verein_name or 'unserem Verein' }} werden</h2>
+<p class="feld-hinweis" style="text-align:center;margin:0 0 14px">Mit einem Freunde-Zugang siehst du unsere
+    Termine und kannst dich zu Veranstaltungen anmelden – ganz ohne Mitgliedschaft.</p>
+<form method="post" action="{{ url_for('auth.freund_registrieren') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {# Honeypot gegen Bots – für Menschen unsichtbar #}
+    <div style="position:absolute;left:-9999px" aria-hidden="true">
+        <label>Webseite<input type="text" name="webseite" tabindex="-1" autocomplete="off"></label>
+    </div>
+    <div class="feld"><label>Name</label><input type="text" name="name" required maxlength="80"></div>
+    <div class="feld"><label>E-Mail</label><input type="email" name="email" required maxlength="120"></div>
+    <div class="feld"><label>Passwort (mind. 8 Zeichen)</label><input type="password" name="passwort" required minlength="8"></div>
+    <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;margin:10px 0 14px;cursor:pointer">
+        <input type="checkbox" name="datenschutz" required style="margin-top:2px">
+        <span>Ich habe die <a href="{{ url_for('einstellungen.rechtliches') }}" target="_blank">Datenschutzhinweise</a>
+        gelesen. Meine Daten (Name, E-Mail) werden nur für den Freunde-Zugang genutzt.</span>
+    </label>
+    <button type="submit" class="btn">🤝 Registrieren</button>
+</form>
+<p style="text-align:center;margin-top:12px"><a class="feld-hinweis" href="{{ url_for('auth.login') }}">← Zurück zur Anmeldung</a></p>
+{% endblock %}

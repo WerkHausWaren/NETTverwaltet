@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ k.titel }} – {{ einst.vereinsname }}</title>
+<meta name="description" content="{{ k.kurztext or k.titel }}">
+<meta property="og:title" content="{{ k.titel }}">
+<meta property="og:description" content="{{ k.kurztext or '' }}">
+{% with akzent = (einst.farbe_primaer if einst else '') %}{% include "_oeffentlich_stil.html" %}{% endwith %}
+<style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; color: var(--text, #17233a); margin: 0;
+           background: var(--grund, #eef1f6); line-height: 1.6; }
+    .kopf { background: var(--akz); color: var(--auf-akz); padding: 18px 20px; display: flex;
+            align-items: center; gap: 12px; }
+    .kopf img { height: 42px; width: 42px; object-fit: contain; background: var(--logo-teller, #fff); border-radius: 50%; padding: 4px; }
+    .wrap { max-width: 660px; margin: 0 auto; padding: 22px 16px 60px; }
+    .karte { background: var(--flaeche, #fff); border-radius: 16px; padding: 24px; box-shadow: 0 6px 22px rgba(23,35,58,.10); }
+    h1 { font-size: 25px; margin: 0 0 8px; line-height: 1.25; }
+    .kurz { font-size: 17px; color: var(--text-hell, #475569); margin: 0 0 20px; }
+    .spur { background: var(--flaeche-3, #eef1f5); border-radius: 999px; height: 18px; overflow: hidden; }
+    .fuell { height: 100%; background: linear-gradient(90deg, var(--akz), color-mix(in srgb, var(--akz) 60%, var(--gruen, #16a34a)));
+             border-radius: 999px; transition: width .6s; }
+    .zahlen { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+    .zahl { font-size: 23px; font-weight: 800; }
+    .klein { font-size: 13px; color: var(--text-hell, #64748b); }
+    .btn { display: inline-block; background: var(--akz); color: var(--auf-akz); padding: 14px 24px;
+           border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 16px; }
+    .btn.sek { background: var(--flaeche-3, #eef2f7); color: var(--text-stark, #33404d); }
+    .text { white-space: pre-wrap; margin-top: 18px; }
+    .konto { background: var(--flaeche-2, #f5f7fb); border-radius: 12px; padding: 16px; margin-top: 20px; font-size: 15px; }
+    .fuss { text-align: center; color: var(--text-hell, #64748b); font-size: 12.5px; margin-top: 24px; }
+    .fuss a { color: var(--text-hell, #64748b); }
+</style>
+</head>
+<body>
+<div class="kopf">
+    {% if einst.logo_dateiname %}<img src="{{ url_for('einstellungen.logo', verein_id=einst.id) }}" alt="">{% endif %}
+    <strong>{{ einst.vereinsname }}</strong>
+</div>
+<div class="wrap">
+    <div class="karte">
+        <h1>{{ k.titel }}</h1>
+        {% if k.kurztext %}<p class="kurz">{{ k.kurztext }}</p>{% endif %}
+
+        {% if k.ziel %}
+        <div class="spur"><div class="fuell" style="width:{{ [quote, 100] | min }}%"></div></div>
+        <div class="zahlen">
+            <div><div class="zahl">{{ stand | euro }}</div><div class="klein">von {{ k.ziel | euro }} gesammelt</div></div>
+            <div style="text-align:center"><div class="zahl">{{ quote }} %</div><div class="klein">geschafft</div></div>
+            <div style="text-align:right"><div class="zahl">{{ anzahl }}</div><div class="klein">Spende{{ 'n' if anzahl != 1 }}</div></div>
+        </div>
+        {% if quote >= 100 %}
+        <p style="margin-top:14px;color:var(--gruen, #157347);font-weight:700">🎉 Das Ziel ist erreicht – herzlichen Dank!
+            Jede weitere Spende hilft trotzdem.</p>
+        {% elif offen %}
+        <p style="margin-top:14px">Es fehlen noch <strong>{{ offen | euro }}</strong>{% if k.ende_datum %}
+            bis zum {{ k.ende_datum | datum_de }}{% endif %}.</p>
+        {% endif %}
+        {% endif %}
+
+        {% if k.text %}<div class="text">{{ k.text }}</div>{% endif %}
+
+        <div class="konto">
+            <strong>💛 So kannst du helfen</strong><br>
+            Überweisung an:<br>
+            <strong>{{ einst.bank_kontoinhaber or einst.vereinsname }}</strong><br>
+            IBAN: <strong style="font-family:ui-monospace,Menlo,monospace">{{ einst.bank_iban or '—' }}</strong>
+            {% if einst.bank_bic %}<br>BIC: {{ einst.bank_bic }}{% endif %}<br>
+            Verwendungszweck: <strong>{{ k.titel[:30] }}</strong>
+            {% if einst.paypal_me %}
+            <div style="margin-top:14px">
+                <a class="btn" href="https://{{ einst.paypal_me.replace('https://','').replace('http://','').lstrip('@') if 'paypal.me' in einst.paypal_me else 'paypal.me/' ~ einst.paypal_me.strip('/') }}"
+                   target="_blank" rel="noopener">💳 Mit PayPal spenden</a>
+            </div>
+            {% endif %}
+        </div>
+
+        <p class="klein" style="margin-top:16px">Für Spenden ab 300 € stellen wir gern eine
+            Zuwendungsbestätigung aus – schreib uns dafür kurz
+            {% if einst.email %}an <a href="mailto:{{ einst.email }}">{{ einst.email }}</a>{% else %}eine Nachricht{% endif %}.
+            Bis 300 € genügt dem Finanzamt der Kontoauszug.</p>
+    </div>
+
+    <div class="fuss">
+        {{ einst.vereinsname }}{% if einst.ort %} · {{ einst.plz }} {{ einst.ort }}{% endif %}<br>
+        <a href="{{ url_for('einstellungen.rechtliches') }}">Impressum &amp; Datenschutz</a>
+    </div>
+</div>
+</body>
+</html>

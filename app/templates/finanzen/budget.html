@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Haushaltsplan{% endblock %}
+{% macro balken(z) %}
+    {% set breite = [z.quote or 0, 100] | min %}
+    <div style="background:var(--flaeche-3);border-radius:6px;height:9px;overflow:hidden;min-width:90px">
+        <div style="height:100%;width:{{ breite }}%;background:{{ 'var(--rot)' if z.ueber else ('var(--gelb)' if (z.quote or 0) > 85 else 'var(--gruen)') }}"></div>
+    </div>
+{% endmacro %}
+{% block content %}
+<div class="page-header">
+    <div><h1>💶 Haushaltsplan {{ wj_label }}</h1>
+        <div class="sub">Was ist geplant, was ist tatsächlich gebucht – Plan-Ist-Vergleich je Kategorie</div></div>
+    <div class="aktionen">
+        <form method="get" style="display:inline">
+            <select name="jahr" onchange="this.form.submit()">
+                {% for j in jahre %}<option value="{{ j.j }}" {{ 'selected' if j.j == jahr }}>{{ j.label }}</option>{% endfor %}
+            </select>
+        </form>
+        <a href="{{ url_for('finanzen.liste') }}" class="btn btn-sekundaer">← Kassenbuch</a>
+    </div>
+</div>
+
+<div class="hilfe-box" style="margin-bottom:14px">💡 <strong>So funktioniert's:</strong> Trage unten für jede Kategorie
+    ein, was ihr im Wirtschaftsjahr <strong>{{ wj_label }}</strong> einnehmen bzw. ausgeben wollt. Der Balken zeigt,
+    wie viel davon schon verbraucht ist – <span style="color:var(--gruen);font-weight:700">grün</span> im Rahmen,
+    <span style="color:var(--gelb);font-weight:700">gelb</span> ab 85 %,
+    <span style="color:var(--rot);font-weight:700">rot</span> überschritten.
+    Das hilft beim Kassenbericht und macht Nachfragen in der Mitgliederversammlung leicht beantwortbar.</div>
+
+{% set leer = not zeilen.einnahme and not zeilen.ausgabe %}
+{% if leer %}
+<div class="karte" style="text-align:center;padding:26px">
+    <div style="font-size:38px">💶</div>
+    <h2 style="margin:6px 0">Noch kein Haushaltsplan für {{ wj_label }}</h2>
+    <p class="feld-hinweis" style="margin:0 0 14px">Am schnellsten geht's, wenn du die Zahlen des Vorjahres
+        übernimmst und dann anpasst.</p>
+    <a href="{{ url_for('finanzen.budget', jahr=jahr, vorjahr=1) }}" class="btn"
+       onclick="return confirm('Die tatsächlichen Zahlen des Vorjahres als Plan übernehmen? Du kannst sie danach anpassen.')">📋 Zahlen aus dem Vorjahr übernehmen</a>
+    <a href="#plan-form" class="btn btn-sekundaer">✏️ Von Hand eintragen</a>
+</div>
+{% endif %}
+
+{% for typ, titel, farbe in [('einnahme', '↓ Geplante Einnahmen', 'var(--gruen)'), ('ausgabe', '↑ Geplante Ausgaben', 'var(--rot)')] %}
+{% if not leer %}
+<div class="karte">
+    <h2 style="margin-top:0;color:{{ farbe }}">{{ titel }}</h2>
+    {% if zeilen[typ] %}
+    <table class="tabelle no-sort">
+        <thead><tr><th>Kategorie</th><th class="rechts">Plan</th><th class="rechts">Ist</th>
+            <th class="rechts">Rest</th><th style="width:130px">Verbraucht</th></tr></thead>
+        <tbody>
+        {% for z in zeilen[typ] %}
+        <tr>
+            <td><strong>{{ z.konto.name }}</strong> <span class="feld-hinweis">{{ z.konto.nummer }}</span></td>
+            <td class="rechts">{{ z.plan | euro if z.plan else '–' }}</td>
+            <td class="rechts" style="font-weight:600">{{ z.ist | euro }}</td>
+            <td class="rechts" style="color:{{ 'var(--rot)' if z.ueber else 'inherit' }}">
+                {% if z.plan %}{{ z.rest | euro }}{% else %}<span class="feld-hinweis">kein Plan</span>{% endif %}</td>
+            <td>{% if z.plan %}{{ balken(z) }}<span class="feld-hinweis">{{ z.quote }} %{{ ' – überschritten!' if z.ueber }}</span>
+                {% else %}<span class="feld-hinweis">–</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot><tr style="font-weight:700;border-top:2px solid var(--linie)">
+            <td>Summe</td><td class="rechts">{{ summen[typ].plan | euro }}</td>
+            <td class="rechts">{{ summen[typ].ist | euro }}</td>
+            <td class="rechts">{{ (summen[typ].plan - summen[typ].ist) | euro }}</td><td></td>
+        </tr></tfoot>
+    </table>
+    {% else %}
+    <p class="feld-hinweis">Für {{ wj_label }} noch nichts geplant und nichts gebucht.</p>
+    {% endif %}
+</div>
+{% endif %}
+{% endfor %}
+
+{% if not leer %}
+<div class="karte" style="background:var(--flaeche-2)">
+    <h2 style="margin-top:0;font-size:17px">📐 Ergebnis nach Plan</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
+        {% set plan_saldo = summen.einnahme.plan - summen.ausgabe.plan %}
+        {% set ist_saldo = summen.einnahme.ist - summen.ausgabe.ist %}
+        <div><div class="feld-hinweis">Geplantes Ergebnis</div>
+            <div style="font-size:22px;font-weight:800;color:{{ 'var(--gruen)' if plan_saldo >= 0 else 'var(--rot)' }}">{{ plan_saldo | euro }}</div></div>
+        <div><div class="feld-hinweis">Tatsächliches Ergebnis</div>
+            <div style="font-size:22px;font-weight:800;color:{{ 'var(--gruen)' if ist_saldo >= 0 else 'var(--rot)' }}">{{ ist_saldo | euro }}</div></div>
+        <div><div class="feld-hinweis">Abweichung</div>
+            <div style="font-size:22px;font-weight:800">{{ (ist_saldo - plan_saldo) | euro }}</div></div>
+    </div>
+</div>
+{% endif %}
+
+<div class="karte" id="plan-form" style="scroll-margin-top:16px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap">
+        <h2 style="margin-top:0">✏️ Plan für {{ wj_label }} bearbeiten</h2>
+        <a href="{{ url_for('finanzen.budget', jahr=jahr, vorjahr=1) }}" class="btn btn-sekundaer btn-klein"
+           onclick="return confirm('Die tatsächlichen Zahlen des Vorjahres als Plan übernehmen? Bestehende Planwerte werden überschrieben.')">📋 Vorjahr übernehmen</a>
+    </div>
+    <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="jahr" value="{{ jahr }}">
+        {% for typ, titel in [('einnahme', '↓ Einnahmen'), ('ausgabe', '↑ Ausgaben')] %}
+        <h3 style="margin:14px 0 6px;font-size:15px">{{ titel }}</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px">
+            {% for k in konten if k.typ == typ %}
+            <div style="display:flex;gap:8px;align-items:center">
+                <label style="flex:1;font-weight:400;margin:0">{{ k.name }}
+                    <span class="feld-hinweis">{{ sphaeren_namen.get(k.sphaere) or k.sphaere or '–' }}</span></label>
+                <input type="text" name="plan_{{ k.id }}" value="{{ ('%.2f' % plan[k.id]) | replace('.', ',') if plan.get(k.id) else '' }}"
+                       inputmode="decimal" placeholder="0,00" style="width:110px;text-align:right">
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+        <button class="btn" style="margin-top:14px">💾 Haushaltsplan speichern</button>
+        <span class="feld-hinweis" style="margin-left:8px">Leere Felder = keine Planung für diese Kategorie.</span>
+    </form>
+</div>
+{% endblock %}

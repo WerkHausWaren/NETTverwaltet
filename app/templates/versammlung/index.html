@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Versammlungen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🗳️ Versammlungen</h1>
+        <div class="sub">Mitgliederversammlungen und Vorstandssitzungen – Einladung, Anwesenheit, Beschlüsse, Protokoll</div></div>
+    <div class="aktionen"><a href="{{ url_for('versammlung.neu') }}" class="btn">＋ Neue Versammlung</a></div>
+</div>
+
+<div class="hilfe-box" style="margin-bottom:14px">💡 <strong>Der rote Faden:</strong> Versammlung anlegen →
+    Einladung verschicken (die App prüft eure Einladungsfrist) → am Tag selbst Anwesenheit abhaken →
+    Beschlüsse mit Stimmen erfassen → Protokoll schreiben und ausdrucken. Alles bleibt für die Nachwelt
+    (und das Finanzamt) dokumentiert.</div>
+
+{% if liste %}
+<div class="tabellen-scroll">
+<table class="tabelle">
+    <thead><tr><th>Datum</th><th>Versammlung</th><th>Ort</th><th>Anwesend</th><th>Beschlüsse</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for v in liste %}
+    <tr onclick="window.location='{{ url_for('versammlung.detail', vsid=v.id) }}'" style="cursor:pointer">
+        <td>{{ v.datum | datum_de if v.datum else '–' }}{% if v.uhrzeit %}<br><span class="feld-hinweis">{{ v.uhrzeit }} Uhr</span>{% endif %}</td>
+        <td><strong>{{ v.titel }}</strong><br><span class="feld-hinweis">{{ arten.get(v.art, v.art) }}</span></td>
+        <td>{{ v.ort }}</td>
+        <td>{{ v.anwesend or '–' }}</td>
+        <td>{{ v.beschluesse or '–' }}</td>
+        <td>{% if v.status == 'abgeschlossen' %}<span class="badge badge-bezahlt">abgeschlossen</span>
+            {% elif v.datum and v.datum < heute %}<span class="badge badge-offen">Protokoll offen</span>
+            {% elif v.einladung_am %}<span class="badge badge-aktiv">eingeladen</span>
+            {% else %}<span class="badge badge-inaktiv">geplant</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<div class="karte leer"><div class="icon">🗳️</div>
+    <p>Noch keine Versammlung angelegt. <a href="{{ url_for('versammlung.neu') }}">Erste Mitgliederversammlung planen</a></p></div>
+{% endif %}
+{% endblock %}

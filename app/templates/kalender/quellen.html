@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Kalenderquellen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Kalenderquellen</h1><div class="sub">Externe Kalender einbinden (ICS-Abo oder Weblink)</div></div>
+    <a href="{{ url_for('kalender.index') }}" class="btn btn-sekundaer">← Zum Kalender</a>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">☁️ Nextcloud-Kalender</h2>
+    <p class="feld-hinweis">{% if nc_konfiguriert %}Eingerichtet – neue Veranstaltungen werden nach Nextcloud übertragen.{% else %}Verbinde die App mit deinem Nextcloud-Kalender (beide Richtungen).{% endif %}</p>
+    <a href="{{ url_for('kalender.nextcloud') }}" class="btn">☁️ Nextcloud einrichten / verwalten</a>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">📥 Termine aus Datei importieren</h2>
+    <p class="feld-hinweis">Eine <code>.ics</code>-Datei einmalig als eigene, bearbeitbare Termine übernehmen (kein Abo).</p>
+    <a href="{{ url_for('kalender.ics_import') }}" class="btn btn-sekundaer">ICS-Datei importieren</a>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Quelle hinzufügen</h2>
+    <form method="post" action="{{ url_for('kalender.neu') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld-reihe">
+            <div class="feld"><label>Name</label><input type="text" name="name" placeholder="z. B. Programm der Stadtbibliothek" required></div>
+            <div class="feld"><label>Art</label>
+                <select name="typ">
+                    <option value="ics">ICS-Abo (automatische Termine)</option>
+                    <option value="weblink">Weblink (Webseite öffnen)</option>
+                </select>
+            </div>
+        </div>
+        <div class="feld"><label>Adresse / Link</label>
+            <input type="text" name="url" placeholder="https://…/kalender.ics  oder  Webseiten-Link" required>
+            <div class="feld-hinweis">
+                ICS-Abo-Link: <strong>Google</strong> (Einstellungen → „Geheime Adresse im iCal-Format"),
+                <strong>Apple iCloud</strong> (Kalender freigeben → öffentlich), <strong>Nextcloud</strong> („Link kopieren"),
+                <strong>Outlook</strong> (Kalender veröffentlichen → ICS). <code>webcal://</code> wird unterstützt.
+            </div>
+        </div>
+        <button type="submit" class="btn">＋ Hinzufügen</button>
+    </form>
+</div>
+
+{% if not quellen %}
+<div class="hilfe-box">
+    <strong>Tipp:</strong> Veranstaltungsseiten ohne Kalender-Abo (kein ICS-Feed) bindest du als <em>Weblink</em> ein –
+    sie erscheinen dann als Link im Kalender.
+</div>
+{% endif %}
+
+{% if quellen %}
+<table>
+    <thead><tr><th>Name</th><th>Art</th><th>Adresse</th><th></th></tr></thead>
+    <tbody>
+    {% for q in quellen %}
+    <tr>
+        <td>{{ q.name }}</td>
+        <td>{{ 'ICS-Abo' if q.typ=='ics' else 'Weblink' }}</td>
+        <td style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span class="feld-hinweis">{{ q.url }}</span></td>
+        <td class="rechts">
+            <div class="aktionen" style="justify-content:flex-end">
+                <a href="{{ url_for('kalender.bearbeiten', kid=q.id) }}" class="btn btn-sekundaer btn-klein">Bearbeiten</a>
+                <form method="post" action="{{ url_for('kalender.loeschen', kid=q.id) }}" style="display:inline" onsubmit="return confirm('Quelle entfernen?')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein">Entfernen</button>
+                </form>
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endblock %}

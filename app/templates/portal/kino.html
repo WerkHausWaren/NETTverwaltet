@@ -1,0 +1,22 @@
+{% extends "portal/_layout.html" %}
+{% block title %}{{ kino_titel }}{% endblock %}
+{% block inhalt %}
+<p style="margin:14px 0 0"><a href="{{ url_for('portal.termine') }}" style="text-decoration:none;color:var(--mp);font-weight:600">‹ Termine</a></p>
+<div class="mp-karte"><h2 style="margin:0;font-size:18px">🎬 {{ kino_titel }}</h2></div>
+
+{# Desktopversion: Filmkarten fließen mehrspaltig – mobil unverändert #}
+<div class="mp-fluss">
+{% for f in filme %}
+<div class="mp-karte" style="border-top:4px solid {{ f.farbe|hexfarbe('var(--rot)') }}">
+    <a href="{{ termin_link(f) }}" style="text-decoration:none;color:inherit">
+        <div style="font-weight:700;font-size:17px">{{ f.titel }}</div>
+        <div class="feld-hinweis" style="margin-top:3px">📅 {{ f.datum|wt }}, {{ f.datum[8:10] }}.{{ f.datum[5:7] }}.{{ f.datum[0:4] }}{% if f.uhrzeit %} · 🕒 {{ f.uhrzeit }}{% if f.uhrzeit_bis %}–{{ f.uhrzeit_bis }}{% endif %} Uhr{% endif %}{% if f.ort %} · 📍 {{ f.ort }}{% endif %}</div>
+        {% if f.beschreibung %}<div style="font-size:14px;margin-top:6px;white-space:pre-line">{{ f.beschreibung }}</div>{% endif %}
+    </a>
+    {% if f.trailer_url %}<a href="{{ f.trailer_url|sichere_url }}" target="_blank" rel="noopener" class="mp-btn" style="margin-top:10px;background:var(--rot)">▶ Trailer ansehen</a>{% endif %}
+</div>
+{% else %}
+<div class="mp-karte"><p class="feld-hinweis" style="margin:0">Aktuell sind keine Filmvorführungen geplant.</p></div>
+{% endfor %}
+</div>
+{% endblock %}

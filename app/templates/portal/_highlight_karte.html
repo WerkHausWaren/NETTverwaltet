@@ -1,0 +1,27 @@
+{# Eine Highlight-Karte (oben in der Terminliste + Startseite). Erwartet h, gemerkt, heute_iso.
+   Kein Karten-Link um alles herum – darin stecken echte Links und Knöpfe. #}
+{% set MONL = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'] %}
+<article class="hl-karte" style="--tf:{{ h.farbe|hexfarbe('var(--mp)') }}">
+    <a class="hl-bild" href="{{ termin_link(h) }}" tabindex="-1" aria-hidden="true">
+        {% if h.bild %}<img src="{{ url_for('termine.bild', tid=h.id, v=h.bild) }}" alt="" loading="lazy">{% else %}<span class="hl-platz"></span>{% endif %}
+    </a>
+    <div class="hl-text">
+        <div class="hl-eyebrow">Highlight{% if h.highlight_text %} · {{ h.highlight_text }}{% endif %}</div>
+        <h3><a href="{{ termin_link(h) }}">{{ h.titel }}</a></h3>
+        <div class="hl-wann">{{ h.datum|wt }}, {{ h.datum[8:10]|int }}. {{ MONL[(h.datum[5:7]|int) - 1] }} {{ h.datum[0:4] }}{% if h.uhrzeit %} · {{ h.uhrzeit }} Uhr{% endif %}{% if h.ort %} · {{ h.ort }}{% endif %}</div>
+        {% if h.beschreibung %}<p class="hl-teaser">{{ h.beschreibung|teaser(240) }}</p>{% endif %}
+        <div class="hl-knoepfe">
+            <a class="hl-mehr" href="{{ termin_link(h) }}">Mehr erfahren</a>
+            {% if design and design.modul_veranstaltungen and h.anmeldung_aktiv and h.anmeldung_token
+                  and (not h.anmeldeschluss or h.anmeldeschluss >= heute_iso) %}
+            <a class="hl-anmelden" href="{{ url_for('veranstaltungen.oeffentlich', token=h.anmeldung_token) }}">Jetzt anmelden</a>
+            {% endif %}
+            <span class="teilen" role="button" tabindex="0" title="Termin teilen" aria-label="Termin teilen: {{ h.titel }}"
+                  data-url="{{ termin_link(h) }}"
+                  data-text="{{ h.titel }} – {{ h.datum|wt }}, {{ h.datum[8:10] }}.{{ h.datum[5:7] }}.{{ h.datum[0:4] }}{% if h.uhrzeit %}, {{ h.uhrzeit }} Uhr{% endif %}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg></span>
+            <span class="herz{{ ' an' if h.id in (gemerkt or []) }}" role="button" tabindex="0" data-tid="{{ h.id }}"
+                  aria-pressed="{{ 'true' if h.id in (gemerkt or []) else 'false' }}"
+                  title="{{ 'Gemerkt – nochmal tippen zum Entfernen' if h.id in (gemerkt or []) else 'Auf den Merkzettel' }}"></span>
+        </div>
+    </div>
+</article>

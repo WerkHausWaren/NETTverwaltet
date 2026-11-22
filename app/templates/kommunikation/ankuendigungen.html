@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Ankündigungen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>📣 Ankündigungen</h1>
+        <div class="sub">Erscheinen auf der Startseite der Mitglieder-App – öffentlich oder nur intern</div></div>
+    <a href="{{ url_for('kommunikation.neu') }}" class="btn btn-sekundaer">✉️ Rundmail schreiben</a>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">＋ Neue Ankündigung</h2>
+    <form method="post" action="{{ url_for('kommunikation.ankuendigung_neu') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld"><label>Titel *</label><input type="text" name="titel" required maxlength="150"></div>
+        <div class="feld"><label>Text</label><textarea name="text" rows="3"></textarea></div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div class="feld"><label>Anzeigen ab <span class="feld-hinweis">(leer = sofort)</span></label>
+                <input type="date" name="sichtbar_von"></div>
+            <div class="feld"><label>Anzeigen bis <span class="feld-hinweis">(leer = unbegrenzt)</span></label>
+                <input type="date" name="sichtbar_bis"></div>
+        </div>
+        <p class="feld-hinweis" style="margin:2px 0 8px">Mit „Anzeigen ab" in der Zukunft wird die Ankündigung
+            geplant: Sie erscheint (und pusht) erst an diesem Tag und verschwindet nach „Anzeigen bis" von selbst.</p>
+        <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;margin:6px 0 10px">
+            <input type="checkbox" name="oeffentlich" value="1" style="width:17px;height:17px;margin-top:2px">
+            <span>🌍 Öffentlich – auch für Gäste &amp; Freund:innen sichtbar
+                <span class="feld-hinweis" style="display:block">Ohne Häkchen sehen nur Mitglieder und Vorstand die Ankündigung.</span></span>
+        </label>
+        <button class="btn">Veröffentlichen</button>
+        <span class="feld-hinweis" style="margin-left:8px">Angemeldete mit Push-Erlaubnis werden benachrichtigt.</span>
+    </form>
+</div>
+
+{% if eintraege %}
+{% for n in eintraege %}
+<div class="karte">
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline">
+        {% set heute = heute_iso %}
+        <h2 style="margin:0">{{ n.titel }}
+            <span style="font-size:11.5px;font-weight:600;color:{{ 'var(--gut-text)' if n.oeffentlich else 'var(--neutral-text)' }};background:{{ 'var(--gut-grund)' if n.oeffentlich else 'var(--neutral-grund)' }};border-radius:999px;padding:2px 9px;vertical-align:2px">{{ '🌍 öffentlich' if n.oeffentlich else '🔒 intern' }}</span>
+            {% if n.sichtbar_von and n.sichtbar_von > heute %}
+            <span style="font-size:11.5px;font-weight:600;color:var(--warn-text);background:var(--warn-grund);border-radius:999px;padding:2px 9px;vertical-align:2px">⏰ geplant ab {{ n.sichtbar_von[8:10] }}.{{ n.sichtbar_von[5:7] }}.</span>
+            {% elif n.sichtbar_bis and n.sichtbar_bis < heute %}
+            <span style="font-size:11.5px;font-weight:600;color:var(--neutral-text);background:var(--neutral-grund);border-radius:999px;padding:2px 9px;vertical-align:2px">✔ abgelaufen am {{ n.sichtbar_bis[8:10] }}.{{ n.sichtbar_bis[5:7] }}.</span>
+            {% elif n.sichtbar_bis %}
+            <span style="font-size:11.5px;font-weight:600;color:var(--info-text);background:var(--info-grund);border-radius:999px;padding:2px 9px;vertical-align:2px">bis {{ n.sichtbar_bis[8:10] }}.{{ n.sichtbar_bis[5:7] }}.</span>
+            {% endif %}</h2>
+        <span class="feld-hinweis" style="white-space:nowrap">{{ n.erstellt_am[8:10] }}.{{ n.erstellt_am[5:7] }}.{{ n.erstellt_am[0:4] }}</span>
+    </div>
+    {% if n.text %}<p style="margin:8px 0 0;white-space:pre-line">{{ n.text }}</p>{% endif %}
+    <details style="margin-top:10px">
+        <summary style="cursor:pointer;color:var(--blau);font-weight:600">✏️ Bearbeiten</summary>
+        <form method="post" action="{{ url_for('kommunikation.ankuendigung_speichern', nid=n.id) }}" style="margin-top:10px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="feld"><label>Titel *</label><input type="text" name="titel" required maxlength="150" value="{{ n.titel }}"></div>
+            <div class="feld"><label>Text</label><textarea name="text" rows="3">{{ n.text }}</textarea></div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+                <div class="feld"><label>Anzeigen ab</label><input type="date" name="sichtbar_von" value="{{ n.sichtbar_von or '' }}"></div>
+                <div class="feld"><label>Anzeigen bis</label><input type="date" name="sichtbar_bis" value="{{ n.sichtbar_bis or '' }}"></div>
+            </div>
+            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin:6px 0 10px">
+                <input type="checkbox" name="oeffentlich" value="1" {{ 'checked' if n.oeffentlich }} style="width:17px;height:17px">
+                <span>🌍 Öffentlich sichtbar</span>
+            </label>
+            <button class="btn">💾 Speichern</button>
+        </form>
+    </details>
+    <form method="post" action="{{ url_for('kommunikation.ankuendigung_loeschen', nid=n.id) }}"
+          onsubmit="return confirm('Diese Ankündigung löschen?')" style="margin-top:8px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-sekundaer" style="color:var(--fehler-text)">🗑 Löschen</button>
+    </form>
+</div>
+{% endfor %}
+{% else %}
+<div class="karte leer"><div class="icon">📣</div><p>Noch keine Ankündigungen.</p></div>
+{% endif %}
+{% endblock %}

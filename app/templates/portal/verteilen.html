@@ -1,0 +1,162 @@
+{% extends "portal/_layout.html" %}
+{% block title %}{{ a.titel }}{% endblock %}
+{% macro datum(d) %}{{ d[8:10] }}.{{ d[5:7] }}.{{ d[:4] }}{% endmacro %}
+{% block head %}{% include "portal/_verteilen_stil.html" %}{% endblock %}
+{% block inhalt %}
+<div id="vt" data-ansicht="liste" data-tab="{{ 'flyer' if a.mit_flyern else ('plakate' if a.mit_plakaten else 'zustellen') }}"
+     data-api="{{ url_for('portal.verteilen_state', aid=a.id)[:-6] }}"
+     data-liste="{{ url_for('portal.verteilen_aktion', aid=a.id) }}"
+     data-laufen="{{ url_for('portal.verteilen_laufen', aid=a.id) }}"
+     data-runde="{{ url_for('portal.verteilen_runde', aid=a.id) if a.mit_plakaten else '' }}"
+     data-zustellen="{{ url_for('portal.verteilen_zustellen', aid=a.id) if a.mit_zustellungen else '' }}"
+     data-foto="{{ url_for('portal.verteilen_foto', fid=0) }}"
+     data-flyerbild="{{ url_for('portal.verteilen_flyer_bild', mid=0) }}">
+
+<div class="mp-karte">
+    <a href="{{ url_for('portal.home') }}" style="font-size:14px;color:var(--blau-text);text-decoration:none">‹ Startseite</a>
+    <h1 style="font-size:22px;margin:8px 0 2px;text-wrap:balance">🚶 {{ a.titel }}</h1>
+    {% if a.von or a.bis %}
+    <div class="feld-hinweis" style="margin-top:0">
+        {%- if a.von and a.bis %}{{ datum(a.von) }} bis {{ datum(a.bis) }}{% elif a.bis %}bis {{ datum(a.bis) }}{% else %}ab {{ datum(a.von) }}{% endif -%}
+    </div>
+    {% endif %}
+    {% if a.beschreibung %}<p style="margin:10px 0 0;white-space:pre-line">{{ a.beschreibung }}</p>{% endif %}
+    <div class="vt-hinweis" id="vt-abgeschlossen" style="display:none">Diese Aktion ist abgeschlossen – du kannst nur noch nachsehen.</div>
+    <div class="vt-reihe vt-tabs" id="vt-tabs" style="display:none" role="tablist">
+        {% if a.mit_flyern %}<button type="button" class="mp-btn" data-tun="tab" data-tab="flyer" role="tab">📄 Flyer</button>{% endif %}
+        {% if a.mit_plakaten %}<button type="button" class="mp-btn sekundaer" data-tun="tab" data-tab="plakate" role="tab">📍 Plakate</button>{% endif %}
+        {% if a.mit_zustellungen %}<button type="button" class="mp-btn sekundaer" data-tun="tab" data-tab="zustellen" role="tab">📬 Zustellen</button>{% endif %}
+    </div>
+    <div id="vt-kopf" class="vt-nur-flyer" style="margin-top:10px">{{ 'Lade …' if a.mit_flyern }}</div>
+    <div id="vt-pkopf" class="vt-nur-plakate" style="margin-top:10px"></div>
+    <div id="vt-zkopf" class="vt-nur-zustellen" style="margin-top:10px"></div>
+</div>
+
+<div class="mp-karte vt-nur-zustellen" id="vt-zmeine" style="display:none"></div>
+
+<div class="mp-karte vt-nur-flyer" id="vt-route" style="display:none"></div>
+<div class="mp-karte vt-vorort" id="vt-vorort" style="display:none" aria-live="polite"></div>
+
+<div class="mp-karte vt-nur-plakate" id="vt-pknoepfe">
+    <div class="vt-reihe" style="margin:0">
+        <button type="button" class="mp-btn" data-tun="p-hier">➕ Plakat hier</button>
+        <button type="button" class="mp-btn sekundaer" id="vt-psetzen" data-tun="p-setzen">📌 Auf Karte setzen</button>
+        {% if a.mit_plakaten %}<a class="mp-btn sekundaer" href="{{ url_for('portal.verteilen_runde', aid=a.id) }}">🚗 Plakat-Runde</a>{% endif %}
+    </div>
+    <div class="feld-hinweis" id="vt-psetz-hinweis"></div>
+    <div class="vt-pform" id="vt-pform" style="display:none"></div>
+</div>
+
+<div class="mp-karte">
+    <div class="vt-reihe" style="margin:0 0 10px">
+        <button type="button" class="mp-btn sekundaer" id="vt-geo" data-tun="geo">📍 Mein Standort</button>
+    </div>
+    <div id="vt-karte" role="region" aria-label="Karte"></div>
+    <div class="vt-legende vt-nur-flyer">
+        <span><i style="background:var(--text-schwach)"></i>offen</span>
+        <span><i style="background:var(--blau)"></i>läuft bei dir</span>
+        <span><i style="background:var(--gelb)"></i>läuft bei anderen</span>
+        {% if mats|length > 1 %}<span><i style="background:var(--gruen);opacity:.4"></i>teilweise</span>{% endif %}
+        <span><i style="background:var(--gruen)"></i>verteilt</span>
+    </div>
+    <div class="vt-legende vt-nur-plakate">
+        <span><i style="background:#8a94a6"></i>geplant</span>
+        <span><i style="background:#2e7d32"></i>hängt</span>
+        <span><i style="background:#d32f2f"></i>beschädigt</span>
+        <span><i style="background:#7b1fa2"></i>weg</span>
+    </div>
+    <div class="vt-legende vt-nur-zustellen">
+        <span><i style="background:var(--text-schwach)"></i>offen (Straße)</span>
+        <span><i style="background:var(--gelb)"></i>bei anderen</span>
+        <span><i style="background:var(--blau)"></i>bei dir</span>
+        <span><i style="background:var(--gruen)"></i>zugestellt</span>
+        <span><i style="background:var(--rot)"></i>nicht zustellbar</span>
+    </div>
+    <p class="feld-hinweis" style="margin-top:8px">Kartendaten © OpenStreetMap-Mitwirkende. Beim Laden der Karte
+        überträgt dein Gerät seine IP-Adresse an die OpenStreetMap Foundation. Fußwege berechnet unser Server
+        bei der FOSSGIS (nur Koordinaten, nicht deine IP). Dein Standort bleibt auf deinem Gerät – gespeichert
+        wird höchstens der Startpunkt deiner Route.</p>
+</div>
+
+{% if a.mit_flyern %}
+<details class="mp-karte vt-nur-flyer" id="vt-planer">
+    <summary style="cursor:pointer"><b>🧭 Route planen</b> <span class="feld-hinweis">– freie Straßen in deiner Nähe, passend zu deiner Zeit</span></summary>
+    <div id="vt-mat-wahl" class="vt-mat-wahl-box" style="display:none"></div>
+    <div class="vt-reihe" style="margin-top:12px">
+        <button type="button" class="mp-btn sekundaer" data-tun="start-hier">📍 Start = mein Standort</button>
+        <button type="button" class="mp-btn sekundaer" data-tun="start-karte">🎯 Auf der Karte wählen</button>
+    </div>
+    <div class="feld-hinweis" id="vt-start-txt">Noch kein Startpunkt</div>
+    <div class="vt-feld">
+        <label>Wie viel Zeit hast du?
+            <select id="vt-zeit">
+                <option value="30">30 Minuten</option><option value="45">45 Minuten</option>
+                <option value="60" selected>1 Stunde</option><option value="90">1½ Stunden</option>
+                <option value="120">2 Stunden</option><option value="180">3 Stunden</option>
+            </select></label>
+        <label>Umkreis um den Start
+            <select id="vt-radius">
+                <option value="0.5">500 m</option><option value="1" selected>1 km</option>
+                <option value="2">2 km</option><option value="3">3 km</option><option value="5">5 km</option>
+            </select></label>
+    </div>
+    <button type="button" class="mp-btn" data-tun="rechnen">🧭 Route vorschlagen</button>
+    <div id="vt-plan-erg" style="margin-top:10px"></div>
+</details>
+
+<div class="mp-karte vt-nur-flyer">
+    <h2 style="margin:0 0 10px;font-size:17px">🏘️ Alle Straßen</h2>
+    <input type="search" id="vt-suche" placeholder="Straße suchen …" aria-label="Straße suchen" autocomplete="off">
+    {% if nur_vorname %}
+    <p class="feld-hinweis">Bei Straßen, die andere übernommen haben, siehst du nur den Vornamen.</p>
+    {% endif %}
+    <p class="feld-hinweis">📷 Fotos sind freiwillig – bitte keine erkennbaren Personen fotografieren.</p>
+    <div id="vt-liste" style="margin-top:6px"></div>
+</div>
+{% endif %}
+
+{% if a.mit_zustellungen %}
+<details class="mp-karte vt-nur-zustellen" id="vt-zplaner">
+    <summary style="cursor:pointer"><b>🧭 Zustellungen planen</b> <span class="feld-hinweis">– offene Straßen in deiner Nähe, passend zu deiner Zeit</span></summary>
+    <div class="vt-reihe" style="margin-top:12px">
+        <button type="button" class="mp-btn sekundaer" data-tun="start-hier">📍 Start = mein Standort</button>
+        <button type="button" class="mp-btn sekundaer" data-tun="start-karte">🎯 Auf der Karte wählen</button>
+    </div>
+    <div class="feld-hinweis vt-start-txt">Noch kein Startpunkt</div>
+    <div class="vt-feld">
+        <label>Wie viel Zeit hast du?
+            <select id="vt-zzeit">
+                <option value="30">30 Minuten</option><option value="45">45 Minuten</option>
+                <option value="60" selected>1 Stunde</option><option value="90">1½ Stunden</option>
+                <option value="120">2 Stunden</option>
+            </select></label>
+        <label>Umkreis um den Start
+            <select id="vt-zradius">
+                <option value="0.5">500 m</option><option value="1" selected>1 km</option>
+                <option value="2">2 km</option><option value="3">3 km</option><option value="5">5 km</option>
+            </select></label>
+    </div>
+    <button type="button" class="mp-btn" data-tun="z-rechnen">🧭 Vorschlag machen</button>
+    <div id="vt-zplan-erg" style="margin-top:10px"></div>
+</details>
+
+<div class="mp-karte vt-nur-zustellen">
+    <h2 style="margin:0 0 6px;font-size:17px">📬 Zustellungen je Straße</h2>
+    <p class="feld-hinweis" style="margin-top:0">Namen und Hausnummern siehst du, sobald du eine Straße übernommen hast.
+        {% if nur_vorname %}Bei anderen siehst du nur den Vornamen.{% endif %}</p>
+    <div id="vt-zliste"></div>
+</div>
+{% endif %}
+
+{% if a.mit_plakaten %}
+<div class="mp-karte vt-nur-plakate">
+    <h2 style="margin:0 0 10px;font-size:17px">📍 Alle Plakate</h2>
+    <p class="feld-hinweis" style="margin-top:0">Nach dem Setzen bekommt jedes Plakat eine Nummer – bitte aufs Plakat schreiben.
+        Fotos sind freiwillig, bitte ohne erkennbare Personen.{% if nur_vorname %} Bei anderen siehst du nur den Vornamen.{% endif %}</p>
+    <div id="vt-pliste"></div>
+</div>
+{% endif %}
+</div>
+<script src="{{ url_for('static', filename='leaflet/leaflet.js') }}"></script>
+<script src="{{ url_for('static', filename='verteilen.js') }}"></script>
+{% endblock %}

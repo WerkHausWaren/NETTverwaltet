@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Feedback – {{ t.titel }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>⭐ Feedback</h1><div class="sub">{{ t.titel }} · {{ t.datum | datum_de }}</div></div>
+    <a href="{{ url_for('veranstaltungen.detail', tid=t.id) }}" class="btn btn-sekundaer">Zurück</a>
+</div>
+
+{% macro stern(wert) %}{% if wert %}{{ '★★★★★'[:((wert|round)|int)] }}{{ '☆☆☆☆☆'[:(5-((wert|round)|int))] }} <span class="sub">{{ wert }}</span>{% else %}<span class="sub">—</span>{% endif %}{% endmacro %}
+
+<div class="karten-reihe" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:14px">
+    <div class="karte" style="text-align:center"><div style="font-size:26px;font-weight:800">{{ stats.anzahl }}</div><div class="feld-hinweis">Rückmeldungen</div></div>
+    <div class="karte" style="text-align:center"><div style="font-size:20px">{{ stern(stats.gesamt) }}</div><div class="feld-hinweis">Gesamt</div></div>
+    <div class="karte" style="text-align:center"><div style="font-size:20px">{{ stern(stats.organisation) }}</div><div class="feld-hinweis">Organisation</div></div>
+    <div class="karte" style="text-align:center"><div style="font-size:20px">{{ stern(stats.inhalt) }}</div><div class="feld-hinweis">Inhalt</div></div>
+    <div class="karte" style="text-align:center"><div style="font-size:26px;font-weight:800">{{ stats.nps if stats.nps is not none else '—' }}</div><div class="feld-hinweis">Weiterempfehlung (0–10)</div></div>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Kommentare</h2>
+    {% if fb %}
+    <div class="tabellen-scroll">
+    <table>
+        <thead><tr><th>Datum</th><th>Gesamt</th><th>Org.</th><th>Inhalt</th><th>Empf.</th><th>Kommentar</th></tr></thead>
+        <tbody>
+        {% for r in fb %}
+        <tr>
+            <td class="sub">{{ r.erstellt_am[:10] | datum_de }}</td>
+            <td>{{ '★' * r.gesamt }}</td><td>{{ '★' * r.organisation }}</td><td>{{ '★' * r.inhalt }}</td>
+            <td>{{ r.weiterempfehlung }}</td>
+            <td>{{ r.text }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}<p class="feld-hinweis">Noch keine Rückmeldungen. Der Feedback-Link wird über „Info senden“ (Vorlage „Feedback“) verschickt.</p>{% endif %}
+</div>
+{% endblock %}

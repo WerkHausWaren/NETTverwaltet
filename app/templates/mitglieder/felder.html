@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Eigene Felder{% endblock %}
+{% set typ_label = {'text':'Text','mehrzeilig':'Mehrzeilig','datum':'Datum','zahl':'Zahl','ja_nein':'Ja/Nein','auswahl':'Auswahl'} %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🧩 Eigene Felder</h1>
+        <div class="sub">Eigene Felder für Mitglieder – z. B. bei der Kita: Kind(er) und Kita-Ende</div></div>
+    <a href="{{ url_for('mitglieder.liste') }}" class="btn btn-sekundaer">Zurück</a>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0;font-size:16px">Neues Feld anlegen</h2>
+    <form method="post" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld" style="flex:1;min-width:220px"><label>Beschriftung</label>
+            <input type="text" name="name" placeholder="z. B. Kind(er) oder Kita-Ende" required></div>
+        <div class="feld"><label>Typ</label>
+            <select name="typ" onchange="document.getElementById('opt-feld').style.display=(this.value=='auswahl')?'block':'none'">
+                {% for wert, label in feld_typen %}<option value="{{ wert }}">{{ label }}</option>{% endfor %}
+            </select></div>
+        <div class="feld" id="opt-feld" style="display:none;flex-basis:100%"><label>Auswahl-Optionen (eine pro Zeile)</label>
+            <textarea name="optionen" rows="3" placeholder="Option 1&#10;Option 2"></textarea></div>
+        <button class="btn">＋ Hinzufügen</button>
+    </form>
+    <p class="feld-hinweis" style="margin-top:8px">Die Felder erscheinen danach beim Anlegen/Bearbeiten jedes Mitglieds und in der Detailansicht.
+        Für mehrere Kinder eignet sich der Typ <strong>Mehrzeiliger Text</strong> (ein Kind pro Zeile, z. B. „Mia – bis 07/2027").</p>
+</div>
+
+{% if felder %}
+<div class="karte">
+    <h2 style="margin-top:0;font-size:16px">Vorhandene Felder ({{ felder|length }})</h2>
+    <table>
+        <thead><tr><th>Beschriftung</th><th>Typ</th><th></th></tr></thead>
+        <tbody>
+        {% for f in felder %}
+        <tr>
+            <td><strong>{{ f.name }}</strong>{% if f.typ == 'auswahl' and f.optionen %}<br><span class="feld-hinweis">{{ f.optionen.splitlines() | join(' · ') }}</span>{% endif %}</td>
+            <td>{{ typ_label.get(f.typ, f.typ) }}</td>
+            <td class="rechts">
+                <form method="post" action="{{ url_for('mitglieder.feld_loeschen', fid=f.id) }}" style="display:inline"
+                      onsubmit="return confirm('Feld „{{ f.name }}“ und alle dazu gespeicherten Werte löschen?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein">🗑️ Löschen</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="karte leer"><div class="icon">🧩</div><p>Noch keine eigenen Felder. Lege oben das erste an.</p></div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,394 @@
+{% extends "base.html" %}
+{% block title %}Neue Veranstaltung{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>➕ Neue Veranstaltung</h1><div class="sub">Termin anlegen – mit oder ohne Teilnehmenden-Anmeldung</div></div>
+    <a href="{{ url_for('kalender.index') }}" class="btn btn-sekundaer">← Zum Kalender</a>
+</div>
+
+<div class="karte">
+    <form method="post" action="{{ url_for('termine.neu') }}" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% if vorlagen %}
+        <div class="feld">
+            <label>Von bisheriger Veranstaltung kopieren (optional)</label>
+            <select name="vorlage_id" id="vorlage-auswahl" onchange="vorlageUebernehmen()">
+                <option value="">— neue, leere Veranstaltung —</option>
+                {% for v in vorlagen %}
+                <option value="{{ v.id }}"
+                        data-titel="{{ v.titel|e }}" data-uhrzeit="{{ v.uhrzeit|e }}" data-uhrzeit-bis="{{ v.uhrzeit_bis|e }}"
+                        data-ort="{{ v.ort|e }}" data-orthinweise="{{ v.ort_hinweise|e }}" data-mitwirkende="{{ (v.mitwirkende or '')|e }}" data-besch="{{ v.beschreibung|e }}"
+                        data-kategorie="{{ v.kategorie_id or '' }}" data-schichten="{{ v.schichten }}"
+                        data-preis="{{ '%.2f'|format(v.preis or 0) }}" data-min="{{ v.min_teilnehmer or 0 }}" data-max="{{ v.max_teilnehmer or 0 }}"
+                        data-storno="{{ v.stornobedingung|e }}" data-lang="{{ v.langbeschreibung|e }}"
+                        data-anmeldung="{{ 1 if v.anmeldung_aktiv else '' }}" data-oeffentlich="{{ 1 if v.anmeldung_token else '' }}"
+                        data-nur-mitglieder="{{ 1 if v.nur_mitglieder else '' }}"
+                        data-feedback="{{ 1 if v.feedback_aktiv else '' }}"
+                        data-sponsor-name="{{ v.sponsor_name|e }}" data-sponsor-url="{{ v.sponsor_url|e }}"
+                        data-sponsor-logo="{{ 1 if v.sponsor_logo else '' }}">
+                    {{ v.datum|datum_wt }} · {{ v.titel }}{% if v.schichten %} (🧑‍🤝‍🧑 {{ v.schichten }}){% endif %}
+                </option>
+                {% endfor %}
+            </select>
+            <div class="feld-hinweis">Übernimmt Titel, Zeiten, Ort, Beschreibungen, Anmelde-Einstellungen und Sponsor
+                (inkl. Logo, Bild und Trailer-Link). <strong>Datum bitte neu wählen.</strong></div>
+            <div id="sponsor-kopie-hinweis" class="feld-hinweis" style="display:none;margin-top:4px">🤝 Sponsor-Logo wird
+                von der Vorlage übernommen (außer du lädst unten ein neues hoch).</div>
+            <label id="schichten-option" style="display:none;margin-top:8px;font-weight:500">
+                <input type="checkbox" name="schichten_kopieren" value="1" style="width:auto"
+                       onclick="document.getElementById('zuordnung-option').style.display=this.checked?'block':'none'">
+                Schichten-Struktur mitkopieren (Rollen &amp; Positionen)
+            </label>
+            <label id="zuordnung-option" style="display:none;margin:4px 0 0 24px;font-weight:500">
+                <input type="checkbox" name="schichten_mit_zuordnung" value="1" style="width:auto">
+                inkl. eingeteilter Mitglieder übernehmen
+                <span class="feld-hinweis" style="display:block;font-weight:400">Praktisch bei eingespielten Teams –
+                    die Eingeteilten können in der App weiterhin tauschen oder sich austragen.</span>
+            </label>
+        </div>
+        {% endif %}
+        <div class="feld"><label>Titel</label><input type="text" name="titel" placeholder="z.B. Jahreshauptversammlung" required></div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Datum</label><input type="date" name="datum" value="{{ request.args.get('neu_datum','') }}" required></div>
+            <div class="feld"><label>Uhrzeit von</label><input type="time" name="uhrzeit"></div>
+            <div class="feld"><label>bis</label><input type="time" name="uhrzeit_bis"></div>
+            <div class="feld"><label>Einlass ab <span class="feld-hinweis">(optional)</span></label><input type="time" name="einlass_ab"></div>
+            <div class="feld"><label>Ort</label><input type="text" name="ort"></div>
+            <div class="feld"><label>Hinweise zum Ort <span class="feld-hinweis">(Anfahrt, Eingang, Parken – erscheinen auf Anmeldeseite &amp; Voucher)</span></label>
+                <input type="text" name="ort_hinweise" placeholder="z. B. Eingang über den Hof, Parkplätze an der Schule"></div>
+            <div class="feld"><label>Kategorie</label>
+                <select name="kategorie_id">
+                    <option value="">— ohne —</option>
+                    {% for k in kategorien %}<option value="{{ k.id }}">{{ k.name }}</option>{% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="feld" style="max-width:220px"><label>Eintrittspreis (€)</label><input type="text" name="preis" value="0.00"><div class="feld-hinweis">0 = kostenlos (Standard)</div></div>
+        <div class="feld">
+            <label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" name="nur_mitglieder" style="width:auto"> <strong>👥 Nur für Mitglieder</strong></label>
+            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin-top:6px"><input type="checkbox" name="presse_wunsch" style="width:auto"> <strong>📰 Pressemitteilung vorbereiten</strong>
+                <span class="feld-hinweis" style="font-weight:400">– legt der Öffentlichkeitsarbeit einen vorbefüllten Entwurf in den Redaktionsplan</span></label>
+            <div class="feld-hinweis">Für interne Termine wie Vorstandssitzung oder Mitgliederversammlung – Gäste sehen einen
+                Hinweis, die öffentliche Anmeldung ist gesperrt.</div>
+        </div>
+        <div class="feld"><label>Beschreibung</label><textarea name="beschreibung"></textarea></div>
+        <div class="feld"><label>Kurztext / Teaser (optional) <span class="feld-hinweis">(ein Satz, was beim Termin passiert – erscheint groß auf den Bildschirmen im Haus; leer = automatisch der Anfang der Beschreibung)</span></label>
+            <input type="text" name="teaser" maxlength="200" value="" placeholder="z. B. Ein Abend mit Live-Musik, Geschichten vom See und Getränken im Hof"></div>
+        <div class="feld"><label>Mitwirkende (optional) <span class="feld-hinweis">(Referent:in, Band, Ensemble – mehrere mit Komma trennen; erscheint öffentlich und bei Google)</span></label>
+            <input type="text" name="mitwirkende" maxlength="300" placeholder="z. B. Anna Beispiel, Trio Seeblick"></div>
+        <div class="feld"><label>Gut zu wissen <span class="feld-hinweis">(optional – erscheint auf der Terminseite, z. B. „Bitte Hausschuhe mitbringen“, „Rollstuhlgerecht über den Hof“, „Getränke vor Ort“)</span></label>
+            <textarea name="gut_zu_wissen" maxlength="600" rows="2"></textarea></div>
+        <div class="feld"><label style="display:flex;gap:8px;align-items:center;font-weight:600">
+            <input type="checkbox" name="draussen" value="1"> Findet draußen statt
+            <span class="feld-hinweis" style="font-weight:400">(zeigt auf der Terminseite in den letzten 7 Tagen davor die Wettervorhersage)</span></label></div>
+        <div class="feld" style="background:var(--warn-grund);border:1px solid var(--gelb);border-radius:10px;padding:10px 12px">
+            <label style="display:flex;gap:8px;align-items:center;font-weight:700;margin:0">
+                <input type="checkbox" name="highlight" value="1" style="width:auto"> ⭐ Als Highlight hervorheben</label>
+            <div class="feld-hinweis" style="margin:4px 0 8px">Erscheint groß oben in der Terminliste, auf der Startseite der App
+                und automatisch auf der Website. Endet von selbst nach dem Termin. Gäste sehen interne Termine nie als Highlight.</div>
+            <input type="text" name="highlight_text" maxlength="60" value="" placeholder="Kurzzeile, z. B. Saisonabschluss! (optional)">
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Eintritt</label>
+                <select name="eintritt_art">
+                    {% for k, n in eintritt_arten %}<option value="{{ k }}">{{ n }}</option>{% endfor %}
+                </select>
+                <div class="feld-hinweis">Steht als Etikett auf der Karte. Mit Preis (oben) erscheint stattdessen der Betrag.</div></div>
+            <div class="feld"><label>Für wen? <span class="feld-hinweis">(Etiketten + Filter in der Terminliste)</span></label>
+                <div style="display:flex;flex-wrap:wrap;gap:6px 14px">
+                {% for k, n in zielgruppen %}<label style="font-weight:400;display:inline-flex;gap:5px;align-items:center;margin:0">
+                    <input type="checkbox" name="zielgruppen" value="{{ k }}" style="width:auto"> {{ n }}</label>{% endfor %}
+                </div></div>
+        </div>
+
+        <div class="feld" style="border-top:1px solid var(--linie);padding-top:12px;margin-top:8px">
+            <label><strong>🖼️ Veranstaltungsbild (optional)</strong></label>
+            <div class="feld-reihe">
+                <div class="feld"><label>Bild hochladen</label>
+                    <input type="file" name="bild_datei" accept="image/*"></div>
+                <div class="feld"><label>… oder von einem Link übernehmen</label>
+                    <input type="url" name="bild_url" placeholder="https://… (wird heruntergeladen und verkleinert)"></div>
+            </div>
+        </div>
+        {% if design and design.modul_veranstaltungen %}
+        <div class="feld" style="border-top:1px solid var(--linie);padding-top:12px;margin-top:8px">
+            <label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" name="anmeldung_aktiv" onclick="document.getElementById('anm-felder-neu').style.display=this.checked?'block':'none'" style="width:auto"> <strong>🎟️ Teilnehmenden-Anmeldung aktivieren</strong></label>
+            <div class="feld-hinweis">Für Veranstaltungen mit Anmeldung (Teilnehmendenliste, öffentlicher Link, Voucher, Feedback). Ohne Häkchen = normaler Termin.</div>
+        </div>
+        <div id="anm-felder-neu" style="display:none">
+            <div class="feld-reihe">
+                <div class="feld"><label>Min. Teilnehmende</label><input type="number" name="min_teilnehmer" min="0" value="0"></div>
+                <div class="feld"><label>Max. Teilnehmende</label><input type="number" name="max_teilnehmer" min="0" value="0"></div>
+                <div class="feld"><label>Anmeldeschluss</label><input type="date" name="anmeldeschluss"></div>
+                <div class="feld"><label>Preis Mitglieder (€)</label>
+                    <input type="text" name="preis_mitglied" value="" placeholder="leer = wie regulär">
+                    <div class="feld-hinweis">gilt automatisch für angemeldete Mitglieder</div></div>
+                <div class="feld"><label>Storno bis (Std. vor Beginn)</label>
+                    <input type="number" name="storno_frist_stunden" min="0" value="0">
+                    <div class="feld-hinweis">0 = Online-Storno jederzeit · wirkt nur, wenn der Termin eine Uhrzeit hat</div></div>
+                <div class="feld"><label>Nachrücken von der Warteliste</label>
+                    <select name="nachrueck_modus">
+                        <option value="auto">sofort fest (Standard)</option>
+                        <option value="bestaetigen">Angebot mit 24-Std.-Frist</option>
+                    </select>
+                    <div class="feld-hinweis">Mit Frist: Platz muss per Link bestätigt werden, sonst rückt die nächste Person nach</div></div>
+            </div>
+            <div class="feld"><label>Stornierungsbedingungen</label>
+                <select name="stornobedingung">
+                    {% for opt in storno_optionen %}<option value="{{ opt }}">{{ opt or '— keine Angabe —' }}</option>{% endfor %}
+                </select>
+            </div>
+            <label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" name="oeffentlich" style="width:auto"> Öffentliche Anmeldung über teilbaren Link erlauben</label>
+            <label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" name="feedback_aktiv" style="width:auto"> Feedback-Bogen aktivieren</label>
+            <div class="feld"><label>Ausführliche Beschreibung (für die Anmeldeseite)</label><textarea name="langbeschreibung"></textarea></div>
+        </div>
+        <div class="feld" style="border-top:1px solid var(--linie);padding-top:12px;margin-top:8px">
+            <label><strong>🤝 Sponsor / Förderer (optional)</strong></label>
+            <div class="feld-reihe">
+                <div class="feld"><label>Name</label><input type="text" name="sponsor_name"></div>
+                <div class="feld"><label>Link (URL)</label><input type="url" name="sponsor_url" placeholder="https://…"></div>
+            </div>
+            <div class="feld"><label>Kleines Logo</label><input type="file" name="sponsor_logo" accept="image/*"></div>
+        </div>
+        {% endif %}
+
+        <div class="feld" style="border-top:1px solid var(--linie);padding-top:12px;margin-top:8px">
+            <label><strong>🧑‍🤝‍🧑 Helfer-Schichten (optional)</strong>
+                <span class="feld-hinweis">– gleich mit anlegen; Mitglieder zuteilen kannst du danach
+                beim Bearbeiten der Veranstaltung</span></label>
+            <div id="schicht-zeilen"></div>
+            <button type="button" class="btn btn-sekundaer btn-klein" onclick="schichtZeile()">＋ Schicht hinzufügen</button>
+        </div>
+        <script>
+        /* Zeit-Vorschlag für neue Schicht-Zeilen: 15 Minuten vor Terminbeginn
+           bis 15 Minuten nach Terminende (an den Tagesgrenzen geklemmt);
+           ohne Endzeit bleibt das Bis-Feld leer. Frei änderbar. */
+        function schichtVorschlag() {
+            function min(z) {
+                if (!z) { return null; }
+                var p = z.split(':');
+                return (+p[0]) * 60 + (+p[1]);
+            }
+            function fmt(m) {
+                m = Math.max(0, Math.min(1439, m));
+                return ('0' + Math.floor(m / 60)).slice(-2) + ':' + ('0' + (m % 60)).slice(-2);
+            }
+            var von = min(document.getElementsByName('uhrzeit')[0].value);
+            var bis = min(document.getElementsByName('uhrzeit_bis')[0].value);
+            return [von === null ? '' : fmt(von - 15), bis === null ? '' : fmt(bis + 15)];
+        }
+        function schichtZeile() {
+            var z = document.createElement('div');
+            z.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap';
+            z.innerHTML = '<input type="text" name="schicht_titel" placeholder="z. B. Einlass / Kasse / Aufbau" required style="flex:2;min-width:160px">' +
+                '<input type="time" name="schicht_von" title="Ab wann muss der Helfer da sein? (Vorschlag: 15 Min. vor Beginn)" required style="width:110px">' +
+                '<input type="time" name="schicht_bis" title="Bis wann muss der Helfer bleiben? (Vorschlag: 15 Min. nach Ende)" required style="width:110px">' +
+                '<input type="number" name="schicht_plaetze" value="1" min="1" max="50" title="Anzahl Helfer-Plätze" style="width:70px">' +
+                '<button type="button" class="btn btn-sekundaer btn-klein" title="Zeile entfernen" onclick="this.parentNode.remove()">✕</button>';
+            var v = schichtVorschlag();
+            z.querySelector('[name=schicht_von]').value = v[0];
+            z.querySelector('[name=schicht_bis]').value = v[1];
+            // Handeingaben merken – die Nachführung unten fasst sie nicht mehr an
+            z.querySelectorAll('[name=schicht_von],[name=schicht_bis]').forEach(function (el) {
+                el.addEventListener('input', function () { el.dataset.manuell = '1'; });
+            });
+            document.getElementById('schicht-zeilen').appendChild(z);
+        }
+        /* Ändert sich die Termin-Uhrzeit NACH dem Hinzufügen von Zeilen, wandert
+           der Vorschlag in allen noch unberührten Feldern mit (Audit 06.11.). */
+        ['uhrzeit', 'uhrzeit_bis'].forEach(function (n) {
+            var f = document.getElementsByName(n)[0];
+            if (!f) { return; }
+            f.addEventListener('change', function () {
+                var v = schichtVorschlag();
+                document.querySelectorAll('#schicht-zeilen [name=schicht_von]').forEach(function (el) {
+                    if (!el.dataset.manuell) { el.value = v[0]; }
+                });
+                document.querySelectorAll('#schicht-zeilen [name=schicht_bis]').forEach(function (el) {
+                    if (!el.dataset.manuell) { el.value = v[1]; }
+                });
+            });
+        });
+        </script>
+
+        <div class="feld"><label>Status</label>
+            <select name="status">
+                <option value="aktiv">Aktiv – wird veröffentlicht{% if design and design.ncc_url %} (auch in Nextcloud){% endif %}</option>
+                <option value="entwurf">Entwurf – nur intern, noch nicht veröffentlichen</option>
+            </select>
+            <div class="feld-hinweis">Entwürfe bleiben in der App; erst beim Veröffentlichen erscheinen sie{% if design and design.ncc_url %} in Nextcloud{% endif %}.</div>
+        </div>
+        <div class="karte" style="border:1px dashed var(--grau-linie)">
+            <label style="display:flex;gap:8px;align-items:center;cursor:pointer">
+                <input type="checkbox" id="serie-an" style="width:auto"
+                       onclick="document.getElementById('serie-felder').style.display=this.checked?'block':'none'">
+                <strong>🔁 Als Serie anlegen</strong></label>
+            <div class="feld-hinweis">Erzeugt echte Einzeltermine – jeder mit eigener Anmeldung
+                (Einstellungen oben gelten zentral für alle) und eigenen Schichten aus den
+                Schicht-Zeilen. Vor dem Speichern werden alle Daten auf Kollisionen geprüft.</div>
+            <div id="serie-felder" style="display:none;margin-top:10px">
+                <div style="display:flex;gap:12px;flex-wrap:wrap">
+                    <div class="feld" style="flex:1;min-width:180px"><label>Wiederholung</label>
+                        <select name="regel" id="serie-regel" onchange="serieIntervall()">
+                            <option value="woechentlich">jede Woche</option>
+                            <option value="n_wochen">alle N Wochen</option>
+                            <option value="monat_tag">monatlich am selben Kalendertag</option>
+                            <option value="monat_wochentag">monatlich am selben Wochentag (z. B. 2. Dienstag)</option>
+                        </select></div>
+                    <div class="feld" style="flex:0 0 110px;display:none" id="serie-intervall-feld">
+                        <label>alle … Wochen</label>
+                        <input type="number" name="intervall" min="2" max="12" value="2"></div>
+                    <div class="feld" style="flex:0 0 160px"><label>Ende am <span class="feld-hinweis">(oder Anzahl)</span></label>
+                        <input type="date" name="ende_am"></div>
+                    <div class="feld" style="flex:0 0 110px"><label>Anzahl Termine</label>
+                        <input type="number" name="anzahl" min="2" max="60" placeholder="z. B. 10"></div>
+                </div>
+                <button type="button" class="btn btn-sekundaer" onclick="serieVorschau()">🔍 Termine berechnen &amp; prüfen</button>
+                <div id="serie-vorschau" style="margin-top:10px"></div>
+                <div id="serie-eingaben"></div>
+            </div>
+        </div>
+        <button type="submit" class="btn" id="anlegen-knopf">＋ Veranstaltung anlegen</button>
+        <div class="feld-hinweis" style="margin-top:6px">Eigene Veranstaltungen haben Teilnehmenden- und Schichtverwaltung.</div>
+    </form>
+</div>
+
+<script>
+function vorlageUebernehmen() {
+    var s = document.getElementById('vorlage-auswahl');
+    var o = s.options[s.selectedIndex];
+    var opt = document.getElementById('schichten-option');
+    var zuord = document.getElementById('zuordnung-option');
+    var spHinweis = document.getElementById('sponsor-kopie-hinweis');
+    if (!o.value) {
+        opt.style.display = 'none';
+        if (zuord) zuord.style.display = 'none';
+        if (spHinweis) spHinweis.style.display = 'none';
+        return;
+    }
+    var f = s.form;
+    function setze(name, wert) { if (f[name]) f[name].value = wert || ''; }
+    function hake(name, an) { if (f[name]) f[name].checked = !!an; }
+    setze('titel', o.dataset.titel);
+    setze('uhrzeit', o.dataset.uhrzeit);
+    setze('uhrzeit_bis', o.dataset.uhrzeitBis);
+    setze('ort', o.dataset.ort);
+    setze('beschreibung', o.dataset.besch);
+    setze('kategorie_id', o.dataset.kategorie);
+    setze('preis', o.dataset.preis || '0.00');
+    hake('nur_mitglieder', o.dataset.nurMitglieder);
+    // Anmelde-Einstellungen (Felder existieren nur mit Veranstaltungs-Modul)
+    hake('anmeldung_aktiv', o.dataset.anmeldung);
+    var anm = document.getElementById('anm-felder-neu');
+    if (anm) anm.style.display = o.dataset.anmeldung ? 'block' : 'none';
+    setze('min_teilnehmer', o.dataset.min || '0');
+    setze('max_teilnehmer', o.dataset.max || '0');
+    setze('stornobedingung', o.dataset.storno);
+    setze('ort_hinweise', o.dataset.orthinweise);
+    setze('mitwirkende', o.dataset.mitwirkende);
+    setze('langbeschreibung', o.dataset.lang);
+    hake('oeffentlich', o.dataset.oeffentlich);
+    hake('feedback_aktiv', o.dataset.feedback);
+    // Sponsor
+    setze('sponsor_name', o.dataset.sponsorName);
+    setze('sponsor_url', o.dataset.sponsorUrl);
+    if (spHinweis) spHinweis.style.display = o.dataset.sponsorLogo ? 'block' : 'none';
+    // Schichten-Optionen
+    var mit = parseInt(o.dataset.schichten) > 0;
+    opt.style.display = mit ? 'block' : 'none';
+    if (zuord) zuord.style.display = (mit && f.schichten_kopieren && f.schichten_kopieren.checked) ? 'block' : 'none';
+    f.datum.focus();
+}
+
+function serieIntervall() {
+    document.getElementById('serie-intervall-feld').style.display =
+        document.getElementById('serie-regel').value === 'n_wochen' ? 'block' : 'none';
+}
+function serieFormular() {
+    var form = document.querySelector('form');
+    return {
+        datum: form.querySelector('[name=datum]').value,
+        uhrzeit: form.querySelector('[name=uhrzeit]').value,
+        regel: document.getElementById('serie-regel').value,
+        intervall: form.querySelector('[name=intervall]').value,
+        ende_am: form.querySelector('[name=ende_am]').value,
+        anzahl: form.querySelector('[name=anzahl]').value
+    };
+}
+function serieEingabenSchreiben() {
+    // Die Vorschau-Auswahl als versteckte Felder mitschicken (abgewählte fehlen)
+    var ziel = document.getElementById('serie-eingaben');
+    ziel.innerHTML = '';
+    document.querySelectorAll('#serie-vorschau [data-datum]').forEach(function (z) {
+        if (!z.querySelector('input[type=checkbox]').checked) return;
+        var inp = document.createElement('input');
+        inp.type = 'hidden'; inp.name = 'serie_daten'; inp.value = z.dataset.datum;
+        ziel.appendChild(inp);
+    });
+    var n = ziel.children.length;
+    document.getElementById('anlegen-knopf').textContent =
+        n >= 2 ? '＋ Serie mit ' + n + ' Terminen anlegen' : '＋ Veranstaltung anlegen';
+}
+function svWt(iso) {
+    /* Wochentags-Kürzel für die Serien-Vorschau (Mo…So) */
+    var K = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+    var d = new Date(iso + 'T12:00:00');
+    return isNaN(d) ? '' : K[(d.getDay() + 6) % 7] + ' ';
+}
+function serieDatumTauschen(knopf, neu) {
+    var zeile = knopf.closest('[data-datum]');
+    zeile.dataset.datum = neu;
+    zeile.querySelector('.sv-datum').textContent = svWt(neu) + neu.slice(8,10) + '.' + neu.slice(5,7) + '.' + neu.slice(0,4);
+    zeile.querySelector('.sv-status').textContent = '🟢 frei (verschoben)';
+    zeile.querySelectorAll('.sv-alt').forEach(function (b) { b.remove(); });
+    serieEingabenSchreiben();
+}
+function serieVorschau() {
+    var f = serieFormular();
+    if (!f.datum) { alert('Bitte zuerst das (Start-)Datum wählen.'); return; }
+    var daten = new FormData();
+    Object.keys(f).forEach(function (k) { daten.append(k, f[k]); });
+    daten.append('csrf_token', document.querySelector('[name=csrf_token]').value);
+    // Titel anderer Termine kommen aus der Datenbank → vor innerHTML maskieren (Audit 16.11.2026)
+    function svEsc(x) { return String(x).replace(/[&<>"']/g, function (c) {
+        return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
+    fetch('{{ url_for("termine.serie_vorschau") }}', { method: 'POST', body: daten })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var ziel = document.getElementById('serie-vorschau');
+        if (d.fehler) { ziel.innerHTML = '<div class="feld-hinweis">⚠️ ' + svEsc(d.fehler) + '</div>'; return; }
+        var html = '<div class="feld-hinweis" style="margin-bottom:6px">' + d.termine.length +
+                   ' Termine – 🟢 frei · 🟡 am selben Tag ist schon etwas · 🔴 überschneidet sich. ' +
+                   'Abwählen oder auf einen Ausweichtermin tippen.</div>';
+        d.termine.forEach(function (t) {
+            var symbol = t.status === 'gruen' ? '🟢' : (t.status === 'gelb' ? '🟡' : '🔴');
+            var schoen = svWt(t.datum) + t.datum.slice(8,10) + '.' + t.datum.slice(5,7) + '.' + t.datum.slice(0,4);
+            html += '<div data-datum="' + t.datum + '" style="display:flex;gap:8px;align-items:center;' +
+                    'flex-wrap:wrap;padding:5px 0;border-bottom:1px solid var(--grau-linie)">' +
+                    '<input type="checkbox" checked style="width:auto" onchange="serieEingabenSchreiben()">' +
+                    '<strong class="sv-datum">' + schoen + '</strong>' +
+                    '<span class="sv-status feld-hinweis">' + symbol +
+                    (t.mit ? ' ' + svEsc(t.mit) : ' frei') + '</span>';
+            (t.alternativen || []).forEach(function (a) {
+                var as = svWt(a) + a.slice(8,10) + '.' + a.slice(5,7) + '.';
+                html += '<button type="button" class="btn btn-klein btn-sekundaer sv-alt" ' +
+                        'onclick="serieDatumTauschen(this, \'' + a + '\')">→ ' + as + '</button>';
+            });
+            html += '</div>';
+        });
+        ziel.innerHTML = html;
+        serieEingabenSchreiben();
+      })
+      .catch(function () {
+        document.getElementById('serie-vorschau').innerHTML =
+            '<div class="feld-hinweis">⚠️ Vorschau gerade nicht möglich.</div>';
+      });
+}
+// Ohne Vorschau keine Serie: Wer den Haken setzt, aber nie berechnet, legt einen Einzeltermin an.
+document.querySelector('form').addEventListener('submit', function () {
+    if (!document.getElementById('serie-an').checked) {
+        document.getElementById('serie-eingaben').innerHTML = '';
+    }
+});
+</script>
+{% endblock %}

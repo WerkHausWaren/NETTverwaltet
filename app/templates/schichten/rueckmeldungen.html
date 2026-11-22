@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Rückmeldungen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>📝 Rückmeldungen{% if ungelesen %} <span class="rm-neu-zahl">{{ ungelesen }} neu</span>{% endif %}</h1>
+         <div class="sub">Nachbereitungen aus den Schichten</div></div>
+    <a href="{{ url_for('schichten.index') }}" class="btn btn-sekundaer">← Zum Schichtplan</a>
+</div>
+<script>window.MENTION_USERS = {{ mention_users | tojson }};</script>
+
+<div class="karte">
+{% if liste %}
+    {% for r in liste %}
+    {% set wanr = (r.mobil or r.telefon) | wa_nummer %}
+    <div id="rm{{ r.id }}" style="scroll-margin-top:20px;padding:16px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--grau-linie)' }}">
+        <div style="display:flex;gap:12px">
+            <div style="font-size:24px;line-height:1">📝</div>
+            <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                    <strong>{{ r.termin_titel or r.schicht_titel or 'Schicht' }}</strong>
+                    {% if not r.gelesen %}<span class="badge badge-offen">neu</span>{% endif %}
+                </div>
+                <div class="feld-hinweis">
+                    {{ r.erstellt_am[8:10] }}.{{ r.erstellt_am[5:7] }}.{{ r.erstellt_am[0:4] }}
+                    {%- if r.vorname %} · {% if r.mgl_id %}<a href="{{ url_for('mitglieder.detail', mid=r.mgl_id) }}">{{ r.vorname }} {{ r.nachname }}</a>{% else %}{{ r.vorname }} {{ r.nachname }}{% endif %}{% endif %}
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+                    {% if r.besucher is not none %}<span class="badge badge-gruppe">👥 {{ r.besucher }} Besucher:innen</span>{% endif %}
+                    {% if r.einnahmen %}<span class="badge badge-gruppe">💶 {{ r.einnahmen }}</span>{% endif %}
+                </div>
+                {% if r.fragen %}<div style="margin-top:6px">❓ <strong>Frage:</strong> {{ r.fragen }}</div>{% endif %}
+                {% if r.nachricht %}<div style="margin-top:4px">💬 {{ r.nachricht }}</div>{% endif %}
+
+                {% if r.mgl_id and (wanr or r.email or r.mobil or r.telefon) %}
+                <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+                    <span class="feld-hinweis">Direkt kontaktieren:</span>
+                    {% if wanr %}<a href="https://wa.me/{{ wanr }}" target="_blank" rel="noopener" class="btn btn-sekundaer btn-klein">💬 WhatsApp</a>{% endif %}
+                    {% if r.mobil or r.telefon %}<a href="tel:{{ (r.mobil or r.telefon)|replace(' ', '') }}" class="btn btn-sekundaer btn-klein">📞 Anrufen</a>{% endif %}
+                    {% if r.email %}<a href="mailto:{{ r.email }}?subject={{ ('Rückmeldung: ' ~ (r.termin_titel or r.schicht_titel or 'Schicht')) | urlencode }}" class="btn btn-sekundaer btn-klein">✉️ E-Mail</a>{% endif %}
+                    {% if r.komm_erlaubt %}<span class="feld-hinweis">· erlaubt: {{ r.komm_erlaubt }}</span>{% endif %}
+                </div>
+                {% endif %}
+
+                {% if r.antwort %}
+                <div style="margin-top:10px;background:var(--info-grund);border:1px solid var(--info-rand);border-radius:8px;padding:8px 10px">
+                    💬 <strong>Antwort an das Mitglied</strong>{% if r.antwort_am %} <span class="feld-hinweis">({{ r.antwort_am[8:10] }}.{{ r.antwort_am[5:7] }}.{{ r.antwort_am[0:4] }})</span>{% endif %}:<br>{{ r.antwort }}
+                </div>
+                {% endif %}
+
+                <form method="post" action="{{ url_for('schichten.rueckmeldung_antwort', rid=r.id) }}" style="margin-top:10px">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <textarea class="mention" name="antwort" rows="2" placeholder="Antwort ans Mitglied – tippe @ um jemanden zu erwähnen" style="width:100%;box-sizing:border-box">{{ r.antwort or '' }}</textarea>
+                    <button class="btn btn-klein" style="margin-top:6px">💬 Antwort senden &amp; als gelesen</button>
+                </form>
+                <form method="post" action="{{ url_for('schichten.rueckmeldung_gelesen', rid=r.id) }}" style="margin-top:6px">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein">{{ '✓ gelesen (rückgängig)' if r.gelesen else 'Nur als gelesen markieren' }}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="leer"><div class="icon">📝</div><p>Noch keine Rückmeldungen aus Schichten.</p></div>
+{% endif %}
+</div>
+
+<style>
+    .rm-neu-zahl { background:var(--rot); color:var(--auf-primaer); border-radius:999px; padding:2px 10px; font-size:13px; font-weight:700; vertical-align:middle; }
+    [id^="rm"]:target { border-radius:10px; animation: rm-highlight 2.4s ease; }
+    @keyframes rm-highlight { 0%, 55% { background:var(--warn-grund); } 100% { background:transparent; } }
+</style>
+{% endblock %}

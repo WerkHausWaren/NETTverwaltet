@@ -1,0 +1,522 @@
+{% extends "base.html" %}
+{% block title %}Signage{% endblock %}
+{% block content %}
+{% macro geraet_symbol(typ) -%}
+<svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+{%- if typ == 'tablet' %}<rect x="8" y="4" width="24" height="32" rx="3.5"/><circle cx="20" cy="31.5" r="1.3" fill="currentColor" stroke="none"/>
+{%- elif typ == 'handy' %}<rect x="12" y="4" width="16" height="32" rx="3.5"/><path d="M17.5 8h5"/>
+{%- elif typ == 'tv' %}<rect x="3" y="7" width="34" height="21" rx="2.5"/><path d="M12 35l4-7M28 35l-4-7"/>
+{%- elif typ == 'monitor' %}<rect x="4" y="6" width="32" height="21" rx="2.5"/><path d="M20 27v6M13 34h14"/>
+{%- elif typ == 'laptop' %}<rect x="8" y="8" width="24" height="17" rx="2"/><path d="M4 30h32l-2.5-5h-27z"/>
+{%- else %}<rect x="6" y="6" width="28" height="28" rx="5"/><path d="M16 16.5a4 4 0 1 1 5.5 3.7c-1 .5-1.5 1.2-1.5 2.3v.5"/><circle cx="20" cy="27.5" r="1.2" fill="currentColor" stroke="none"/>
+{%- endif %}</svg>
+{%- endmacro %}
+{% macro rollen_wahl(name, gewaehlt, id_vorsilbe) -%}
+<div class="sg-rollen" role="radiogroup">
+    {% for k, v in rollen.items() %}
+    <label class="sg-rolle"><input type="radio" name="{{ name }}" value="{{ k }}" {{ 'checked' if gewaehlt == k }}>
+        <span><b>{{ v }}</b><small>{{ rollen_erklaert.get(k, '') }}</small></span></label>
+    {% endfor %}
+    {% for k, v in rollen_bald.items() %}
+    <label class="sg-rolle bald" title="Diese Rolle wird gerade entwickelt"><input type="radio" disabled>
+        <span><b>{{ v }} <em>kommt bald</em></b><small>{{ rollen_erklaert.get(k, '') }}</small></span></label>
+    {% endfor %}
+</div>
+{%- endmacro %}
+<style>
+.sg-nav{display:flex;gap:8px;flex-wrap:wrap;margin:-4px 0 16px}
+.sg-geraet{border:1px solid var(--linie);border-radius:12px;padding:12px 14px;margin-top:10px;background:var(--flaeche);display:grid;grid-template-columns:auto 1fr;gap:0 14px}
+.sg-geraet:target{border-color:var(--blau);box-shadow:0 0 0 3px var(--info-grund)}
+.sg-typ{grid-row:1 / span 2;width:58px;text-align:center;color:var(--akz-text,var(--blau));padding-top:2px}
+.sg-typ small{display:block;font-size:.72em;line-height:1.25;color:var(--text-schwach);margin-top:2px}
+.sg-geraet > .sg-einst{grid-column:1 / -1}
+.sg-zeile{display:flex;gap:8px 10px;align-items:center;flex-wrap:wrap}
+.sg-name{font-size:1.1em;font-weight:700;margin-right:2px}
+.sg-kurz{color:var(--text-schwach);font-size:.92em;margin-top:4px;line-height:1.45}
+.sg-knoepfe{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.sg-einst>summary{list-style:none;display:inline-flex}
+.sg-einst>summary::-webkit-details-marker{display:none}
+.sg-einst[open]>summary .sg-pfeil{transform:rotate(180deg)}
+.sg-pfeil{display:inline-block;transition:transform .15s}
+.sg-gruppe{border:1px solid var(--linie);border-radius:10px;padding:10px 14px 12px;margin:12px 0 0;min-width:0}
+.sg-gruppe legend{font-weight:700;padding:0 6px}
+.sg-unten{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.sg-rollen{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.sg-rolle{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--linie);border-radius:10px;padding:9px 12px;font-weight:400;cursor:pointer;line-height:1.35}
+.sg-rolle input{margin-top:3px;flex:none}
+.sg-rolle small{display:block;color:var(--text-schwach);font-size:.85em}
+.sg-rolle:has(input:checked){border-color:var(--blau);background:var(--info-grund)}
+.sg-rolle.bald{opacity:.6;cursor:not-allowed}
+.sg-rolle em{font-style:normal;font-size:.75em;font-weight:600;background:var(--warn-grund);color:var(--warn-text);border-radius:999px;padding:1px 7px;margin-left:4px;vertical-align:1px}
+.sg-schritte{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:4px 0 14px;padding:0;list-style:none;counter-reset:s}
+.sg-schritte li{border:1px solid var(--linie);border-radius:10px;padding:10px 12px 10px 44px;position:relative;counter-increment:s;line-height:1.5}
+.sg-schritte li::before{content:counter(s);position:absolute;left:12px;top:10px;width:22px;height:22px;border-radius:50%;background:var(--blau);color:#fff;font-weight:700;font-size:.85em;display:flex;align-items:center;justify-content:center}
+#koppeln.sg-hervor{border-color:var(--blau);box-shadow:0 0 0 3px var(--info-grund)}
+/* Folienplan */
+.plan-werkzeug{display:flex;gap:10px 18px;align-items:center;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--linie);border-radius:10px;background:var(--grund);margin:8px 0 10px}
+.plan-werkzeug label{font-weight:400;display:flex;gap:6px;align-items:center;margin:0}
+.plan-werkzeug select{max-width:100%}
+.plan{list-style:none;margin:0;padding:0}
+.plan-zeile{display:flex;gap:10px;align-items:center;border:1px solid var(--linie);border-radius:10px;padding:7px 10px;margin:6px 0;background:var(--flaeche)}
+.plan-zeile.aus{opacity:.5}
+.plan-zeile.aus .plan-text strong{text-decoration:line-through;text-decoration-thickness:1px}
+.plan-zeile.zieht{opacity:.35;border-style:dashed}
+.plan-zeile.termine{border-color:var(--blau);border-width:2px}
+.griff{cursor:grab;color:var(--text-schwach);font-size:20px;line-height:1;padding:4px 2px;user-select:none;touch-action:none}
+.pfeile{display:flex;flex-direction:column;gap:2px}
+.pfeile button{border:1px solid var(--linie);background:var(--flaeche);color:var(--text);border-radius:5px;width:26px;height:20px;line-height:1;font-size:12px;cursor:pointer;padding:0}
+.pfeile button:disabled{opacity:.3;cursor:default}
+.auge{position:relative;display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;cursor:pointer;color:var(--akz-text,var(--blau));flex:none;margin:0}
+.auge:hover{background:var(--info-grund)}
+.auge input{position:absolute;opacity:0;width:1px;height:1px}
+.auge input:focus-visible + svg{outline:2px solid var(--blau);outline-offset:4px;border-radius:4px}
+.auge .zu{display:none}
+.auge input:not(:checked) ~ .offen{display:none}
+.auge input:not(:checked) ~ .zu{display:inline;color:var(--text-schwach)}
+.plan-mini{position:relative;width:112px;height:63px;flex:none;border-radius:6px;overflow:hidden;border:1px solid var(--linie);padding:0;cursor:zoom-in;background:var(--grund)}
+.plan-mini:hover,.plan-mini:focus-visible{outline:2px solid var(--blau);outline-offset:1px}
+.plan-mini .sym{position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:20px}
+.plan-mini iframe{position:absolute;left:0;top:0;width:1280px;height:720px;border:0;transform:scale(.0875);transform-origin:0 0;pointer-events:none;background:transparent}
+.sg-gross{border:0;border-radius:14px;padding:0;max-width:96vw;background:var(--flaeche);color:var(--text);box-shadow:var(--schatten-hoch)}
+.sg-gross::backdrop{background:rgba(10,12,16,.72)}
+.sg-gross-kopf{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--linie)}
+.sg-gross-kopf strong{flex:1;min-width:160px}
+.sg-gross-kopf .btn[aria-pressed="true"]{background:var(--blau);color:#fff;border-color:var(--blau)}
+.sg-gross-rahmen{padding:14px;display:flex;justify-content:center;background:var(--grund)}
+.sg-gross-rahmen iframe{border:0;border-radius:8px;background:#fff;box-shadow:0 6px 24px rgba(0,0,0,.18);display:block}
+.sg-gross-rahmen.quer iframe{width:min(88vw,1100px);aspect-ratio:16/9}
+.sg-gross-rahmen.ipad iframe{width:min(80vw,900px);aspect-ratio:4/3}
+.sg-gross-rahmen.hoch iframe{height:min(76vh,900px);aspect-ratio:9/16}
+.plan-bild{width:64px;height:40px;flex:none;border-radius:6px;border:1px solid var(--linie);display:flex;align-items:center;justify-content:center;font-size:20px;object-fit:cover;background:var(--grund)}
+.plan-text{flex:1;min-width:150px;line-height:1.3}
+.plan-text small{display:block;color:var(--text-schwach);font-size:.85em}
+.plan-dauer{display:flex;align-items:center;gap:4px;font-size:.9em;white-space:nowrap;font-weight:400;margin:0}
+.plan-dauer input{width:64px;padding:4px 6px;text-align:right}
+.plan-auto{font-size:.85em;color:var(--text-schwach);white-space:nowrap;width:94px;text-align:right}
+.plan-aktionen{display:flex;gap:4px;flex-wrap:wrap}
+.plan-leiste{position:sticky;bottom:10px;z-index:5;display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px;padding:10px 14px;border-radius:12px;background:var(--warn-grund);border:1px solid var(--warn-rand);color:var(--warn-text);box-shadow:var(--schatten-hoch)}
+.plan-leiste[hidden]{display:none}
+@media (max-width:640px){.pfeile{display:none}.plan-zeile{flex-wrap:wrap}.plan-text{min-width:0}}
+</style>
+
+<div class="page-header">
+    <div>
+        <h1>📺 Signage</h1>
+        <div class="sub">Bildschirme und iPads im Haus zeigen automatisch, was ansteht – immer aktuell aus den Terminen</div>
+    </div>
+</div>
+<nav class="sg-nav" aria-label="Bereiche dieser Seite">
+    <a href="#geraete" class="btn btn-sekundaer btn-klein">📺 Geräte ({{ geraete|length }})</a>
+    <a href="#folien" class="btn btn-sekundaer btn-klein">🎞️ Folien &amp; Reihenfolge</a>
+    <a href="#koppeln" class="btn btn-sekundaer btn-klein">➕ Neues Gerät koppeln</a>
+    <a href="#anleitung" class="btn btn-sekundaer btn-klein">📖 Anleitung</a>
+</nav>
+
+<div class="karte" id="geraete">
+    <h2 style="margin-top:0">📺 Deine Geräte ({{ geraete|length }})</h2>
+    {% if not geraete %}
+    <p class="feld-hinweis">Noch keine Geräte gekoppelt. Das geht in einer Minute:
+        <a href="#koppeln">➕ Neues Gerät koppeln</a> (weiter unten).</p>
+    {% endif %}
+    {% set sichtbar_anzahl = plan|selectattr('sichtbar')|list|length %}
+    {% for e in geraete %}{% set gr = e.g %}
+    <div class="sg-geraet" id="geraet-{{ gr.id }}">
+        <div class="sg-typ" title="{{ e.typ_name }}">{{ geraet_symbol(e.typ) }}<small>{{ e.typ_name.split(' · ')[0] }}</small></div>
+        <div>
+            <div class="sg-zeile">
+                <span class="sg-name">{{ gr.name or 'Gerät' }}</span>
+                <span class="badge badge-gruppe">{{ rollen.get(gr.rolle) or rollen_bald.get(gr.rolle) or gr.rolle }}</span>
+                <span class="badge {{ 'badge-aktiv' if e.laeuft else 'badge-inaktiv' }}">{{ '● ' if e.laeuft }}{{ e.status }}</span>
+            </div>
+            <div class="sg-kurz">
+                {% if gr.rolle == 'checkin' %}
+                Selbst-Check-in mit Ticket-QR-Code für Veranstaltungen mit Anmeldung{{ (' im Ort „' ~ e.einst.ort ~ '“') if e.einst.ort }} – ab 2 Stunden vor Beginn
+                · Kamera {{ 'hinten' if e.einst.kamera == 'environment' else 'vorne' }}
+                {% elif gr.rolle == 'tuer' %}
+                Zeigt, was jetzt und als Nächstes {{ ('im Ort „' ~ e.einst.ort ~ '“') if e.einst.ort else 'im Haus' }} stattfindet{% if e.einst.raumname %} – Überschrift „{{ e.einst.raumname }}“{% endif %}
+                {% else %}
+                Zeigt den Folienplan ({{ sichtbar_anzahl }} Folienarten eingeblendet) mit Terminen der nächsten {{ e.einst.tage }} Tage
+                {% endif %}
+                {% if e.einst.von and e.einst.bis %} · an von {{ e.einst.von }} bis {{ e.einst.bis }} Uhr{% endif %}
+                · {{ 'dunkel' if e.einst.erscheinungsbild == 'dunkel' else 'hell' }}
+                {% if e.typ_name and e.typ != 'unbekannt' %} · {{ e.typ_name }}{% endif %}
+            </div>
+        </div>
+        <details class="sg-einst">
+            <summary class="sg-knoepfe">
+                <span class="btn btn-sekundaer btn-klein">⚙️ Einstellungen <span class="sg-pfeil">▾</span></span>
+                <a href="{{ url_for('signage.vorschau', gid=gr.id) }}" target="_blank" rel="noopener" class="btn btn-sekundaer btn-klein">▶ Vorschau ↗</a>
+            </summary>
+            <form method="post" action="{{ url_for('signage.speichern', gid=gr.id) }}" style="max-width:860px">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <fieldset class="sg-gruppe"><legend>Allgemein</legend>
+                    <div class="feld"><label for="n-{{ gr.id }}">Name</label>
+                        <input type="text" id="n-{{ gr.id }}" name="name" value="{{ gr.name }}" maxlength="60" style="max-width:360px"></div>
+                    <div class="feld"><label>Rolle</label>{{ rollen_wahl('rolle', gr.rolle, 'r' ~ gr.id) }}
+                        <div class="feld-hinweis">Nach einem Rollenwechsel erst speichern, dann die passenden Felder einstellen.</div></div>
+                </fieldset>
+                {% if gr.rolle == 'checkin' %}
+                <fieldset class="sg-gruppe"><legend>✅ Check-in</legend>
+                    <div class="feld-reihe">
+                        <div class="feld"><label for="co-{{ gr.id }}">Nur Veranstaltungen mit diesem Ort</label>
+                            <input type="text" id="co-{{ gr.id }}" name="ort" value="{{ e.einst.ort }}" maxlength="80" list="signage-orte" placeholder="leer = alle">
+                            <div class="feld-hinweis">Sinnvoll, wenn es mehrere Eingänge gibt.</div></div>
+                        <div class="feld"><label>Kamera</label>
+                            <label style="font-weight:400;display:block"><input type="radio" name="kamera" value="user" {{ 'checked' if e.einst.kamera != 'environment' }}> vorne – das iPad steht den Gästen zugewandt</label>
+                            <label style="font-weight:400;display:block"><input type="radio" name="kamera" value="environment" {{ 'checked' if e.einst.kamera == 'environment' }}> hinten</label></div>
+                    </div>
+                    <div class="feld-hinweis">Das Gerät nimmt Tickets ab 2 Stunden vor Beginn an. Grün checkt alle Personen der Anmeldung ein.
+                        Steht ein Ticket auf der Warteliste, ist etwas offen oder wurde es schon benutzt, schickt das Gerät die Person
+                        freundlich zum Einlass – dort klärt ihr es mit der Einlass-Seite der Veranstaltung. Gezeigt wird nur der Vorname.</div>
+                </fieldset>
+                {% elif gr.rolle == 'tuer' %}
+                <fieldset class="sg-gruppe"><legend>🪧 Aufsteller</legend>
+                <div class="feld-reihe">
+                    <div class="feld"><label for="o-{{ gr.id }}">Termine mit diesem Ort</label>
+                        <input type="text" id="o-{{ gr.id }}" name="ort" value="{{ e.einst.ort }}" maxlength="80" list="signage-orte" placeholder="leer = alle Termine">
+                        <div class="feld-hinweis">Teil des Ort-Felds der Termine, z. B. „Saal“ oder „Vereinshaus“</div></div>
+                    <div class="feld"><label for="rn-{{ gr.id }}">Überschrift am Aufsteller</label>
+                        <input type="text" id="rn-{{ gr.id }}" name="raumname" value="{{ e.einst.raumname }}" maxlength="60" placeholder="z. B. Großer Saal"></div>
+                </div>
+                </fieldset>
+                {% else %}
+                <fieldset class="sg-gruppe"><legend>📅 Termine</legend>
+                    <div class="feld-reihe">
+                        <div class="feld"><label for="t-{{ gr.id }}">Termine der nächsten … Tage</label>
+                            <input type="number" id="t-{{ gr.id }}" name="tage" value="{{ e.einst.tage }}" min="1" max="60" style="max-width:110px"></div>
+                        <div class="feld"><label for="m-{{ gr.id }}">Höchstens … Termin-Folien</label>
+                            <input type="number" id="m-{{ gr.id }}" name="max_termine" value="{{ e.einst.max_termine }}" min="1" max="30" style="max-width:110px"></div>
+                    </div>
+                    <div class="feld-hinweis">Welche Folien in welcher Reihenfolge und wie lange laufen, stellst du unter
+                        <a href="#folien">🎞️ Folien &amp; Reihenfolge</a> ein – das gilt für alle Schaufenster.
+                        Gezeigt werden nur öffentliche Termine.</div>
+                </fieldset>
+                {% endif %}
+                <fieldset class="sg-gruppe"><legend>🎨 Aussehen und Zeiten</legend>
+                    <div class="feld" style="margin-bottom:8px">
+                    {% for k, text in erscheinungsbilder %}<label style="font-weight:400;display:block"><input type="radio" name="erscheinungsbild" value="{{ k }}" {{ 'checked' if (e.einst.erscheinungsbild or 'hell') == k }}> {{ text }}</label>{% endfor %}
+                    <div class="feld-hinweis">Logo, Vereinsfarbe und Schrift kommen automatisch aus den Vereinseinstellungen.</div></div>
+                    <div class="feld-reihe">
+                        <div class="feld"><label for="v-{{ gr.id }}">Anzeige von</label>
+                            <input type="time" id="v-{{ gr.id }}" name="von" value="{{ e.einst.von }}"></div>
+                        <div class="feld"><label for="b-{{ gr.id }}">bis</label>
+                            <input type="time" id="b-{{ gr.id }}" name="bis" value="{{ e.einst.bis }}">
+                            <div class="feld-hinweis">leer = immer; außerhalb bleibt der Bildschirm schwarz</div></div>
+                    </div>
+                </fieldset>
+                <div class="sg-unten">
+                    <button type="submit" class="btn">💾 Speichern</button>
+                    {% if gr.kontakt_info %}<span class="feld-hinweis">Erkannt als {{ e.typ_name }}</span>{% endif %}
+                </div>
+            </form>
+            <div class="sg-unten" style="border-top:1px solid var(--linie);padding-top:12px">
+                <form method="post" action="{{ url_for('signage.neu_laden', gid=gr.id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sekundaer btn-klein">↻ Gerät neu laden</button></form>
+                <span class="feld-hinweis" style="flex:1;min-width:180px">Hilft, wenn das Gerät hängt – es holt sich innerhalb einer Minute alles frisch.</span>
+                <form method="post" action="{{ url_for('signage.entfernen', gid=gr.id) }}" style="display:inline"
+                      onsubmit="return confirm('Gerät „{{ (gr.name or 'Gerät')|e }}“ entfernen? Es zeigt danach wieder einen Kopplungscode.')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-gefahr btn-klein">Gerät entfernen</button></form>
+            </div>
+        </details>
+    </div>
+    {% endfor %}
+    <datalist id="signage-orte">{% for o in orte %}<option value="{{ o }}">{% endfor %}</datalist>
+</div>
+
+<div class="karte" id="folien">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+        <h2 style="margin:0;flex:1">🎞️ Folien &amp; Reihenfolge</h2>
+        <a href="{{ url_for('signage.folie', typ='text') }}" class="btn btn-sekundaer">📝 Text-Folie schreiben</a>
+        <a href="{{ url_for('signage.folie', typ='bild') }}" class="btn btn-sekundaer">🖼️ Bild-Folie hochladen</a>
+    </div>
+    <p class="feld-hinweis" style="margin-top:0">So laufen die Folien auf allen Schaufenstern. Zum Sortieren am Griff ⠿ ziehen
+        (oder die Pfeile nutzen), mit dem Auge ein- und ausblenden, rechts die Sekunden je Folie einstellen. Ein Klick aufs Vorschaubild zeigt die Folie groß.
+        Aufsteller zeigen immer nur, was jetzt und als Nächstes stattfindet.</p>
+    <form method="post" action="{{ url_for('signage.plan_speichern') }}" id="planform">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="reihenfolge" id="plan-reihe" value="{{ plan|map(attribute='schluessel')|join(',') }}">
+        <div class="plan-werkzeug">
+            <label>⏱️ Alle Folien auf <input type="number" id="alle-dauer" min="5" max="120" value="12" style="width:70px"> Sekunden
+                <button type="button" class="btn btn-sekundaer btn-klein" id="alle-setzen">für alle übernehmen</button></label>
+            <label for="plan-ablauf">🔀 Ablauf
+                <select name="ablauf" id="plan-ablauf">
+                    {% for k, text in ablaeufe %}<option value="{{ k }}" {{ 'selected' if ablauf == k }}>{{ text }}</option>{% endfor %}
+                </select></label>
+        </div>
+        <ol class="plan" id="plan">
+            {% for e in plan %}{% set fo = e.folie %}
+            <li class="plan-zeile{{ ' aus' if not e.sichtbar }}{{ ' termine' if e.schluessel == 'termine' }}" data-k="{{ e.schluessel }}">
+                <span class="griff" title="Ziehen zum Verschieben" aria-hidden="true">⠿</span>
+                <span class="pfeile"><button type="button" class="hoch" aria-label="„{{ e.titel }}“ nach oben">▲</button><button type="button" class="runter" aria-label="„{{ e.titel }}“ nach unten">▼</button></span>
+                <label class="auge" title="Ein- oder ausblenden"><input type="checkbox" name="an" value="{{ e.schluessel }}" {{ 'checked' if e.sichtbar }} aria-label="„{{ e.titel }}“ zeigen">
+                    <svg class="offen" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 12S5.5 4.5 12 4.5 22.5 12 22.5 12 18.5 19.5 12 19.5 1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3.2"/></svg>
+                    <svg class="zu" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 4.5C18.5 4.5 22.5 12 22.5 12a17 17 0 0 1-3.2 4.1M6.6 6.6C3.4 8.6 1.5 12 1.5 12S5.5 19.5 12 19.5c1.7 0 3.2-.5 4.5-1.2"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+                </label>
+                {% set v_url = url_for('signage.plan_vorschau', k=e.schluessel) %}
+                <button type="button" class="plan-mini" data-src="{{ v_url }}" data-titel="{{ e.titel }}"
+                        title="„{{ e.titel }}“ groß ansehen" aria-label="Vorschau „{{ e.titel }}“ groß ansehen">
+                    <span class="sym" aria-hidden="true">{{ e.symbol }}</span>
+                    <iframe src="{{ v_url }}&amp;standbild=1" loading="lazy" tabindex="-1" aria-hidden="true" title=""></iframe>
+                </button>
+                <div class="plan-text">
+                    <strong>{{ e.titel }}</strong>
+                    {% if fo %}
+                    {% set abgelaufen = fo.bis and fo.bis < heute_iso %}{% set kommt = fo.von and fo.von > heute_iso %}
+                    <small>Eigene {{ 'Bild-Folie' if fo.typ == 'bild' else 'Text-Folie · ' ~ (hintergruende.get(fo.hintergrund) or 'Hell') }}
+                        {%- if fo.von or fo.bis %} · {{ fo.von|datum_de if fo.von else 'ab sofort' }} – {{ fo.bis|datum_de if fo.bis else 'offen' }}{% endif %}
+                        {%- if fo.geraete %} · nur {% for gid in fo.geraete.split(',') if gid|trim %}{{ geraete_namen.get(gid|int) or 'Gerät' }}{{ ', ' if not loop.last }}{% endfor %}{% endif %}
+                        {%- if abgelaufen %} · <strong>abgelaufen</strong>{% elif kommt %} · <strong>startet später</strong>{% endif %}</small>
+                    {% elif e.hinweis %}<small>{{ e.hinweis }}</small>{% endif %}
+                </div>
+                {% if e.auto %}<span class="plan-auto" title="Jede Sprache steht 4,5 Sekunden">{{ e.dauer }} s automatisch</span>
+                {% else %}<label class="plan-dauer"><input type="number" name="dauer__{{ e.schluessel }}" value="{{ e.dauer }}" min="5" max="120" aria-label="Sekunden für „{{ e.titel }}“"> s</label>{% endif %}
+                {% if fo %}
+                <span class="plan-aktionen">
+                    <a href="{{ url_for('signage.folie_vorschau', fid=fo.id) }}" target="_blank" rel="noopener" class="btn btn-sekundaer btn-klein" title="Vorschau">▶</a>
+                    <a href="{{ url_for('signage.folie', fid=fo.id) }}" class="btn btn-sekundaer btn-klein" title="Bearbeiten">✏️</a>
+                    <button type="submit" class="btn btn-gefahr btn-klein" title="Löschen" formnovalidate
+                            formaction="{{ url_for('signage.folie_aktion', fid=fo.id, aktion='loeschen') }}"
+                            onclick="return confirm('Diese Folie endgültig löschen?')">🗑</button>
+                </span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ol>
+        {% if not folien_je_id %}<p class="feld-hinweis">Tipp: Mit „📝 Text-Folie schreiben“ (z. B. „Wir suchen Helfer:innen“) oder einem Plakat als Bild-Folie kommen eigene Folien dazu.</p>{% endif %}
+        <div class="plan-leiste" id="plan-leiste" hidden>
+            <strong style="flex:1">Änderungen noch nicht gespeichert</strong>
+            <a href="{{ url_for('signage.verwaltung') }}#folien" class="btn btn-sekundaer btn-klein">Verwerfen</a>
+            <button type="submit" class="btn">💾 Folienplan speichern</button>
+        </div>
+        <div class="sg-unten" id="plan-unten"><button type="submit" class="btn">💾 Folienplan speichern</button></div>
+    </form>
+    <script>
+    (function () {
+        var liste = document.getElementById('plan'), form = document.getElementById('planform');
+        if (!liste) return;
+        var reihe = document.getElementById('plan-reihe'), leiste = document.getElementById('plan-leiste'), gezogen = null;
+        function geaendert() {
+            var k = [];
+            Array.prototype.forEach.call(liste.children, function (li, i) {
+                k.push(li.getAttribute('data-k'));
+                li.querySelector('.hoch').disabled = i === 0;
+                li.querySelector('.runter').disabled = i === liste.children.length - 1;
+            });
+            reihe.value = k.join(',');
+        }
+        function schmutzig() { geaendert(); leiste.hidden = false; }
+        geaendert();
+        liste.addEventListener('click', function (ev) {
+            var b = ev.target.closest('.hoch, .runter'); if (!b) return;
+            var li = b.closest('li');
+            if (b.classList.contains('hoch') && li.previousElementSibling) liste.insertBefore(li, li.previousElementSibling);
+            else if (b.classList.contains('runter') && li.nextElementSibling) liste.insertBefore(li.nextElementSibling, li);
+            schmutzig(); b.focus();
+        });
+        liste.addEventListener('change', function (ev) {
+            if (ev.target.name === 'an') ev.target.closest('li').classList.toggle('aus', !ev.target.checked);
+            schmutzig();
+        });
+        liste.addEventListener('input', function () { schmutzig(); });
+        document.getElementById('plan-ablauf').addEventListener('change', schmutzig);
+        document.getElementById('alle-setzen').addEventListener('click', function () {
+            var w = parseInt(document.getElementById('alle-dauer').value, 10);
+            if (!(w >= 5 && w <= 120)) { alert('Bitte eine Zahl von 5 bis 120 Sekunden eingeben.'); return; }
+            liste.querySelectorAll('.plan-dauer input').forEach(function (i) { i.value = w; });
+            schmutzig();
+        });
+        // Ziehen und Ablegen (Maus, Trackpad, iPad) – nur am Griff, damit die Sekundenfelder normal bedienbar bleiben;
+        // Safari braucht setData im dragstart
+        function griffAn(ev) { var g = ev.target.closest && ev.target.closest('.griff'); if (g) g.closest('li').draggable = true; }
+        liste.addEventListener('mousedown', griffAn);
+        liste.addEventListener('touchstart', griffAn, {passive: true});
+        liste.addEventListener('dragstart', function (ev) {
+            var li = ev.target.closest && ev.target.closest('li'); if (!li) return;
+            gezogen = li; li.classList.add('zieht');
+            try { ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', li.getAttribute('data-k')); } catch (e) {}
+        });
+        liste.addEventListener('dragover', function (ev) {
+            if (!gezogen) return; ev.preventDefault();
+            var li = ev.target.closest('li'); if (!li || li === gezogen) return;
+            var r = li.getBoundingClientRect();
+            liste.insertBefore(gezogen, (ev.clientY - r.top) > r.height / 2 ? li.nextSibling : li);
+        });
+        liste.addEventListener('drop', function (ev) { if (gezogen) ev.preventDefault(); });
+        liste.addEventListener('dragend', function () {
+            Array.prototype.forEach.call(liste.children, function (li) { li.draggable = false; });
+            if (gezogen) { gezogen.classList.remove('zieht'); gezogen = null; schmutzig(); }
+        });
+        form.addEventListener('submit', function () { leiste.hidden = true; window.onbeforeunload = null; });
+        window.onbeforeunload = function () { return leiste.hidden ? undefined : 'Der Folienplan ist noch nicht gespeichert.'; };
+    })();
+    </script>
+    <dialog class="sg-gross" id="sg-gross" aria-labelledby="sg-gross-titel">
+        <div class="sg-gross-kopf">
+            <strong id="sg-gross-titel">Vorschau</strong>
+            <span role="group" aria-label="Format" style="display:flex;gap:6px">
+                <button type="button" class="btn btn-sekundaer btn-klein" data-format="quer" aria-pressed="true">▭ Fernseher 16:9</button>
+                <button type="button" class="btn btn-sekundaer btn-klein" data-format="ipad" aria-pressed="false">▭ iPad quer</button>
+                <button type="button" class="btn btn-sekundaer btn-klein" data-format="hoch" aria-pressed="false">▯ Hochformat</button>
+            </span>
+            <button type="button" class="btn btn-klein" id="sg-gross-zu">✕ Schließen</button>
+        </div>
+        <div class="sg-gross-rahmen quer" id="sg-gross-rahmen"><iframe id="sg-gross-bild" title="Folienvorschau"></iframe></div>
+    </dialog>
+    <script>
+    (function () {
+        var dlg = document.getElementById('sg-gross'), bild = document.getElementById('sg-gross-bild'),
+            rahmen = document.getElementById('sg-gross-rahmen'), ausloeser = null;
+        if (!dlg || !dlg.showModal) return;
+        document.getElementById('plan').addEventListener('click', function (ev) {
+            var b = ev.target.closest('.plan-mini'); if (!b) return;
+            ausloeser = b;
+            document.getElementById('sg-gross-titel').textContent = b.getAttribute('data-titel');
+            bild.src = b.getAttribute('data-src');
+            dlg.showModal();
+        });
+        dlg.addEventListener('click', function (ev) {
+            var f = ev.target.closest('[data-format]');
+            if (f) {
+                rahmen.className = 'sg-gross-rahmen ' + f.getAttribute('data-format');
+                dlg.querySelectorAll('[data-format]').forEach(function (x) { x.setAttribute('aria-pressed', x === f ? 'true' : 'false'); });
+                bild.src = bild.src;      // neu laden, damit sich die Folie ans Format anpasst
+            }
+            if (ev.target === dlg) dlg.close();        // Klick auf den abgedunkelten Rand
+        });
+        document.getElementById('sg-gross-zu').addEventListener('click', function () { dlg.close(); });
+        dlg.addEventListener('close', function () { bild.src = 'about:blank'; if (ausloeser) ausloeser.focus(); });
+    })();
+    </script>
+    <details class="sg-gruppe" style="margin-top:16px" id="hausfolien">
+        <summary style="cursor:pointer;font-weight:700">🏠 Hausfolien anpassen <span class="feld-hinweis" style="font-weight:400">– Vermietung, Spendenaktion, „Wer wir sind“</span></summary>
+        <form method="post" action="{{ url_for('signage.hausfolien_speichern') }}" style="max-width:860px;margin-top:10px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <fieldset class="sg-gruppe"><legend>🏠 Räume vermieten</legend>
+                <label style="font-weight:400"><input type="checkbox" name="signage_mieten" value="1" {{ 'checked' if design.signage_mieten }}> Folie „Räume mieten“ zeigen (Anfrage per QR-Code an die Vereins-Mail)</label>
+                <div class="feld" style="margin-top:8px"><label for="hf-mt">Überschrift</label>
+                    <input type="text" id="hf-mt" name="signage_mieten_titel" maxlength="60" value="{{ design.signage_mieten_titel or '' }}" placeholder="Unsere Räume mieten"></div>
+            </fieldset>
+            <fieldset class="sg-gruppe"><legend>⭐ Spendenaktion</legend>
+                <div class="feld"><label for="hf-su">Link zur Spenden- oder Förderseite</label>
+                    <input type="url" id="hf-su" name="signage_spenden_url" maxlength="300" value="{{ design.signage_spenden_url or '' }}" placeholder="https://…" style="width:100%;max-width:560px">
+                    <div class="feld-hinweis">Leer = Folie wirbt für eine Fördermitgliedschaft (QR-Code zur Mitglieds-Anmeldung).</div></div>
+                <div class="feld-reihe">
+                    <div class="feld"><label for="hf-st">Überschrift</label>
+                        <input type="text" id="hf-st" name="signage_spenden_titel" maxlength="60" value="{{ design.signage_spenden_titel or '' }}" placeholder="Unterstütze uns!"></div>
+                </div>
+                <div class="feld"><label for="hf-sx">Text</label>
+                    <textarea id="hf-sx" name="signage_spenden_text" maxlength="300" rows="2" placeholder="Mit deiner Spende hilfst du …">{{ design.signage_spenden_text or '' }}</textarea></div>
+            </fieldset>
+            <fieldset class="sg-gruppe"><legend>🤝 Wer wir sind</legend>
+                <div class="feld-hinweis" style="margin-bottom:6px">Der Vorstellungstext kommt aus den Vereinseinstellungen („Über uns“).</div>
+                <div class="feld"><label for="hf-w">Werte oder Ziele (eins pro Zeile, höchstens 8)</label>
+                    <textarea id="hf-w" name="signage_werte" rows="4" maxlength="600" placeholder="z. B. Kunst &amp; Kultur&#10;Begegnung">{{ design.signage_werte or '' }}</textarea></div>
+                <div class="feld"><label for="hf-f">Fußzeile</label>
+                    <input type="text" id="hf-f" name="signage_verein_fuss" maxlength="140" value="{{ design.signage_verein_fuss or '' }}" placeholder="z. B. Gemeinnütziger Verein · gegründet 2010"></div>
+            </fieldset>
+            {% if design.modul_adventskalender %}
+            <fieldset class="sg-gruppe"><legend>🎄 Lebendiger Adventskalender</legend>
+                <div class="feld"><label for="hf-l">Jahr des ersten Kalenders</label>
+                    <input type="number" id="hf-l" name="lak_erste_saison" min="1990" max="2100" value="{{ design.lak_erste_saison or '' }}" style="max-width:120px">
+                    <div class="feld-hinweis">Dann heißt es auf den Folien z. B. „öffnet zum vierten Mal seine Türchen“. Leer = ohne Zählung.</div></div>
+            </fieldset>
+            {% endif %}
+            <div class="sg-unten"><button type="submit" class="btn">💾 Hausfolien speichern</button></div>
+        </form>
+    </details>
+    {% if design.signage_mieten %}
+    <form method="post" action="{{ url_for('signage.mieten_foto') }}" enctype="multipart/form-data"
+          style="border-top:1px solid var(--linie);padding-top:12px;margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% if design.signage_mieten_bild %}<img src="{{ url_for('signage.bild', art='mieten', bid=0, v=design.signage_mieten_bild) }}"
+             alt="Foto der Mieten-Folie" style="width:96px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--linie)">
+        {% else %}<span style="width:96px;height:64px;border-radius:6px;border:1px dashed var(--linie);display:flex;align-items:center;justify-content:center;font-size:24px">🏠</span>{% endif %}
+        <div style="flex:1;min-width:200px"><strong>🏠 Foto für die Folie „{{ design.signage_mieten_titel or 'Unsere Räume mieten' }}“</strong>
+            <div class="feld-hinweis">{{ 'Eigenes Foto' if design.signage_mieten_bild else 'Noch kein Foto – die Folie zeigt Text und QR-Code' }} – am besten ein Innenraum mit Bestuhlung, quer.</div></div>
+        <input type="file" name="bild" accept="image/jpeg,image/png,image/webp" style="max-width:240px">
+        <button type="submit" class="btn btn-sekundaer btn-klein">Foto hochladen</button>
+        {% if design.signage_mieten_bild %}<button type="submit" name="entfernen" value="1" class="btn btn-sekundaer btn-klein">Foto entfernen</button>{% endif %}
+    </form>
+    {% endif %}
+</div>
+
+<div class="karte{{ ' sg-hervor' if code_vorbelegt }}" id="koppeln">
+    <h2 style="margin-top:0">➕ Neues Gerät koppeln</h2>
+    <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">
+        <div style="flex:1 1 320px;min-width:0">
+            <ol class="sg-schritte">
+                <li>Am neuen Gerät diese Adresse öffnen:<br><code style="user-select:all;word-break:break-all">{{ start_url }}</code>
+                    <span class="feld-hinweis">oder den QR-Code rechts mit der Kamera des Geräts scannen</span></li>
+                <li>Das Gerät zeigt einen Code aus zwei Dreiergruppen, z. B. <strong style="font-family:monospace;letter-spacing:.08em">K7P 4Q9</strong>.</li>
+                <li>Code unten eintragen, Namen und Rolle wählen – fertig.
+                    <span class="feld-hinweis">Noch einfacher: den QR-Code auf dem Gerät mit dem Handy scannen, dann steht der Code schon drin.</span></li>
+            </ol>
+            <form method="post" action="{{ url_for('signage.koppeln') }}" style="max-width:720px">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="feld-reihe">
+                    <div class="feld"><label for="k-code">Code vom Gerät *</label>
+                        <input type="text" id="k-code" name="code" required maxlength="20" autocomplete="off" autocorrect="off"
+                               spellcheck="false" autocapitalize="characters" inputmode="text" placeholder="K7P 4Q9"
+                               value="{{ code_vorbelegt }}" aria-describedby="k-code-hinweis"
+                               style="max-width:180px;font-family:monospace;font-size:1.25em;letter-spacing:.12em;text-transform:uppercase">
+                        <div class="feld-hinweis" id="k-code-hinweis">6 Zeichen – <span id="k-code-stand">{{ '✓ vollständig' if code_vorbelegt else 'noch 6' }}</span></div></div>
+                    <div class="feld"><label for="k-name">Name</label>
+                        <input type="text" id="k-name" name="name" maxlength="60" placeholder="z. B. Foyer oder Tresen" value="{{ name_vorbelegt }}"></div>
+                </div>
+                <div class="feld"><label>Rolle</label>{{ rollen_wahl('rolle', 'schaufenster', 'k') }}</div>
+                <button type="submit" class="btn">Gerät koppeln</button>
+            </form>
+            <script>
+            (function () {
+                // Code-Feld „idiotensicher“: nur erlaubte Zeichen, automatisch groß, Leerzeichen nach drei Zeichen
+                var feld = document.getElementById('k-code'), stand = document.getElementById('k-code-stand');
+                var ERLAUBT = /[ACDEFGHJKLMNPQRTUVWXY3479]/;
+                function ordnen() {
+                    var roh = feld.value.toUpperCase().replace(/[^A-Z0-9]/g, ''), rein = '', fremd = '';
+                    for (var i = 0; i < roh.length; i++) { if (ERLAUBT.test(roh[i])) rein += roh[i]; else fremd += roh[i]; }
+                    rein = rein.slice(0, 6);
+                    feld.value = rein.length > 3 ? rein.slice(0, 3) + ' ' + rein.slice(3) : rein;
+                    if (fremd) stand.textContent = '„' + fremd + '“ kommt in Codes nicht vor – bitte genau abschreiben';
+                    else stand.textContent = rein.length === 6 ? '✓ vollständig' : 'noch ' + (6 - rein.length);
+                }
+                feld.addEventListener('input', ordnen);
+                if (feld.value) { var n = document.getElementById('k-name'); if (n && !n.value) n.focus(); }
+                else if (location.hash === '#koppeln') feld.focus();
+                // per QR-Code geöffnet: gleich zum Kopplungsfeld springen
+                if (feld.value && !location.hash) document.getElementById('koppeln').scrollIntoView();
+            })();
+            </script>
+        </div>
+        <img src="{{ start_qr }}" alt="QR-Code zur Geräte-Adresse" width="150" height="150" style="border:1px solid var(--linie);border-radius:8px;background:#fff">
+    </div>
+</div>
+
+<div class="karte" id="anleitung">
+    <details>
+        <summary style="cursor:pointer;font-weight:600">📖 So richtest du die Geräte ein</summary>
+        <div style="line-height:1.6;margin-top:10px">
+            <h3>iPad (Aufsteller oder Schaufenster)</h3>
+            <ol style="margin-left:18px;padding:0">
+                <li><strong>Einstellungen → Anzeige &amp; Helligkeit → Automatische Sperre: Nie</strong>.</li>
+                <li>In Safari die Geräte-Adresse öffnen und koppeln (siehe „Neues Gerät koppeln“).</li>
+                <li>Teilen-Knopf → <strong>Zum Home-Bildschirm</strong>, dann über das neue Symbol starten (ohne Adressleiste).</li>
+                <li><strong>Einstellungen → Bedienungshilfen → Geführter Zugriff</strong> einschalten und einen Code festlegen.
+                    In der App dreimal die Seitentaste (bzw. Home-Taste) drücken → „Starten“. So kann niemand die Seite verlassen.</li>
+                <li>Netzteil dauerhaft anschließen. Tipp: Helligkeit etwas herunterdrehen, das schont Akku und Display.</li>
+            </ol>
+            <h3>Fernseher oder Monitor (Schaufenster)</h3>
+            <ul style="margin-left:18px;padding:0">
+                <li><strong>Fire-TV-Stick oder Android-Box:</strong> die App „Fully Kiosk Browser“ installieren, als Startseite die
+                    Geräte-Adresse eintragen, „Beim Start öffnen“ und „Bildschirm anlassen“ einschalten.</li>
+                <li><strong>Smart-TV mit Browser:</strong> Geräte-Adresse öffnen und koppeln – klappt, wenn der Browser Cookies behält.</li>
+                <li><strong>Alter Laptop / Mini-PC:</strong> Chrome im Vollbild-Kiosk-Modus mit der Geräte-Adresse starten.</li>
+            </ul>
+            <p class="feld-hinweis">Fällt das WLAN kurz aus, zeigt das Schaufenster einfach weiter die zuletzt geladenen Folien.
+                Jede Nacht lädt es sich einmal frisch. Ein Gerät, das sich länger nicht meldet, erkennst du oben in der Geräteliste am grauen Status.
+                Welches Gerät es ist (iPad, Fernseher, PC …), erkennt die Verwaltung automatisch, sobald es sich gemeldet hat.</p>
+        </div>
+    </details>
+</div>
+{% endblock %}

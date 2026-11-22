@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}E-Mail-Vorlagen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>📝 E-Mail-Vorlagen</h1><div class="sub">Fertige Texte für wiederkehrende Anlässe – laden, anpassen, senden</div></div>
+    <a href="{{ url_for('kommunikation.neu') }}" class="btn">✉️ E-Mail verfassen</a>
+</div>
+
+<div class="hilfe-box" style="margin-bottom:14px">💡 <strong>Bearbeiten:</strong> „✏️ Bearbeiten“ öffnet die Vorlage
+    im E-Mail-Editor. Dort ändern, unten „Als Vorlage speichern“ anhaken und denselben Namen stehen lassen –
+    die Vorlage wird dann <strong>aktualisiert</strong>. Platzhalter wie <code>{vorname}</code> füllt der Versand
+    automatisch je Empfänger:in; Angaben in <code>[eckigen Klammern]</code> ersetzt du selbst.</div>
+
+{% if vorlagen or auto %}
+<div id="vk-filter" style="display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px">
+    <button type="button" class="vk-chip aktiv" data-filter="">Alle ({{ vorlagen | length }})</button>
+    {% for gruppe, gv in vorlagen | groupby('art') %}
+    {% for kat, kv in gv | groupby('kategorie') %}
+    <button type="button" class="vk-chip" data-filter="{{ gruppe }}|{{ kat }}">
+        {{ '🏠' if gruppe == 'intern' else ('🌍' if gruppe == 'extern' else '🗃️') }}
+        {{ kat or 'Ohne Einordnung' }} ({{ kv | length }})</button>
+    {% endfor %}
+    {% endfor %}
+    {% if auto %}
+    <button type="button" class="vk-chip" data-filter="auto">⚙️ Veranstaltungen – automatisch ({{ auto.vorlagen | length }})</button>
+    {% endif %}
+</div>
+<style>
+.vk-chip { border:1px solid var(--grau-linie); border-radius:999px; padding:4px 12px;
+           font-size:13px; background:var(--flaeche); color:var(--text); cursor:pointer }
+.vk-chip.aktiv { background:var(--blau); border-color:var(--blau); color:var(--auf-primaer) }
+</style>
+{% endif %}
+
+<div class="karte" style="margin-bottom:14px">
+    <details>
+        <summary style="cursor:pointer;font-weight:700">🗂️ Kategorien bearbeiten
+            <span class="feld-hinweis">(getrennt nach vereinsintern und extern)</span></summary>
+        <form method="post" action="{{ url_for('kommunikation.vorlagen_kategorien_speichern') }}"
+              style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="feld"><label>🏠 Vereinsintern <span class="feld-hinweis">(kommagetrennt)</span></label>
+                <input type="text" name="kat_intern" value="{{ kategorien.intern | join(', ') }}"></div>
+            <div class="feld"><label>🌍 Extern <span class="feld-hinweis">(kommagetrennt)</span></label>
+                <input type="text" name="kat_extern" value="{{ kategorien.extern | join(', ') }}"></div>
+            <button class="btn" style="align-self:flex-start">💾 Kategorien speichern</button>
+        </form>
+    </details>
+</div>
+
+{% if vorlagen or auto %}
+{% for gruppe, gv in vorlagen | groupby('art') %}
+<h2 class="vk-art" data-art="{{ gruppe }}" style="margin:18px 0 4px">{{ '🏠 Vereinsintern' if gruppe == 'intern' else ('🌍 Externe Kommunikation' if gruppe == 'extern' else '🗃️ Ohne Einordnung') }}</h2>
+{% for kat, kv in gv | groupby('kategorie') %}
+<div class="vk-block" data-vk="{{ gruppe }}|{{ kat }}">
+{% if kat %}<h3 style="margin:10px 0 6px;color:var(--text-hell);font-size:14.5px">{{ kat }}</h3>{% endif %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:14px">
+{% for v in kv %}
+<div class="karte" style="display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+        <h2 style="margin:0;font-size:16px">{{ v.name }}</h2>
+        <span style="display:flex;gap:6px;flex:none">
+            <a href="{{ url_for('kommunikation.neu', vorlage=v.id) }}" class="btn btn-klein" title="Im Editor öffnen und anpassen">✏️ Bearbeiten</a>
+            <form method="post" action="{{ url_for('kommunikation.vorlage_loeschen', vorlage_id=v.id) }}"
+                  onsubmit="return confirm('Vorlage „{{ v.name }}“ löschen?')" style="display:inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-sekundaer btn-klein" title="Löschen">✕</button>
+            </form>
+        </span>
+    </div>
+    <p style="margin:8px 0 6px;font-size:13.5px"><strong>Betreff:</strong> {{ v.betreff }}</p>
+    <div style="border:1px solid var(--grau-linie);border-radius:8px;padding:12px;background:var(--flaeche);color:var(--text);
+                font-size:13px;line-height:1.5;max-height:260px;overflow:auto;flex:1">{{ v.inhalt | html_saeubern | safe }}</div>
+    <form method="post" action="{{ url_for('kommunikation.vorlage_einordnen', vorlage_id=v.id) }}"
+          style="margin-top:8px;display:flex;gap:6px;align-items:center">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <select name="einordnung" onchange="this.form.submit()" style="flex:1;font-size:13px"
+                title="Einordnung – speichert beim Auswählen">
+            <option value="">– ohne Einordnung –</option>
+            <optgroup label="🏠 Vereinsintern">
+                {% for k in kategorien.intern %}
+                <option value="intern|{{ k }}" {{ 'selected' if v.art == 'intern' and v.kategorie == k }}>{{ k }}</option>
+                {% endfor %}
+            </optgroup>
+            <optgroup label="🌍 Extern">
+                {% for k in kategorien.extern %}
+                <option value="extern|{{ k }}" {{ 'selected' if v.art == 'extern' and v.kategorie == k }}>{{ k }}</option>
+                {% endfor %}
+            </optgroup>
+        </select>
+    </form>
+</div>
+{% endfor %}
+</div>
+</div>
+{% endfor %}
+{% endfor %}
+{% if auto %}
+<div class="vk-block" data-vk="auto">
+<h2 class="vk-art" data-art="auto" style="margin:18px 0 4px">⚙️ Veranstaltungen – automatische E-Mails</h2>
+<p class="feld-hinweis" style="margin:0 0 8px">Diese Vorlagen nutzt die App bei Anmeldungen:
+    Bestätigung, Erinnerung und Nachrücken gehen automatisch raus, die übrigen wählst du beim
+    Versand an Angemeldete. Sie sind nicht löschbar – nur anpassbar und zurücksetzbar.
+    Verschickt wird immer im Vereins-Design (Schriftart, Logo, Signatur).</p>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:14px">
+    {% for key, v in auto.vorlagen.items() %}
+    <div class="karte" style="display:flex;flex-direction:column">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+            <h2 style="margin:0;font-size:16px">{{ '⭐' if key in auto.eigene else '⚙️' }} {{ auto.namen.get(key, key) }}</h2>
+            <a href="{{ url_for('kommunikation.vorlagen_veranstaltungen') }}#vorlage-{{ key }}"
+               class="btn btn-klein" style="flex:none">✏️ Bearbeiten</a>
+        </div>
+        <p style="margin:8px 0 6px;font-size:13.5px"><strong>Betreff:</strong> {{ v[0] }}</p>
+        <div style="border:1px solid var(--grau-linie);border-radius:8px;padding:12px;background:var(--flaeche);color:var(--text);
+                    font-size:13px;line-height:1.5;max-height:180px;overflow:auto;flex:1;white-space:pre-wrap">{{ v[1] }}</div>
+    </div>
+    {% endfor %}
+</div>
+</div>
+{% endif %}
+<script>
+document.querySelectorAll('#vk-filter .vk-chip').forEach(function(chip){
+    chip.onclick = function(){
+        document.querySelectorAll('#vk-filter .vk-chip').forEach(function(c){ c.classList.remove('aktiv'); });
+        chip.classList.add('aktiv');
+        var filter = chip.dataset.filter;
+        document.querySelectorAll('.vk-block').forEach(function(b){
+            b.style.display = (!filter || b.dataset.vk === filter) ? '' : 'none';
+        });
+        document.querySelectorAll('.vk-art').forEach(function(h){
+            var sichtbar = false;
+            document.querySelectorAll('.vk-block').forEach(function(b){
+                if (b.dataset.vk.split('|')[0] === h.dataset.art && b.style.display !== 'none') sichtbar = true;
+            });
+            h.style.display = sichtbar ? '' : 'none';
+        });
+    };
+});
+</script>
+{% else %}
+<div class="karte leer"><div class="icon">📝</div>
+    <p>Noch keine Vorlagen. Beim Verfassen einer E-Mail kannst du sie mit „Als Vorlage speichern“ anlegen.</p>
+</div>
+{% endif %}
+{% endblock %}

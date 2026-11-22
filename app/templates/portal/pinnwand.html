@@ -1,0 +1,102 @@
+{% extends "portal/_layout.html" %}
+{% block title %}{{ t('brett') }}{% endblock %}
+{% set typ_info = {'gesuch': ('🙋','Gesuch','var(--fehler-grund)','var(--fehler-text)'), 'angebot': ('🎁','Angebot','var(--gut-grund)','var(--gut-text)'), 'info': ('📌','Info','var(--info-grund)','var(--info-text)')} %}
+{% block inhalt %}
+{# Desktopversion: Pinnwand-Karten fließen mehrspaltig (.mp-fluss) – mobil unverändert #}
+<div class="mp-fluss">
+<div class="mp-karte">
+    <h2 style="margin:0 0 4px;font-size:18px">📌 {{ t("brett") }}</h2>
+    {% if zugeordnet %}
+    <details>
+        <summary style="cursor:pointer;color:var(--mp);font-weight:600;list-style:none">{{ t('neuer_eintrag') }}</summary>
+        <form method="post" action="{{ url_for('portal.pinnwand_neu') }}" style="margin-top:10px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="feld"><label>{{ t("art") }}</label>
+                <select name="typ" style="width:100%;padding:10px;border:1px solid var(--linie);border-radius:9px">
+                    <option value="gesuch">{{ t("ich_suche") }}</option>
+                    <option value="angebot">{{ t("ich_biete") }}</option>
+                    <option value="info">{{ t("eintrag_info") }}</option>
+                </select></div>
+            {% if kategorien %}
+            <div class="feld"><label>{{ t("kategorie") }}</label>
+                <select name="kategorie" style="width:100%;padding:10px;border:1px solid var(--linie);border-radius:9px">
+                    <option value="">{{ t("bitte_waehlen") }}</option>
+                    {% for k in kategorien %}<option value="{{ k }}">{{ tk(k) }}</option>{% endfor %}
+                </select></div>
+            {% endif %}
+            <div class="feld"><label>{{ t("titel") }}</label><input type="text" name="titel" required placeholder="{{ t('worum') }}"></div>
+            <div class="feld"><label>{{ t("text_label") }}</label><textarea class="mention" name="text" rows="3" placeholder="{{ t('details') }}"></textarea></div>
+            <div class="feld"><label>{{ t("meine_sprachen") }}</label>
+                <div style="display:flex;flex-wrap:wrap;gap:6px 12px">
+                {% for s in sprachen_auswahl %}
+                    <label style="display:inline-flex;align-items:center;gap:4px;font-weight:400;font-size:14px">
+                        <input type="checkbox" name="sprachen" value="{{ s }}"> {{ s }}</label>
+                {% endfor %}
+                </div>
+                <input type="text" name="sprachen_sonst" placeholder="{{ t('weitere_sprache') }}" style="margin-top:6px"></div>
+            <script>window.MENTION_USERS = {{ mention_users | tojson }};</script>
+            <button type="submit" class="mp-btn">{{ t("veroeffentlichen") }}</button>
+        </form>
+    </details>
+    {% elif gast_schreiben %}
+    <a class="mp-btn" style="display:inline-block;width:auto;padding:10px 16px;text-decoration:none"
+       href="{{ url_for('portal.brett_gast') }}">{{ t('neuer_eintrag') }}</a>
+    {% else %}
+    <p class="feld-hinweis" style="margin:0">{{ t("posten_zuordnung") }}</p>
+    {% endif %}
+</div>
+
+{% if kategorien %}
+<div style="display:flex;flex-wrap:wrap;gap:6px;margin:10px 0">
+    <a href="{{ url_for('portal.pinnwand') }}" class="mp-chip {% if not kat_filter %}mp-chip-aktiv{% endif %}">{{ t("alle") }}</a>
+    {% for k in kategorien %}
+    <a href="{{ url_for('portal.pinnwand', kat=k) }}" class="mp-chip {% if kat_filter == k %}mp-chip-aktiv{% endif %}">{{ tk(k) }}</a>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% for p in posts %}
+{% set ti = typ_info.get(p.typ, typ_info['info']) %}
+<div class="mp-karte"{% if p.id in offen_tage %} style="border-inline-start:4px solid var(--fehler-text)"{% endif %}>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <span>
+            <span style="background:{{ ti[2] }};color:{{ ti[3] }};border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700">{{ ti[0] }} {{ ti[1] }}</span>
+            <span style="background:var(--linie);border-radius:999px;padding:2px 8px;font-size:12px;font-variant-numeric:tabular-nums">#{{ p.id }}</span>
+            {% if p.kategorie %}<span style="background:var(--linie);border-radius:999px;padding:2px 10px;font-size:12px">{{ tk(p.kategorie) }}</span>{% endif %}
+            {% if p.sprachen %}<span style="background:var(--linie);border-radius:999px;padding:2px 10px;font-size:12px">🌐 {{ p.sprachen }}</span>{% endif %}
+            {% if p.id in offen_tage %}<span style="background:var(--fehler-grund);color:var(--fehler-text);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700">{% if offen_tage[p.id] == 0 %}{{ t("wartet_heute") }}{% elif offen_tage[p.id] == 1 %}{{ t("wartet_seit") }} 1 {{ t("tag") }}{% else %}{{ t("wartet_seit") }} {{ offen_tage[p.id] }} {{ t("tagen") }}{% endif %}</span>{% endif %}
+        </span>
+        {% if ist_admin or p.mitglied_id == meine_mid %}
+        <form method="post" action="{{ url_for('portal.pinnwand_schliessen', pid=p.id) }}" onsubmit="return confirm('Eintrag entfernen?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="feld-hinweis" style="background:none;border:none;cursor:pointer">{{ t("entfernen") }}</button>
+        </form>
+        {% endif %}
+    </div>
+    <div style="font-weight:700;font-size:16px;margin-top:6px">{{ p.titel }}</div>
+    {% if p.text %}<div style="margin-top:4px;font-size:14px;white-space:pre-line">{{ p.text }}</div>{% endif %}
+    <div class="feld-hinweis" style="margin-top:6px">{{ t("von") }} {% if p.mitglied_id %}{{ p.vorname }} {{ p.nachname }}{% else %}{{ p.gast_name }} · {{ t("gast_kennung") }}{% endif %} · {{ p.erstellt_am[8:10] }}.{{ p.erstellt_am[5:7] }}.{% if p.antworten %} · {{ p.antworten }} {{ t("gemeldet") }}{% endif %}</div>
+    {% if zugeordnet and p.mitglied_id != meine_mid %}
+        {% if p.id in meine_antw %}
+        <div style="margin-top:8px"><span class="voll-badge">{{ t("du_gemeldet") }}</span></div>
+        {% else %}
+        <form method="post" action="{{ url_for('portal.pinnwand_melden', pid=p.id) }}" style="margin-top:8px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="mp-btn" style="width:auto;padding:8px 14px;font-size:14px">{{ t("ich_melde_mich") }}</button>
+        </form>
+        {% endif %}
+    {% endif %}
+</div>
+{% else %}
+<div class="mp-karte"><p class="feld-hinweis" style="margin:0">{{ t("leer") }}</p></div>
+{% endfor %}
+
+<style>
+    .mp-chip { text-decoration:none; border:1px solid var(--linie); border-radius:999px;
+               padding:4px 12px; font-size:13px; color:var(--text); background:var(--flaeche-3); }
+    .mp-chip-aktiv { background:var(--mp); color:var(--auf-primaer); border-color:var(--mp); }
+    details > summary::-webkit-details-marker { display:none; }
+    .voll-badge { background:var(--gut-grund); color:var(--gut-text); border:1px solid var(--gut-rand); border-radius:999px; padding:3px 10px; font-size:12px; font-weight:600; }
+</style>
+</div>
+{% endblock %}

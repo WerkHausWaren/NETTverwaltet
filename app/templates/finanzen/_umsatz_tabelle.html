@@ -1,0 +1,70 @@
+{# Wiederverwendbares Verbuchen-Formular für Bank- und PayPal-Umsätze.
+   Erwartet: umsaetze, konten, geldkonten, ziel_konto (Row oder None), sphaeren_namen, zurueck (URL) #}
+<form method="post" action="{{ url_for('finanzen.umsatz_verbuchen') }}"
+      onsubmit="if (window.tfVorSubmit) tfVorSubmit(this);
+                var s=document.getElementById('umsatz-geldkonto');
+                if (s && s.dataset.erwartet && s.value !== s.dataset.erwartet) {
+                    return confirm('Achtung: Du verbuchst diese Umsätze NICHT auf „' + s.dataset.erwartetName +
+                                   '“, sondern auf „' + s.options[s.selectedIndex].text + '“. Wirklich fortfahren?');
+                } return true;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="zurueck" value="{{ zurueck }}">
+    <div class="feld" style="max-width:340px">
+        <label>Auf welches Geldkonto?</label>
+        <select name="geldkonto_id" id="umsatz-geldkonto" data-erwartet="{{ ziel_konto.id if ziel_konto else '' }}"
+                data-erwartet-name="{{ ziel_konto.name if ziel_konto else '' }}">
+            {% for g in geldkonten %}<option value="{{ g.id }}" {{ 'selected' if ziel_konto and g.id==ziel_konto.id }}>{{ g.name }}</option>{% endfor %}
+        </select>
+        {% if ziel_konto %}<div class="feld-hinweis">Diese Umsätze stammen von: <strong>{{ ziel_konto.name }}</strong> – bitte nur in Ausnahmefällen ändern.</div>{% endif %}
+    </div>
+    <table style="margin-top:8px" {% if tabelle_id %}id="{{ tabelle_id }}"{% endif %}>
+        <thead><tr><th>✓</th><th>Datum</th><th>Ein/Aus</th><th>Text</th><th>Kategorie</th><th class="rechts">Betrag</th></tr></thead>
+        <tbody>
+        {% for u in umsaetze %}
+        <tr {{ 'style=opacity:.55' if u.verbucht }} data-tf="{{ 'einnahme' if u.betrag >= 0 else 'ausgabe' }}{{ ' ohnekat' if not u.verbucht or not u.verbucht_kategorie }}">
+            <td>
+                {% if u.verbucht %}<span title="bereits verbucht">✅</span>
+                {% else %}<input type="checkbox" name="uebernehmen" value="{{ loop.index0 }}" checked>{% endif %}
+                <input type="hidden" name="datum_{{ loop.index0 }}" value="{{ u.datum }}">
+                <input type="hidden" name="betrag_{{ loop.index0 }}" value="{{ u.betrag }}">
+                <input type="hidden" name="text_{{ loop.index0 }}" value="{{ u.text }}">
+                <input type="hidden" name="ref_{{ loop.index0 }}" value="{{ u.ref }}">
+            </td>
+            <td>{{ u.datum | datum_de }}</td>
+            {% set ein = u.betrag >= 0 %}
+            <td style="white-space:nowrap">
+                {% if ein %}<span class="badge" style="background:var(--gut-grund);color:var(--gut-text);border:1px solid var(--gut-rand)">↓ Einnahme</span>
+                {% else %}<span class="badge" style="background:var(--fehler-grund);color:var(--fehler-text);border:1px solid var(--fehler-rand)">↑ Ausgabe</span>{% endif %}
+            </td>
+            <td>{{ u.text }}</td>
+            <td>
+                {% if u.verbucht %}<span class="feld-hinweis" title="so verbucht">{{ u.verbucht_kategorie or '— ohne Kategorie —' }}</span>
+                {% else %}
+                {# Nur Konten der passenden Richtung: verhindert, dass eine Ausgabe
+                   versehentlich als Einnahme gebucht wird (und umgekehrt). #}
+                {% set passend = konten | selectattr('typ','equalto', 'einnahme' if ein else 'ausgabe') | list %}
+                <select name="konto_{{ loop.index0 }}" style="min-width:180px">
+                    <option value="">— ohne Kategorie —</option>
+                    {% for skey, sname in sphaeren_namen.items() %}
+                    {% set kk = passend | selectattr('sphaere','equalto',skey) | list %}
+                    {% if kk %}<optgroup label="{{ sname }}">
+                        {% for k in kk %}<option value="{{ k.id }}" {{ 'selected' if k.id==u.vorschlag }}>{{ k.name }}</option>{% endfor %}
+                    </optgroup>{% endif %}
+                    {% endfor %}
+                </select>
+                {% endif %}
+            </td>
+            <td class="rechts" style="white-space:nowrap;font-weight:700;color:{{ 'var(--gruen)' if ein else 'var(--rot)' }}">
+                {{ '+' if ein else '−' }} {{ u.betrag | abs | euro }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+        <button type="submit" class="btn">✅ Ausgewählte verbuchen</button>
+        <span class="feld-hinweis">Bereits verbuchte Umsätze (✅) werden übersprungen –
+            fehlt bei ihnen die Kategorie, trägst du sie im Kassenbuch nach (✏️-Stift).
+            <strong>↓ Einnahme</strong> = Geld kam aufs Konto, <strong>↑ Ausgabe</strong> = Geld ging weg.
+            Die Kategorie-Auswahl zeigt nur Konten, die zur jeweiligen Richtung passen.</span>
+    </div>
+</form>

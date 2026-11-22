@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Öffentlichkeitsarbeit{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>📣 Öffentlichkeitsarbeit</h1><div class="sub">Cockpit für Presse, Social Media und Fotos</div></div>
+    <div class="aktionen">
+        {% if design and design.modul_contenthub %}<a href="{{ url_for('oea.hub') }}" class="btn">🚀 Content-Hub</a>{% endif %}
+        <a href="{{ url_for('oea.werkstatt') }}" class="btn">🪄 Beitrags-Werkstatt</a>
+        <a href="{{ url_for('oea.neu') }}" class="btn btn-sekundaer">＋ Neuer Beitrag</a>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px">
+    <a href="{{ url_for('oea.plan') }}" class="karte" style="text-decoration:none;color:inherit;padding:14px 16px">
+        <div class="feld-hinweis">Geplante Beiträge</div>
+        <div style="font-size:26px;font-weight:800">{{ zahlen.geplant }}</div></a>
+    <a href="{{ url_for('oea.plan', status='freigabe') }}" class="karte" style="text-decoration:none;color:inherit;padding:14px 16px{% if zahlen.freigabe %};border:2px solid var(--gelb){% endif %}">
+        <div class="feld-hinweis">Warten auf Freigabe</div>
+        <div style="font-size:26px;font-weight:800">{{ zahlen.freigabe }}</div></a>
+    <a href="{{ url_for('oea.plan', typ='presse') }}" class="karte" style="text-decoration:none;color:inherit;padding:14px 16px">
+        <div class="feld-hinweis">Pressemitteilungen</div>
+        <div style="font-size:26px;font-weight:800">{{ zahlen.presse }}</div></a>
+    <a href="{{ url_for('oea.fotos') }}" class="karte" style="text-decoration:none;color:inherit;padding:14px 16px">
+        <div class="feld-hinweis">Foto-Alben</div>
+        <div style="font-size:26px;font-weight:800">{{ zahlen.alben }}</div></a>
+</div>
+
+{% if presse_auftraege %}
+<div class="karte" style="margin-bottom:14px;border-left:4px solid var(--gelb);border-radius:6px">
+    <h2 style="margin-top:0">📰 Pressemitteilung gewünscht</h2>
+    <p class="feld-hinweis" style="margin-top:-6px">Bei diesen Veranstaltungen wurde beim Anlegen „Pressemitteilung vorbereiten" angehakt – ein Entwurf liegt im Redaktionsplan:</p>
+    {% for a in presse_auftraege %}
+    <div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px solid var(--linie)">
+        <span style="flex:1"><strong>{{ a.titel }}</strong> <span class="feld-hinweis">{{ a.datum | datum_de }}</span></span>
+        <a href="{{ url_for('oea.plan', typ='presse') }}" class="btn btn-sekundaer btn-klein">Zum Entwurf ›</a>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="karte" style="margin-bottom:14px">
+    <h2 style="margin-top:0">📋 Als Nächstes im Redaktionsplan</h2>
+    {% if naechste %}
+    <table class="tabelle">
+        <thead><tr><th>Geplant</th><th>Beitrag</th><th>Kanal</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for b in naechste %}
+        <tr onclick="location='{{ url_for('oea.bearbeiten', bid=b.id) }}'" style="cursor:pointer">
+            <td>{{ b.geplant_am | datum_de if b.geplant_am else '–' }}</td>
+            <td><strong>{{ b.titel or (b.text or '')[:50] }}</strong>{% if b.termin_titel %}<br><span class="feld-hinweis">🎪 {{ b.termin_titel }}</span>{% endif %}</td>
+            <td>{% if b.typ == 'presse' %}📰 Presse{% else %}{{ formate[b.kanal].symbol if b.kanal in formate }} {{ formate[b.kanal].label if b.kanal in formate else (b.kanal or '–') }}{% endif %}</td>
+            <td><span class="badge {{ 'badge-bezahlt' if b.status == 'freigegeben' else ('badge-offen' if b.status == 'freigabe' else 'badge-inaktiv') }}">{{ status_namen.get(b.status) or b.status or '–' }}</span></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="feld-hinweis">Noch nichts geplant. <a href="{{ url_for('oea.werkstatt') }}">In der Werkstatt</a> entsteht aus jeder Veranstaltung mit zwei Klicks ein Beitrag.</p>
+    {% endif %}
+</div>
+
+<div class="hilfe-box">💡 <strong>So läuft's:</strong> In der <a href="{{ url_for('oea.werkstatt') }}">Werkstatt</a> aus einer
+    Veranstaltung Textvorschläge je Kanal erzeugen → in den Redaktionsplan übernehmen und anpassen →
+    Freigabe beim Vorstand anfragen (ein Klick) → nach der Freigabe posten bzw. die Pressemitteilung als PDF
+    an den <a href="{{ url_for('oea.verteiler') }}">Presseverteiler</a> senden.</div>
+{% endblock %}

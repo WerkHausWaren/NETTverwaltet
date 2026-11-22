@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Teilnehmendenliste</title>
+<style>
+    body { font-family: -apple-system, Arial, sans-serif; color: #1e293b; margin: 28px; font-size: 13px; }
+    h1 { font-size: 20px; margin: 0 0 2px; }
+    .kopf { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #1e293b; padding-bottom: 8px; margin-bottom: 14px; }
+    .kopf .sub { color: #64748b; font-size: 12px; }
+    .angaben { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; margin-bottom: 16px; }
+    .angaben .zeile { display: flex; gap: 8px; align-items: baseline; }
+    .angaben .lbl { font-weight: 700; min-width: 62px; }
+    .angaben .wert { flex: 1; border-bottom: 1px solid #94a3b8; min-height: 18px; padding: 0 2px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 7px 8px; border: 1px solid #cbd5e1; }
+    th { background: #f1f5f9; font-size: 11px; text-transform: uppercase; }
+    td.nr { width: 34px; text-align: center; color: #64748b; }
+    td.unterschrift { width: 40%; }
+    tr { height: 30px; }
+    .toolbar { margin-bottom: 16px; }
+    .btn { background: #2563eb; color: #fff; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .fuss { margin-top: 26px; display: flex; gap: 48px; }
+    .fuss .feld { flex: 1; }
+    .fuss .linie { border-bottom: 1px solid #1e293b; height: 30px; }
+    .fuss .cap { font-size: 11px; color: #64748b; margin-top: 4px; }
+    @media print { .toolbar { display: none; } body { margin: 0; } }
+</style>
+</head>
+<body>
+<div class="toolbar"><button class="btn" onclick="window.print()">🖨️ Drucken / Als PDF sichern</button></div>
+
+<div class="kopf">
+    <div>
+        <h1>{{ einst.vereinsname or 'Verein' }}</h1>
+        <div class="sub">Teilnehmenden- / Anwesenheitsliste</div>
+    </div>
+    <div style="text-align:right">
+        {% if einst.logo_dateiname %}<img src="{{ url_for('einstellungen.logo', verein_id=einst.id) }}" style="max-height:16mm;max-width:48mm;object-fit:contain;display:block;margin:0 0 4px auto">{% endif %}
+        <div class="sub">{{ einst.strasse }}{% if einst.ort %}, {{ einst.plz }} {{ einst.ort }}{% endif %}</div>
+    </div>
+</div>
+
+<div class="angaben">
+    <div class="zeile"><span class="lbl">Anlass:</span><span class="wert">{{ thema }}</span></div>
+    <div class="zeile"><span class="lbl">Datum:</span><span class="wert">{{ datum }}</span></div>
+    <div class="zeile"><span class="lbl">Ort:</span><span class="wert">{{ ort }}</span></div>
+    <div class="zeile"><span class="lbl">Beginn:</span><span class="wert"></span></div>
+</div>
+
+<table>
+    <thead>
+        <tr><th class="nr">Nr.</th><th>Name</th><th>Anwesend</th><th class="unterschrift">Unterschrift</th></tr>
+    </thead>
+    <tbody>
+    {% for m in mitglieder %}
+        <tr>
+            <td class="nr">{{ loop.index }}</td>
+            <td>{{ m.vorname }} {{ m.nachname }}{% if m.firma %} · {{ m.firma }}{% endif %}</td>
+            <td></td>
+            <td class="unterschrift"></td>
+        </tr>
+    {% endfor %}
+    {% for i in range(leerzeilen) %}
+        <tr>
+            <td class="nr">{{ mitglieder|length + loop.index }}</td>
+            <td></td>
+            <td></td>
+            <td class="unterschrift"></td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<div class="fuss">
+    <div class="feld"><div class="linie"></div><div class="cap">Versammlungsleitung</div></div>
+    <div class="feld"><div class="linie"></div><div class="cap">Protokollführung</div></div>
+</div>
+</body>
+</html>

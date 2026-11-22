@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Veranstaltung bearbeiten' if t else 'Neue Veranstaltung' }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>{{ '✏️ Veranstaltung bearbeiten' if t else '🎟️ Neue Veranstaltung' }}</h1></div>
+    <a href="{{ url_for('veranstaltungen.detail', tid=t.id) if t else url_for('veranstaltungen.index') }}" class="btn btn-sekundaer">Zurück</a>
+</div>
+
+<form method="post" action="{{ url_for('veranstaltungen.bearbeiten', tid=t.id) if t else url_for('veranstaltungen.neu') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="karte">
+        <h2 style="margin-top:0">Eckdaten</h2>
+        <div class="feld"><label>Titel *</label><input type="text" name="titel" required value="{{ t.titel if t else '' }}"></div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div class="feld" style="flex:1;min-width:150px"><label>Datum</label><input type="date" name="datum" value="{{ t.datum if t else '' }}"></div>
+            <div class="feld" style="flex:1;min-width:120px"><label>Uhrzeit</label><input type="time" name="uhrzeit" value="{{ t.uhrzeit if t else '' }}"></div>
+            <div class="feld" style="flex:2;min-width:180px"><label>Ort</label><input type="text" name="ort" value="{{ t.ort if t else '' }}"></div>
+        </div>
+        <div class="feld"><label>Beschreibung (wird auf der Anmeldeseite gezeigt)</label>
+            <textarea name="langbeschreibung" style="min-height:90px">{{ t.langbeschreibung if t else '' }}</textarea></div>
+    </div>
+
+    <div class="karte">
+        <h2 style="margin-top:0">Anmeldung</h2>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div class="feld" style="flex:1;min-width:130px"><label>Min. Teilnehmende</label><input type="number" name="min_teilnehmer" min="0" value="{{ t.min_teilnehmer if t else 0 }}"></div>
+            <div class="feld" style="flex:1;min-width:130px"><label>Max. Teilnehmende</label><input type="number" name="max_teilnehmer" min="0" value="{{ t.max_teilnehmer if t else 0 }}"><div class="feld-hinweis">0 = unbegrenzt</div></div>
+            <div class="feld" style="flex:1;min-width:130px"><label>Preis pro Person (€)</label><input type="text" name="preis" value="{{ '%.2f'|format(t.preis) if t else '0.00' }}"></div>
+            <div class="feld" style="flex:1;min-width:150px"><label>Anmeldeschluss</label><input type="date" name="anmeldeschluss" value="{{ t.anmeldeschluss if t else '' }}"></div>
+        </div>
+        <label class="einw-zeile" style="display:flex;gap:10px;align-items:center;margin-top:6px">
+            <input type="checkbox" name="oeffentlich" {{ 'checked' if t and t.anmeldung_token }}>
+            <span>Öffentliche Anmeldung über einen teilbaren Link erlauben</span></label>
+        <label class="einw-zeile" style="display:flex;gap:10px;align-items:center">
+            <input type="checkbox" name="feedback_aktiv" {{ 'checked' if t and t.feedback_aktiv }}>
+            <span>Feedback-Bogen aktivieren (Link nach der Veranstaltung)</span></label>
+    </div>
+    <button type="submit" class="btn">💾 Speichern</button>
+</form>
+{% endblock %}

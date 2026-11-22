@@ -1,0 +1,90 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Als App installieren{% endblock %}
+{% block inhalt %}
+<div class="mp-schmal">
+<div class="mp-karte" style="margin-top:16px;text-align:center">
+    <div style="font-size:40px">📲</div>
+    <h2 style="margin:8px 0 4px">{{ (design.vereinsname if design else '') or 'Mitglieder' }} als App installieren</h2>
+    <p class="feld-hinweis" style="margin:0 0 14px">Einmal zum Home-Bildschirm hinzugefügt, verhält sich die
+        Mitglieder-App wie eine normale App – mit eigenem Symbol, Vollbild und Push-Benachrichtigungen.</p>
+    <button id="installSeiteBtn" type="button" onclick="appInstallieren()"
+            style="display:none;background:var(--mp);color:var(--auf-primaer);border:none;border-radius:10px;padding:12px 22px;font-size:15px;font-weight:700;cursor:pointer">
+        📲 Jetzt installieren</button>
+    <div id="installStandalone" style="display:none;color:var(--gruen);font-weight:600">✓ Die App ist bereits installiert – du nutzt sie gerade.</div>
+</div>
+
+{# Anleitungen je Gerät und Browser (19.11.2026): die passende klappt automatisch auf #}
+<div class="mp-karte inst-liste">
+    <strong>So geht's auf deinem Gerät</strong>
+    <details class="inst" data-browser="ios">
+        <summary>iPhone / iPad – Safari</summary>
+        <ol>
+            <li>Diese Seite in <strong>Safari</strong> öffnen</li>
+            <li>Auf das <strong>Teilen-Symbol</strong> tippen (Quadrat mit Pfeil nach oben, unten oder neben der Adresse)</li>
+            <li><strong>„Zum Home-Bildschirm“</strong> wählen, eventuell vorher nach unten wischen</li>
+            <li>Oben rechts <strong>„Hinzufügen“</strong> tippen</li>
+        </ol>
+    </details>
+    <details class="inst" data-browser="chrome">
+        <summary>Android – Chrome</summary>
+        <ol>
+            <li>Unten auf dieser Seite <strong>„App installieren“</strong> tippen und bestätigen – fertig</li>
+            <li>Fehlt der Knopf: oben rechts das Menü <strong>⋮</strong> öffnen</li>
+            <li><strong>„App installieren“</strong> bzw. <strong>„Zum Startbildschirm hinzufügen“</strong> wählen</li>
+            <li>Mit <strong>„Installieren“</strong> bestätigen</li>
+        </ol>
+    </details>
+    <details class="inst" data-browser="samsung">
+        <summary>Android – Samsung Internet</summary>
+        <ol>
+            <li>Erscheint in der Adressleiste ein <strong>Download-Symbol</strong> (Pfeil nach unten), darauf tippen und <strong>„Installieren“</strong> wählen</li>
+            <li>Sonst unten rechts das Menü <strong>☰</strong> (drei Striche) öffnen</li>
+            <li><strong>„Seite hinzufügen zu“</strong> → <strong>„Startbildschirm“</strong> wählen</li>
+            <li>Mit <strong>„Hinzufügen“</strong> bestätigen</li>
+        </ol>
+    </details>
+    <details class="inst" data-browser="firefox">
+        <summary>Android – Firefox</summary>
+        <ol>
+            <li>Das Menü <strong>⋮</strong> öffnen (oben oder unten rechts, je nach Einstellung)</li>
+            <li><strong>„Installieren“</strong> bzw. <strong>„Zum Startbildschirm hinzufügen“</strong> wählen</li>
+            <li>Mit <strong>„Hinzufügen“</strong> bestätigen – das Symbol erscheint auf dem Startbildschirm</li>
+        </ol>
+    </details>
+    <p class="feld-hinweis" style="margin:10px 0 0">Anderer Browser? Im Menü nach „Installieren“ oder „Zum Startbildschirm“ suchen. Am Computer (Chrome, Edge) steht rechts in der Adressleiste ein Installier-Symbol.</p>
+</div>
+<style>
+    .inst-liste details.inst { border-top: 1px solid var(--linie); padding: 10px 0 2px; }
+    .inst-liste details.inst:first-of-type { margin-top: 10px; }
+    .inst-liste summary { cursor: pointer; font-weight: 700; color: var(--text-stark); }
+    .inst-liste details[open] summary { color: var(--mp); }
+    .inst-liste ol { margin: 8px 0 6px; padding-left: 20px; line-height: 1.7; }
+</style>
+
+{% if qr %}
+<div class="mp-karte" style="text-align:center">
+    <strong>📤 Weitersagen</strong>
+    <p class="feld-hinweis" style="margin:6px 0 10px">Andere Mitglieder scannen einfach diesen Code:</p>
+    <img src="{{ qr }}" alt="QR-Code zur Mitglieder-App" style="width:180px;height:180px;image-rendering:pixelated">
+    <div class="feld-hinweis" style="margin-top:8px;word-break:break-all">{{ portal_url }}</div>
+</div>
+{% endif %}
+
+<script>
+(function(){
+    var standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+    if (standalone) document.getElementById("installStandalone").style.display = "block";
+    // Passende Anleitung aufklappen: iPhone/iPad, Samsung Internet, Firefox, sonst Chrome
+    var ua = navigator.userAgent || "";
+    var art = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? "ios"
+            : /SamsungBrowser/.test(ua) ? "samsung" : /Firefox|FxiOS/.test(ua) ? "firefox" : "chrome";
+    var d = document.querySelector('details.inst[data-browser="' + art + '"]');
+    if (d) d.open = true;
+    // beforeinstallprompt (aus dem Layout) -> großen Button zeigen
+    window.addEventListener("beforeinstallprompt", function(){
+        if (!standalone) document.getElementById("installSeiteBtn").style.display = "inline-block";
+    });
+})();
+</script>
+</div>
+{% endblock %}

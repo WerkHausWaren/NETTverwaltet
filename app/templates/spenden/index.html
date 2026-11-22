@@ -1,0 +1,399 @@
+{% extends "base.html" %}
+{% block title %}Spenden{% endblock %}
+{% set iv_label = {'monatlich':'monatlich','quartal':'vierteljährlich','halbjahr':'halbjährlich','jaehrlich':'jährlich'} %}
+{% block content %}
+<div class="page-header">
+    <div><h1>💝 Spenden</h1><div class="sub">Einmalige &amp; wiederkehrende Spenden verwalten und Spendenbescheinigungen ausstellen</div></div>
+    <form method="get" class="aktionen">
+        <select name="jahr" onchange="this.form.submit()">
+            {% for j in jahre %}<option value="{{ j }}" {{ 'selected' if j|string == jahr|string }}>{{ j }}</option>{% endfor %}
+        </select>
+        <noscript><button class="btn btn-sekundaer">Jahr</button></noscript>
+    </form>
+</div>
+
+<div class="karten-reihe" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:14px">
+    <div class="karte" style="text-align:center"><div style="font-size:24px;font-weight:800;color:var(--gruen)">{{ summe | euro }}</div><div class="feld-hinweis">Spendenliste {{ jahr }}</div></div>
+    <div class="karte" style="text-align:center"><div style="font-size:24px;font-weight:800">{{ kassen_summe | euro }}</div><div class="feld-hinweis">als Spende im Kassenbuch {{ jahr }}</div></div>
+    <div class="karte" style="text-align:center"><div style="font-size:24px;font-weight:800">{{ dauer_jahreswert | euro }}</div><div class="feld-hinweis">Dauerspenden aufs Jahr</div></div>
+    <div class="karte" style="text-align:center"><div style="font-size:24px;font-weight:800;color:{{ 'var(--gelb)' if faellige else 'var(--gruen)' }}">{{ faellige|length }}</div><div class="feld-hinweis">fällige Dauerspenden</div></div>
+</div>
+
+{% if lastschrift_faellig %}
+<div class="karte" style="border:2px solid var(--blau)">
+    <h2 style="margin-top:0">🏦 Lastschrift-Einzug: {{ lastschrift_faellig|length }} Dauerspende(n) fällig</h2>
+    <p class="feld-hinweis" style="margin:0 0 10px">1. SEPA-Datei herunterladen und im Online-Banking hochladen ·
+        2. danach hier als gezahlt erfassen.</p>
+    <a href="{{ url_for('spenden.sepa_export') }}" class="btn">⬇️ SEPA-Lastschriftdatei</a>
+    <form method="post" action="{{ url_for('spenden.einzug_erfassen') }}" style="display:inline-block;margin-left:10px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label style="font-size:13.5px;margin-right:6px"><input type="checkbox" name="ins_kassenbuch" value="1" checked>
+            auch ins Kassenbuch</label>
+        <select name="geldkonto_id" style="padding:6px">{% for g in geldkonten %}<option value="{{ g.id }}" {{ 'selected' if g.typ == 'bank' }}>{{ g.name }}</option>{% endfor %}</select>
+        <button class="btn btn-sekundaer" onclick="return confirm('Alle fälligen Lastschrift-Dauerspenden als gezahlt erfassen?')">✅ Einzug erfassen</button>
+    </form>
+</div>
+{% endif %}
+
+<!-- Neue Spende erfassen -->
+<div class="karte">
+    <h2 style="margin-top:0">➕ Neue Spende</h2>
+    <form method="post" action="{{ url_for('spenden.neu') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:12px">
+            <label style="display:flex;align-items:center;gap:6px"><input type="radio" name="spende_typ" value="einmalig" checked onchange="spTyp()"> Einmalige Spende</label>
+            <label style="display:flex;align-items:center;gap:6px"><input type="radio" name="spende_typ" value="wiederkehrend" onchange="spTyp()"> Wiederkehrende Spende</label>
+        </div>
+
+        <div class="feld-reihe">
+            <div class="feld"><label>Spender:in/in (Mitglied wählen – füllt die Anschrift vor)</label>
+                <select name="mitglied_id" id="sp_mid" onchange="spMitglied()">
+                    <option value="">— externe/r Spender:in/in —</option>
+                    {% for m in mitglieder %}<option value="{{ m.id }}">{{ m.nachname }}, {{ m.vorname }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="feld"><label>Name des Zuwendenden *</label><input type="text" name="spender_name" id="sp_name" required></div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Straße &amp; Hausnr.</label><input type="text" name="spender_strasse" id="sp_str"></div>
+            <div class="feld" style="max-width:120px"><label>PLZ</label><input type="text" name="spender_plz" id="sp_plz"></div>
+            <div class="feld"><label>Ort</label><input type="text" name="spender_ort" id="sp_ort"></div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld" style="max-width:160px"><label>Betrag (€) *</label><input type="text" name="betrag" inputmode="decimal" placeholder="0,00" required></div>
+            <div class="feld sp-einmalig" style="max-width:180px"><label>Datum der Spende</label><input type="date" name="datum" value="{{ heute }}"></div>
+            <div class="feld sp-wieder" style="max-width:180px;display:none"><label>Erste Zahlung ab</label><input type="date" name="start_datum" value="{{ heute }}"></div>
+            <div class="feld sp-wieder" style="max-width:200px;display:none"><label>Intervall</label>
+                <select name="intervall">{% for w, lbl in intervalle %}<option value="{{ w }}">{{ lbl }}</option>{% endfor %}</select>
+            </div>
+            <div class="feld"><label>Verwendungszweck (optional)</label><input type="text" name="zweck" placeholder="z. B. allgemeine Vereinsarbeit"></div>
+        </div>
+        <div class="feld sp-einmalig">
+            <label style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" name="art" value="sach"> Sachspende (statt Geldspende)</label>
+        </div>
+        <div class="feld sp-einmalig">
+            <label style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" name="ins_kassenbuch" value="1">
+                💶 auch als Buchung ins Kassenbuch (Konto „Spenden“)</label>
+            <select name="geldkonto_id" style="padding:6px;margin-left:8px">{% for g in geldkonten %}<option value="{{ g.id }}" {{ 'selected' if g.typ == 'bank' }}>{{ g.name }}</option>{% endfor %}</select>
+            <span class="feld-hinweis">Nicht nötig, wenn du den Zahlungseingang ohnehin über den Bankabruf verbuchst.</span>
+        </div>
+        <div class="sp-wieder" style="display:none">
+            <div class="feld"><label>Zahlungsweg</label>
+                <select name="zahlungsart" id="sp_zart" onchange="spZart()">
+                    <option value="ueberweisung">Überweisung durch die Spender:in</option>
+                    <option value="lastschrift">SEPA-Lastschrift (wir ziehen ein)</option>
+                    <option value="paypal">PayPal</option>
+                </select></div>
+            <div id="sp_bank" style="display:none">
+                <div class="feld-reihe">
+                    <div class="feld"><label>IBAN *</label><input type="text" name="iban" placeholder="DE.."></div>
+                    <div class="feld" style="max-width:140px"><label>BIC</label><input type="text" name="bic"></div>
+                    <div class="feld"><label>Kontoinhaber:in</label><input type="text" name="kontoinhaber" placeholder="falls abweichend"></div>
+                </div>
+                <div class="feld-reihe">
+                    <div class="feld"><label>Mandatsreferenz *</label><input type="text" name="mandatsreferenz" placeholder="z. B. SPENDE-2026-01"></div>
+                    <div class="feld" style="max-width:180px"><label>Mandat unterschrieben am</label><input type="date" name="mandatsdatum"></div>
+                </div>
+                <div class="feld-hinweis">Bei Mitgliedern mit SEPA-Beitragsmandat werden IBAN &amp; Mandat automatisch übernommen, wenn du die Felder leer lässt.</div>
+            </div>
+        </div>
+        <script>
+        function spZart() {
+            var z = document.getElementById('sp_zart');
+            document.getElementById('sp_bank').style.display = (z && z.value === 'lastschrift') ? 'block' : 'none';
+        }
+        </script>
+        <button class="btn" type="submit">Spende speichern</button>
+    </form>
+</div>
+
+<!-- Wiederkehrende Spenden -->
+<div class="karte">
+    <h2 style="margin-top:0">🔁 Wiederkehrende Spenden</h2>
+    {% if dauer %}
+    <div class="tabellen-scroll">
+    <table class="tabelle">
+        <thead><tr><th>Spender:in/in</th><th>Intervall</th><th style="text-align:right">Betrag</th><th>Zweck</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+        {% for d in dauer %}
+        <tr {{ 'style=opacity:.55' if not d.aktiv }}>
+            <td>{{ d.spender_name }}</td>
+            <td>{{ iv_label.get(d.intervall, d.intervall) }}</td>
+            <td style="text-align:right">{{ d.betrag | euro }}</td>
+            <td class="sub">{{ d.zweck or '—' }}</td>
+            <td>{% if d.aktiv %}<span style="color:var(--gruen)">● aktiv</span>{% else %}<span class="sub">pausiert</span>{% endif %}</td>
+            <td style="text-align:right;white-space:nowrap">
+                <form method="post" action="{{ url_for('spenden.dauer_zahlung', did=d.id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-klein" title="Eingegangene Zahlung als Spende erfassen">＋ Zahlung</button>
+                </form>
+                <form method="post" action="{{ url_for('spenden.dauer_umschalten', did=d.id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein">{{ '⏸' if d.aktiv else '▶' }}</button>
+                </form>
+                <form method="post" action="{{ url_for('spenden.dauer_loeschen', did=d.id) }}" style="display:inline" onsubmit="return confirm('Wiederkehrende Spende löschen?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein">🗑</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="sub">Noch keine wiederkehrenden Spenden angelegt.</p>
+    {% endif %}
+</div>
+
+<!-- Erfolgte Spenden -->
+<div class="karte">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">
+        <h2 style="margin:0">🧾 Erfolgte Spenden {{ jahr }}</h2>
+        <div style="font-weight:700">Summe: {{ summe | euro }}</div>
+    </div>
+    {% if einzel %}
+{% set tf_ziel = '#spendenliste' %}
+{% include '_tabellen_filter.html' %}
+    <div class="tabellen-scroll">
+    <table id="spendenliste" class="tabelle" style="margin-top:12px">
+        <thead><tr><th>Datum</th><th>Spender:in/in</th><th style="text-align:right">Betrag</th><th>Zweck</th><th>Art</th><th></th></tr></thead>
+        <tbody>
+        {% for s in einzel %}
+        <tr>
+            <td>{{ s.datum | datum_de }}</td>
+            <td>{{ s.spender_name }}{% if s.dauerspende_id %} <span class="sub" title="aus wiederkehrender Spende">🔁</span>{% endif %}</td>
+            <td style="text-align:right">{{ s.betrag | euro }}</td>
+            <td class="sub">{{ s.zweck or '—' }}</td>
+            <td class="sub">{{ 'Sach' if s.art == 'sach' else 'Geld' }}</td>
+            <td style="text-align:right;white-space:nowrap">
+                <a class="btn btn-klein" href="{{ url_for('spenden.bescheinigung', sid=s.id) }}" target="_blank">📄 Bescheinigung</a>
+                <form method="post" action="{{ url_for('spenden.loeschen', sid=s.id) }}" style="display:inline" onsubmit="return confirm('Spende löschen?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein">🗑</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="sub" style="margin-top:12px">Für {{ jahr }} sind noch keine Spenden erfasst.</p>
+    {% endif %}
+</div>
+
+<script>
+function spTyp(){
+    var w = document.querySelector('input[name=spende_typ]:checked').value === 'wiederkehrend';
+    document.querySelectorAll('.sp-wieder').forEach(function(e){ e.style.display = w ? '' : 'none'; });
+    document.querySelectorAll('.sp-einmalig').forEach(function(e){ e.style.display = w ? 'none' : ''; });
+}
+var MITGL = {
+{% for m in mitglieder %}"{{ m.id }}": {n: "{{ (m.vorname ~ ' ' ~ m.nachname)|trim|e }}"}{{ ',' if not loop.last }}
+{% endfor %}
+};
+function spMitglied(){
+    var id = document.getElementById('sp_mid').value;
+    if(id && MITGL[id] && !document.getElementById('sp_name').value){
+        document.getElementById('sp_name').value = MITGL[id].n;
+    }
+}
+</script>
+<!-- Sammelbestätigungen + Ablage der unterschriebenen Bescheinigungen -->
+<div class="karte">
+    <h2 style="margin-top:0">📄 Bescheinigungen je Spender:in {{ jahr }}</h2>
+    <p class="feld-hinweis" style="margin:0 0 8px">Die <strong>Sammelbestätigung</strong> fasst alle Geldspenden
+        einer Person aus {{ jahr }} in EINER Zuwendungsbestätigung zusammen (mit Einzelaufstellung als Anlage).
+        Die unterschriebene Fassung kannst du hier als PDF oder Foto zur Dokumentation ablegen.
+        Sachspenden brauchen weiterhin eine Einzelbescheinigung (Liste oben).</p>
+    {% if spender_gruppen %}
+    <table class="tabelle">
+        <thead><tr><th>Spender:in</th><th style="text-align:right">Geldspenden {{ jahr }}</th>
+            <th></th><th>Abgelegte unterschriebene Bescheinigungen</th></tr></thead>
+        <tbody>
+        {% for g in spender_gruppen %}
+        <tr>
+            <td>{% if g.mid %}<a href="{{ url_for('mitglieder.detail', mid=g.mid) }}">{{ g.name }}</a>{% else %}{{ g.name }}{% endif %}
+                {% if g.sach_anzahl %}<div class="feld-hinweis">+ {{ g.sach_anzahl }} Sachspende{{ 'n' if g.sach_anzahl != 1 }} (Einzelbescheinigung)</div>{% endif %}</td>
+            <td style="text-align:right;white-space:nowrap">{{ g.geld_summe | euro }}
+                <div class="feld-hinweis">{{ g.geld_anzahl }} Spende{{ 'n' if g.geld_anzahl != 1 }}</div></td>
+            <td style="white-space:nowrap">
+                {% if g.geld_anzahl %}
+                <a class="btn btn-klein" target="_blank"
+                   href="{{ url_for('spenden.sammelbestaetigung', jahr=jahr, mid=g.mid or None, spender=None if g.mid else g.name) }}">📄 Sammelbestätigung</a>
+                {% endif %}
+            </td>
+            <td>
+                {% for d in g.dokumente %}
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                    <a href="{{ url_for('spenden.dokument', did=d.id) }}" target="_blank">✅ {{ d.original_name or d.dateiname }}</a>
+                    <span class="feld-hinweis">{{ d.hochgeladen_am | datum_de }}</span>
+                    <form method="post" action="{{ url_for('spenden.dokument_loeschen', did=d.id) }}" style="display:inline"
+                          onsubmit="return confirm('Abgelegte Bescheinigung löschen?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn btn-sekundaer btn-klein">🗑</button>
+                    </form>
+                </div>
+                {% endfor %}
+                <form method="post" action="{{ url_for('spenden.dokument_hochladen') }}" enctype="multipart/form-data"
+                      style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="jahr" value="{{ jahr }}">
+                    {% if g.mid %}<input type="hidden" name="mid" value="{{ g.mid }}">{% endif %}
+                    <input type="hidden" name="spender" value="{{ g.name }}">
+                    <input type="file" name="datei" accept=".pdf,image/*" style="font-size:12px;max-width:190px" required>
+                    <button class="btn btn-sekundaer btn-klein">⬆️ Ablegen</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="feld-hinweis">Für {{ jahr }} sind noch keine Spenden erfasst.</p>
+    {% endif %}
+</div>
+
+<div class="karte" id="kassenbuch" style="scroll-margin-top:16px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+        <h2 style="margin-top:0">💶 Als Spende gebucht im Kassenbuch {{ jahr }} <span class="feld-hinweis" style="font-weight:400">({{ kassen_summe | euro }})</span></h2>
+        <a href="{{ url_for('finanzen.liste', jahr=jahr) }}" class="feld-hinweis">Zum Kassenbuch →</a>
+    </div>
+    <p class="feld-hinweis" style="margin:0 0 8px">Das sind die echten Zahlungseingänge (Konto „0120 Spenden" bzw. Kategorie „Spende").
+        Weicht die Summe von der Spendenliste oben ab, fehlt entweder eine Buchung oder ein Eintrag in der Spendenliste.
+        Die Spalte <strong>Mitglied</strong> hält fest, von wem das Geld kam – bei Sammel-Einzahlungen
+        (Spendenbox, Hutspende) steht dort die einzahlende Person.</p>
+    {% if kassen_vorschlaege %}
+    <form method="post" action="{{ url_for('spenden.kassenbuch_zuordnen') }}" style="margin:0 0 10px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="jahr" value="{{ jahr }}">
+        <input type="hidden" name="aktion" value="vorschlaege">
+        <button class="btn">✨ {{ kassen_vorschlaege }} erkannte{{ 'n' if kassen_vorschlaege == 1 }} Vorschl{{ 'ag' if kassen_vorschlaege == 1 else 'äge' }} übernehmen</button>
+        <span class="feld-hinweis">Vorschlag = Vor- und Nachname genau eines Mitglieds stehen im Buchungstext.</span>
+    </form>
+    {% endif %}
+    {% if kassen_spenden %}
+    <table class="tabelle">
+        <thead><tr><th>Datum</th><th>Text</th><th>Mitglied</th><th style="text-align:right">Betrag</th></tr></thead>
+        <tbody>
+        {% for b in kassen_spenden %}
+        <tr>
+            <td style="white-space:nowrap">{{ b.datum | datum_de }}</td>
+            <td>{{ b.beschreibung }}<div class="feld-hinweis">{{ b.konto_nr or '' }} {{ b.konto_name or '' }}</div></td>
+            <td style="white-space:nowrap">
+                {% if b.mitglied_id %}
+                <a href="{{ url_for('mitglieder.detail', mid=b.mitglied_id) }}">👤 {{ b.mitglied_name or 'Mitglied #' ~ b.mitglied_id }}</a>
+                <form method="post" action="{{ url_for('spenden.kassenbuch_zuordnen') }}" style="display:inline"
+                      onsubmit="return confirm('Zuordnung lösen?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="jahr" value="{{ jahr }}">
+                    <input type="hidden" name="bid" value="{{ b.id }}">
+                    <button class="btn btn-sekundaer btn-klein" title="Zuordnung lösen">✕</button>
+                </form>
+                {% if b.in_liste %}
+                <span class="feld-hinweis" title="zählt in die Bescheinigung">✓ Spendenliste</span>
+                {% elif b.betrag > 0 %}
+                <form method="post" action="{{ url_for('spenden.kassenbuch_in_liste') }}" style="display:inline"
+                      onsubmit="return confirm('Als persönliche Spende dieses Mitglieds in die Spendenliste übernehmen?\nNICHT für Sammel-Einzahlungen (Spendenbox, Hutspende) – da ist die einzahlende Person nicht die Spenderin.')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="jahr" value="{{ jahr }}">
+                    <input type="hidden" name="bid" value="{{ b.id }}">
+                    <button class="btn btn-sekundaer btn-klein" title="In die Spendenliste übernehmen (zählt dann in die Bescheinigung)">→ Spendenliste</button>
+                </form>
+                {% endif %}
+                {% else %}
+                <form method="post" action="{{ url_for('spenden.kassenbuch_zuordnen') }}"
+                      style="display:flex;gap:4px;align-items:center">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="jahr" value="{{ jahr }}">
+                    <input type="hidden" name="bid" value="{{ b.id }}">
+                    <select name="mid" style="max-width:170px;padding:4px;font-size:12.5px">
+                        <option value="">— kein Mitglied —</option>
+                        {% for m in mitglieder %}<option value="{{ m.id }}" {{ 'selected' if m.id == b.vorschlag_mid }}>{{ m.nachname }}, {{ m.vorname }}</option>{% endfor %}
+                    </select>
+                    <button class="btn btn-sekundaer btn-klein" title="Mitglied zuordnen">✓</button>
+                    {% if b.vorschlag_mid %}<span title="Vorschlag aus dem Buchungstext erkannt">✨</span>{% endif %}
+                </form>
+                {% endif %}
+            </td>
+            <td style="text-align:right;color:var(--gruen)">+ {{ b.betrag | euro }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="feld-hinweis">Noch keine Spenden-Buchungen im Kassenbuch {{ jahr }}.</p>
+    {% endif %}
+</div>
+
+<div class="karte" id="kampagnen" style="scroll-margin-top:16px">
+    <h2 style="margin-top:0">🎯 Spendenkampagnen</h2>
+    <p class="feld-hinweis" style="margin-top:-4px">Für ein konkretes Ziel sammeln – mit Fortschrittsbalken
+        und einer öffentlichen Seite zum Teilen (WhatsApp, Social Media, Newsletter).</p>
+
+    {% for k in kampagnen %}
+    <div style="border:1px solid var(--linie);border-radius:12px;padding:14px;margin-bottom:12px;
+                {{ 'opacity:.6' if not k.aktiv }}">
+        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline">
+            <strong style="font-size:16px">{{ k.titel }}</strong>
+            <span class="feld-hinweis">{{ k.anzahl }} Spende{{ 'n' if k.anzahl != 1 }}
+                {%- if k.ende_datum %} · bis {{ k.ende_datum | datum_de }}{% endif %}</span>
+        </div>
+        {% if k.kurztext %}<div class="feld-hinweis">{{ k.kurztext }}</div>{% endif %}
+        {% if k.ziel %}
+        <div style="background:var(--flaeche-3);border-radius:999px;height:12px;overflow:hidden;margin:8px 0 4px">
+            <div style="height:100%;width:{{ [k.quote, 100] | min }}%;border-radius:999px;
+                        background:{{ 'var(--gruen)' if k.geschafft else 'var(--blau)' }}"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13.5px">
+            <strong>{{ k.stand | euro }}</strong>
+            <span class="feld-hinweis">{{ k.quote }} % von {{ k.ziel | euro }}{% if k.geschafft %} 🎉 geschafft!{% endif %}</span>
+        </div>
+        {% endif %}
+        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center">
+            {% if k.token %}
+            <input type="text" readonly value="{{ request.host_url.rstrip('/') }}{{ url_for('spenden.kampagne_oeffentlich', token=k.token) }}"
+                   onclick="this.select()" style="flex:1;min-width:220px;font-size:12.5px;padding:6px 8px">
+            <a href="{{ url_for('spenden.kampagne_oeffentlich', token=k.token) }}" target="_blank"
+               class="btn btn-sekundaer btn-klein">🔗 Ansehen</a>
+            {% endif %}
+            <form method="post" action="{{ url_for('spenden.kampagne_speichern', kid=k.id) }}" style="display:inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="aktion" value="umschalten">
+                <button class="btn btn-sekundaer btn-klein">{{ '⏸ Pausieren' if k.aktiv else '▶ Aktivieren' }}</button>
+            </form>
+            <form method="post" action="{{ url_for('spenden.kampagne_speichern', kid=k.id) }}" style="display:inline"
+                  onsubmit="return confirm('Kampagne löschen? Die Spenden bleiben erhalten.')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="aktion" value="loeschen">
+                <button class="btn btn-sekundaer btn-klein">✕</button>
+            </form>
+        </div>
+    </div>
+    {% else %}
+    <p class="feld-hinweis">Noch keine Kampagne. Lege unten die erste an – z. B. „Neue Bestuhlung".</p>
+    {% endfor %}
+
+    <details style="margin-top:10px">
+        <summary style="cursor:pointer;font-weight:600">＋ Neue Kampagne anlegen</summary>
+        <form method="post" action="{{ url_for('spenden.kampagne_neu') }}" style="margin-top:10px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="feld-reihe">
+                <div class="feld"><label>Titel *</label>
+                    <input type="text" name="titel" required placeholder="z. B. Neue Bestuhlung für den Saal"></div>
+                <div class="feld" style="max-width:160px"><label>Ziel (€)</label>
+                    <input type="text" name="ziel" inputmode="decimal" placeholder="2.500,00"></div>
+                <div class="feld" style="max-width:180px"><label>Läuft bis</label>
+                    <input type="date" name="ende_datum"></div>
+            </div>
+            <div class="feld"><label>Kurztext (ein Satz, erscheint oben)</label>
+                <input type="text" name="kurztext" placeholder="Damit alle im Saal einen guten Platz haben."></div>
+            <div class="feld"><label>Ausführlicher Text</label>
+                <textarea name="text" rows="5" placeholder="Worum geht es? Was passiert mit dem Geld? Warum lohnt es sich?"></textarea></div>
+            <button class="btn">🎯 Kampagne starten</button>
+        </form>
+    </details>
+</div>
+
+{% endblock %}

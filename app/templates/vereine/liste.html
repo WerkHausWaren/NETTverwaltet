@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Vereine{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Meine Vereine</h1><div class="sub">Mehrere Vereine getrennt verwalten und zwischen ihnen wechseln</div></div>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Neuen Verein anlegen</h2>
+    <form method="post" action="{{ url_for('vereine.neu') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld-reihe" style="align-items:end">
+            <div class="feld" style="margin-bottom:0"><label>Name des Vereins</label>
+                <input type="text" name="vereinsname" placeholder="z.B. Sportverein Musterstadt e.V." required></div>
+            <div class="feld" style="margin-bottom:0">
+                <label><input type="checkbox" name="wechseln" style="width:auto" checked> direkt dorthin wechseln</label>
+                <button type="submit" class="btn" style="margin-top:8px">＋ Verein anlegen</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<table>
+    <thead><tr><th>Verein</th><th>Ort</th><th class="rechts">Mitglieder</th><th></th></tr></thead>
+    <tbody>
+    {% for v in vereine %}
+        <tr>
+            <td>
+                <strong>{{ v.vereinsname or 'Ohne Namen' }}</strong>
+                {% if v.id == aktive_id %}<span class="badge badge-aktiv" style="margin-left:6px">aktiv</span>{% endif %}
+            </td>
+            <td>{{ v.plz }} {{ v.ort }}</td>
+            <td class="rechts">{{ v.mitglieder }}</td>
+            <td class="rechts">
+                <div class="aktionen" style="justify-content:flex-end">
+                {% if v.id != aktive_id %}
+                    <form method="post" action="{{ url_for('vereine.wechseln', vid=v.id) }}" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn btn-klein">Wechseln</button>
+                    </form>
+                {% endif %}
+                    <form method="post" action="{{ url_for('vereine.loeschen', vid=v.id) }}" style="display:inline"
+                          onsubmit="return confirm('Verein „{{ v.vereinsname }}“ und ALLE zugehörigen Daten unwiderruflich löschen?')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn btn-sekundaer btn-klein">Löschen</button>
+                    </form>
+                </div>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+{% if vereine|length > 1 %}
+<div class="karte" style="margin-top:24px">
+    <h2 style="margin-top:0">Daten von einem Verein übernehmen</h2>
+    <p class="feld-hinweis">Kopiert ausgewählte Daten aus einem Quellverein in einen Zielverein (z.B. wenn Mitglieder in mehreren Vereinen sind).</p>
+    <form method="post" action="{{ url_for('vereine.uebernehmen') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld-reihe">
+            <div class="feld"><label>Von (Quelle)</label>
+                <select name="quelle">{% for v in vereine %}<option value="{{ v.id }}">{{ v.vereinsname }}</option>{% endfor %}</select>
+            </div>
+            <div class="feld"><label>Nach (Ziel)</label>
+                <select name="ziel">{% for v in vereine %}<option value="{{ v.id }}" {{ 'selected' if v.id==aktive_id }}>{{ v.vereinsname }}</option>{% endfor %}</select>
+            </div>
+        </div>
+        <div class="feld"><label>Was übernehmen?</label>
+            <div class="tag-auswahl">
+                {% for schluessel, bez in uebernehmbar.items() %}
+                <label><input type="checkbox" name="arten" value="{{ schluessel }}" {{ 'checked' if schluessel=='mitglieder' }}> {{ bez }}</label>
+                {% endfor %}
+            </div>
+        </div>
+        <button type="submit" class="btn" onclick="return confirm('Ausgewählte Daten jetzt kopieren?')">Daten übernehmen</button>
+    </form>
+</div>
+{% endif %}
+{% endblock %}

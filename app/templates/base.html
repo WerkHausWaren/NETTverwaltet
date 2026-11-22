@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="de" data-modus="{{ aussehen_modus }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Vereinsverwaltung{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+    <link rel="apple-touch-icon" href="/app-icon-180.png">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {# Aussehen: kommt aus app/design.py – Vereinsvorgabe, vom Nutzer
+       überschrieben. Steht NACH style.css, gewinnt also. #}
+    <style>{{ aussehen_css | safe }}</style>
+    <style>
+        /* Buttons: Textfarbe automatisch nach Hintergrund */
+        .btn { background: var(--blau); color: var(--auf-primaer); }
+        .btn-sekundaer { background: var(--flaeche); color: var(--text); }
+        .btn-gefahr { background: var(--rot); color: #fff; }   /* sonst überdeckt .btn oben das Rot (alle Lösch-Knöpfe waren blau) */
+        /* Seitenleiste: Hintergrund + automatisch kontrastierende Schrift */
+        .sidebar { background: var(--sidebar); color: var(--auf-sidebar); }
+        .brand-name { color: var(--auf-sidebar); }
+        .brand-sub { color: var(--auf-sidebar); opacity: .6; }
+        .sidebar nav a, .sidebar-bottom a { color: var(--auf-sidebar); opacity: .82; font-size: 15.5px; }
+        .sidebar nav a:hover, .sidebar-bottom a:hover { background: rgba(148,163,184,0.22); opacity: 1; color: var(--auf-sidebar); }
+        .sidebar nav a.active, .sidebar-bottom a.active { background: var(--blau); color: var(--auf-primaer); opacity: 1; }
+        /* 2. Ebene: gleiche Farben wie der übergeordnete Punkt, voller Kontrast */
+        .sidebar nav a.unterpunkt, .sidebar-bottom a.unterpunkt { padding-left: 34px; font-size: 14.5px;
+                              color: var(--auf-sidebar); opacity: .92; }
+        .sidebar nav a.unterpunkt:hover, .sidebar-bottom a.unterpunkt:hover { background: rgba(148,163,184,0.22);
+                              opacity: 1; color: var(--auf-sidebar); }
+        .sidebar nav a.unterpunkt.active, .sidebar-bottom a.unterpunkt.active { background: var(--blau);
+                              color: var(--auf-primaer); opacity: 1; }
+        .fn-suche { padding: 4px 12px 8px; position: relative; }
+        .fn-suche input { width: 100%; box-sizing: border-box; border: 1px solid rgba(148,163,184,.45);
+                          border-radius: 999px; padding: 7px 13px; font-size: 13.5px;
+                          background: rgba(148,163,184,.14); color: var(--auf-sidebar); }
+        .fn-suche input::placeholder { color: var(--auf-sidebar); opacity: .55; }
+        .fn-suche input:focus { outline: none; background: rgba(148,163,184,.22); }
+        #fn-treffer { display: flex; flex-direction: column; margin-top: 6px; border-radius: 12px;
+                      overflow: hidden; background: rgba(15,23,42,.28); }
+        #fn-treffer[hidden] { display: none; }
+        #fn-treffer a { display: block; padding: 7px 12px; text-decoration: none; font-size: 14px;
+                        color: var(--auf-sidebar); opacity: .92; }
+        #fn-treffer a:hover, #fn-treffer a.fn-aktiv { background: var(--blau); color: var(--auf-primaer); opacity: 1; }
+        #fn-treffer .fn-bereich { display: block; font-size: 10.5px; opacity: .65; }
+        #fn-treffer .fn-leer { padding: 7px 12px; font-size: 12.5px; opacity: .6; }
+        .nav-parent { display: flex; align-items: center; }
+        .nav-parent > a { flex: 1 1 auto; min-width: 0; }
+        .nav-toggle { background: none; border: none; cursor: pointer; color: var(--auf-sidebar); opacity: .6;
+                      font-size: 18px; font-weight: 600; padding: 4px 10px; line-height: 1; flex: none; width: 34px; }
+        .nav-toggle:hover { opacity: 1; }
+        .nav-toggle::before { content: "+"; }
+        .nav-gruppe.offen .nav-toggle::before { content: "–"; }
+        .nav-gruppe:not(.offen) .nav-kinder { display: none; }
+        .nav-kinder { position: relative; display: flex; flex-direction: column; }
+        .nav-kinder::before { content: ""; position: absolute; left: 20px; top: 2px; bottom: 4px; width: 1.5px;
+                              background: rgba(148, 163, 184, .45); border-radius: 2px; }
+        .verein-wechsel select { color: var(--auf-sidebar); border-color: rgba(148,163,184,0.35); }
+    </style>
+</head>
+<body>
+<div class="topbar">
+    <span class="topbar-titel">{{ verein_name or 'Vereinsverwaltung' }}</span>
+</div>
+<div class="sidebar-backdrop" onclick="navZu()"></div>
+<button class="donut" type="button" onclick="navUmschalten()" aria-label="Menü öffnen" aria-expanded="false">
+    <span class="donut-icon"></span>
+</button>
+<div class="layout">
+    <aside class="sidebar">
+        <div class="brand">
+            <a href="{{ url_for('dashboard.index') }}" title="Zum Dashboard" style="display:block;width:100%;text-decoration:none;color:inherit">
+            {% if design and design.logo_dateiname %}
+                <div class="brand-kreis" style="
+                    background-color: {{ design.logo_kreis_farbe or '#ffffff' }};
+                    background-image: url('{{ url_for('einstellungen.logo', verein_id=aktiver_verein_id) }}?v={{ design.logo_dateiname }}');
+                    background-size: {{ design.logo_zoom if design.logo_zoom else 100 }}%;
+                    background-position: {{ design.logo_pos_x if design.logo_pos_x is not none else 50 }}% {{ design.logo_pos_y if design.logo_pos_y is not none else 50 }}%;"></div>
+            {% else %}
+                <div class="brand-logo">🗂️</div>
+            {% endif %}
+            </a>
+            <div class="brand-name">{{ verein_name or 'Vereinsverwaltung' }}</div>
+            {% if design and (design.strasse or design.plz or design.ort) %}
+            <div class="brand-adresse">
+                {% if design.strasse %}{{ design.strasse }}<br>{% endif %}{{ design.plz }} {{ design.ort }}
+            </div>
+            {% else %}
+            <div class="brand-sub">Lokale Verwaltung</div>
+            {% endif %}
+        </div>
+
+        {% if alle_vereine and alle_vereine|length > 1 %}
+        <form method="post" id="vereinwechsel" class="verein-wechsel">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <select onchange="document.getElementById('vereinwechsel').action='/vereine/'+this.value+'/wechseln'; document.getElementById('vereinwechsel').submit();">
+                {% for v in alle_vereine %}
+                <option value="{{ v.id }}" {{ 'selected' if v.id == aktiver_verein_id }}>{{ v.vereinsname or 'Ohne Namen' }}</option>
+                {% endfor %}
+            </select>
+        </form>
+        {% endif %}
+
+        {% set nur_finanzen = current_user.is_authenticated and current_user.rolle == 'schatz' %}
+        {% set nur_oea = current_user.is_authenticated and current_user.rolle == 'oeffentlichkeit' %}
+        <div class="fn-suche">
+            <input id="fn-suche" type="search" placeholder="🔍 Funktion suchen …" autocomplete="off"
+                   aria-label="Funktion suchen (Strg+K)" title="Direkt zu einer Verwaltungsfunktion springen (Strg+K / ⌘K)">
+            <div id="fn-treffer" hidden></div>
+        </div>
+        <nav>
+            <a href="{{ url_for('portal.home') }}" target="_blank" rel="noopener" title="Mitglieder-App in neuem Tab öffnen">📱 Mitglieder-App</a>
+            <a href="{{ url_for('dashboard.index') }}" class="{{ 'active' if aktiv == 'dashboard' }}">🏠 Dashboard</a>
+            {% if not nur_finanzen and not nur_oea %}
+            <a href="{{ url_for('aufgaben.index') }}" class="{{ 'active' if aktiv == 'aufgaben' }}">✅ Aufgaben</a>
+
+            <div class="nav-gruppe {{ 'offen' if aktiv in ['mitglieder','gruppen','kontakte','zugaenge','schluessel','mitgliedschaft'] }}" data-gruppe="mitglieder">
+                <div class="nav-parent">
+                    <a href="{{ url_for('mitglieder.liste') }}" class="{{ 'active' if aktiv == 'mitglieder' }}">👥 Mitglieder</a>
+                    <button class="nav-toggle" type="button" onclick="navGruppe(this)" aria-label="Aus-/einklappen"></button>
+                </div>
+                <div class="nav-kinder">
+                    <a href="{{ url_for('gruppen.liste') }}" class="unterpunkt {{ 'active' if aktiv == 'gruppen' }}">🏷️ Gruppen</a>
+                    <a href="{{ url_for('mitglieder.antraege') }}" class="unterpunkt {{ 'active' if aktiv == 'mitgliedschaft' }}">🤝 Mitgliedschaft</a>
+                    <a href="{{ url_for('kontakte.index') }}" class="unterpunkt {{ 'active' if aktiv == 'kontakte' }}">📇 Kontakte</a>
+                    <a href="{{ url_for('zugaenge.index') }}" class="unterpunkt {{ 'active' if aktiv == 'zugaenge' }}">🔐 Zugänge</a>
+                    {% if design and design.modul_schluessel %}<a href="{{ url_for('schluessel.index') }}" class="unterpunkt {{ 'active' if aktiv == 'schluessel' }}">🔑 Schlüsselbuch</a>{% endif %}
+                </div>
+            </div>
+
+            <div class="nav-gruppe {{ 'offen' if aktiv in ['kommunikation','ankuendigungen','dokumente'] }}" data-gruppe="kommunikation">
+                <div class="nav-parent">
+                    <a href="{{ url_for('kommunikation.neu') }}" class="{{ 'active' if aktiv == 'kommunikation' and request.endpoint == 'kommunikation.neu' }}">✉️ Kommunikation</a>
+                    <button class="nav-toggle" type="button" onclick="navGruppe(this)" aria-label="Aus-/einklappen"></button>
+                </div>
+                <div class="nav-kinder">
+                    <a href="{{ url_for('kommunikation.ankuendigungen') }}" class="unterpunkt {{ 'active' if aktiv == 'ankuendigungen' }}">📣 Ankündigungen</a>
+                    <a href="{{ url_for('kommunikation.schwarzes_brett') }}" class="unterpunkt {{ 'active' if request.endpoint and request.endpoint.startswith('kommunikation.schwarzes_brett') }}">📌 Schwarzes Brett</a>
+                    <a href="{{ url_for('kommunikation.vorlagen') }}" class="unterpunkt {{ 'active' if request.endpoint == 'kommunikation.vorlagen' }}">📝 Vorlagen</a>
+                    <a href="{{ url_for('dokumente.index') }}" class="unterpunkt {{ 'active' if aktiv == 'dokumente' }}">🖨️ Listen &amp; Serienbriefe</a>
+                </div>
+            </div>
+
+            {% endif %}
+            {% if not nur_oea %}
+            <div class="nav-gruppe {{ 'offen' if aktiv in ['finanzen','beitraege','bank','spenden','rechnungen','foerderung','auswertungen','finanz_vorlagen'] }}" data-gruppe="finanzen">
+                <div class="nav-parent">
+                    <a href="{{ url_for('finanzen.liste') }}" class="{{ 'active' if aktiv == 'finanzen' }}">📊 Finanzen</a>
+                    <button class="nav-toggle" type="button" onclick="navGruppe(this)" aria-label="Aus-/einklappen"></button>
+                </div>
+                <div class="nav-kinder">
+                    <a href="{{ url_for('beitraege.liste') }}" class="unterpunkt {{ 'active' if aktiv == 'beitraege' }}">💶 Beiträge / SEPA</a>
+                    <a href="{{ url_for('bank.index') }}" class="unterpunkt {{ 'active' if aktiv == 'bank' }}">💳 Konten</a>
+                    {% if design and design.modul_rechnungen %}<a href="{{ url_for('rechnungen.index') }}" class="unterpunkt {{ 'active' if aktiv == 'rechnungen' }}">🧾 Rechnungen</a>{% endif %}
+                    {% if design and design.modul_spenden %}<a href="{{ url_for('spenden.index') }}" class="unterpunkt {{ 'active' if aktiv == 'spenden' }}">💝 Spenden</a>{% endif %}
+                    <a href="{{ url_for('foerderung.index') }}" class="unterpunkt {{ 'active' if aktiv == 'foerderung' }}">🎯 Fördermittel</a>
+                    <a href="{{ url_for('auswertungen.index') }}" class="unterpunkt {{ 'active' if aktiv == 'auswertungen' }}">📈 Auswertungen</a>
+                    <a href="{{ url_for('finanzen.vorlagen') }}" class="unterpunkt {{ 'active' if aktiv == 'finanz_vorlagen' }}">🖨️ Vorlagen</a>
+                </div>
+            </div>
+            {% endif %}
+            {% if not nur_finanzen %}
+            <div class="nav-gruppe {{ 'offen' if aktiv == 'oea' }}" data-gruppe="oea">
+                <div class="nav-parent">
+                    <a href="{{ url_for('oea.index') }}" class="{{ 'active' if aktiv == 'oea' and request.endpoint == 'oea.index' }}">📣 Öffentlichkeit</a>
+                    <button class="nav-toggle" type="button" onclick="navGruppe(this)" aria-label="Aus-/einklappen"></button>
+                </div>
+                <div class="nav-kinder">
+                    <a href="{{ url_for('oea.plan') }}" class="unterpunkt {{ 'active' if request.endpoint in ['oea.plan', 'oea.bearbeiten', 'oea.neu'] }}">📋 Redaktionsplan</a>
+                    <a href="{{ url_for('oea.werkstatt') }}" class="unterpunkt {{ 'active' if request.endpoint == 'oea.werkstatt' }}">🪄 Beitrags-Werkstatt</a>
+                    <a href="{{ url_for('oea.plan', typ='presse') }}" class="unterpunkt">📰 Pressefach</a>
+                    <a href="{{ url_for('oea.verteiler') }}" class="unterpunkt {{ 'active' if request.endpoint == 'oea.verteiler' }}">📇 Presseverteiler</a>
+                    <a href="{{ url_for('oea.fotos') }}" class="unterpunkt {{ 'active' if request.endpoint == 'oea.fotos' }}">📸 Fotoarchiv</a>
+                    <a href="{{ url_for('oea.kommentare') }}" class="unterpunkt {{ 'active' if request.endpoint == 'oea.kommentare' }}">💬 Kommentare</a>
+                    {% if design and design.modul_signage %}<a href="{{ url_for('signage.verwaltung') }}" class="unterpunkt {{ 'active' if request.endpoint and request.endpoint.startswith('signage.') }}">📺 Signage</a>{% endif %}
+                    {% if design and design.modul_contenthub %}<a href="{{ url_for('oea.hub') }}" class="unterpunkt {{ 'active' if request.endpoint == 'oea.hub' }}">🚀 Content-Hub</a>{% endif %}
+                    {% if nur_oea %}<a href="{{ url_for('kommunikation.ankuendigungen') }}" class="unterpunkt {{ 'active' if aktiv == 'ankuendigungen' }}">📣 Ankündigungen</a>{% endif %}
+                </div>
+            </div>
+            {% endif %}
+            {% if not nur_finanzen and not nur_oea %}
+            <div class="nav-gruppe {{ 'offen' if aktiv in ['kalender','termine','termine_neu','veranstaltungen','schichten','adventskalender','verteilen'] }}" data-gruppe="kalender">
+                <div class="nav-parent">
+                    <a href="{{ url_for('kalender.index') }}" class="{{ 'active' if aktiv in ['kalender','termine','termine_neu'] }}">📆 Termine</a>
+                    <button class="nav-toggle" type="button" onclick="navGruppe(this)" aria-label="Aus-/einklappen"></button>
+                </div>
+                <div class="nav-kinder">
+                    {% if design and design.modul_veranstaltungen %}<a href="{{ url_for('veranstaltungen.index') }}" class="unterpunkt {{ 'active' if aktiv == 'veranstaltungen' }}">🎟️ Anmeldungen</a>{% endif %}
+                    {% if design and design.modul_adventskalender %}<a href="{{ url_for('lak.index') }}" class="unterpunkt {{ 'active' if aktiv == 'adventskalender' }}">🎄 Adventskalender</a>{% endif %}
+                    <a href="{{ url_for('schichten.index') }}" class="unterpunkt {{ 'active' if aktiv == 'schichten' }}">🧑‍🤝‍🧑 Schichten</a>
+                    {% if design and design.modul_verteilen %}<a href="{{ url_for('verteilen.index') }}" class="unterpunkt {{ 'active' if aktiv == 'verteilen' }}">🗺️ Verteilaktionen</a>{% endif %}
+                </div>
+            </div>
+
+            <div class="nav-gruppe {{ 'offen' if aktiv in ['versammlungen','fristen','unterlagen','dms'] }}" data-gruppe="verein">
+                <div class="nav-parent">
+                    <a href="{{ url_for('versammlung.index') }}" class="{{ 'active' if aktiv == 'versammlungen' }}">🏛️ Vereinsführung</a>
+                    <button class="nav-toggle" type="button" onclick="navGruppe(this)" aria-label="Aus-/einklappen"></button>
+                </div>
+                <div class="nav-kinder">
+                    <a href="{{ url_for('fristen.index') }}" class="unterpunkt {{ 'active' if aktiv == 'fristen' }}">⏰ Fristen-Radar</a>
+                    <a href="{{ url_for('unterlagen.index') }}" class="unterpunkt {{ 'active' if aktiv == 'unterlagen' }}">📜 Vereinsunterlagen</a>
+                    {% if design and design.modul_dms %}<a href="{{ url_for('dms.index') }}" class="unterpunkt {{ 'active' if aktiv == 'dms' }}">🗄️ Dateiablage</a>{% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </nav>
+        <div class="sidebar-bottom">
+            {% if not nur_finanzen and not nur_oea %}
+            {% if not config.PRODUKTION %}<a href="{{ url_for('vereine.liste') }}" class="{{ 'active' if aktiv == 'vereine' }}">🗂️ Meine Vereine</a>{% endif %}
+            {% if sync_verfuegbar %}<a href="{{ url_for('sync.index') }}" class="{{ 'active' if aktiv == 'sync' }}">🔄 Synchronisierung</a>{% endif %}
+            <div class="nav-gruppe {{ 'offen' if aktiv in ['einstellungen','sicherung','einstellungen_app','einstellungen_aussehen','einstellungen_absender','einstellungen_bankzugang'] }}" data-gruppe="einstellungen">
+                <div class="nav-parent">
+                    <a href="{{ url_for('einstellungen.index') }}" class="{{ 'active' if aktiv == 'einstellungen' }}">⚙️ Einstellungen</a>
+                    <button class="nav-toggle" type="button" onclick="navGruppe(this)" aria-label="Aus-/einklappen"></button>
+                </div>
+                <div class="nav-kinder">
+                    <a href="{{ url_for('einstellungen.mitglieder_app') }}" class="unterpunkt {{ 'active' if aktiv == 'einstellungen_app' }}">📱 Mitglieder-App</a>
+                    <a href="{{ url_for('einstellungen.aussehen') }}" class="unterpunkt {{ 'active' if aktiv == 'einstellungen_aussehen' }}">🎨 Mein Aussehen</a>
+                    <a href="{{ url_for('einstellungen.absender') }}" class="unterpunkt {{ 'active' if aktiv == 'einstellungen_absender' }}">✉️ Mein Absender</a>
+                    <a href="{{ url_for('einstellungen.bankzugang') }}" class="unterpunkt {{ 'active' if aktiv == 'einstellungen_bankzugang' }}">💳 Mein Bankzugang</a>
+                    <a href="{{ url_for('sicherung.index') }}" class="unterpunkt {{ 'active' if aktiv == 'sicherung' }}">💾 Datensicherung</a>
+                    <a href="{{ url_for('oea.instagram') }}" class="unterpunkt {{ 'active' if request.endpoint == 'oea.instagram' }}">🔗 Instagram-Verbindung</a>
+                </div>
+            </div>
+            {% endif %}
+            {# Kasse und Öffentlichkeitsarbeit sehen die Einstellungen nicht –
+               ihr eigenes Aussehen dürfen sie trotzdem wählen. #}
+            {% if nur_finanzen or nur_oea %}
+            <a href="{{ url_for('einstellungen.aussehen') }}" class="{{ 'active' if aktiv == 'einstellungen_aussehen' }}">🎨 Mein Aussehen</a>
+            <a href="{{ url_for('einstellungen.absender') }}" class="{{ 'active' if aktiv == 'einstellungen_absender' }}">✉️ Mein Absender</a>
+            {% if nur_finanzen %}<a href="{{ url_for('einstellungen.bankzugang') }}" class="{{ 'active' if aktiv == 'einstellungen_bankzugang' }}">💳 Mein Bankzugang</a>{% endif %}
+            {% endif %}
+            <a href="{{ url_for('dashboard.hilfe') }}" class="{{ 'active' if aktiv == 'hilfe' }}">❓ Hilfe & Unterlagen</a>
+            <a href="{{ design.datenschutz_url|sichere_url if (design and design.datenschutz_url) else url_for('einstellungen.rechtliches') }}" target="_blank" rel="noopener">🔒 Impressum & Datenschutz</a>
+            {% if current_user.is_authenticated %}
+            <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--sidebar-hover);font-size:13px">
+                <div style="opacity:.8;padding:2px 0">👤 {{ current_user.anzeigename }}</div>
+                {% if current_user.ist_notfallkonto %}<a href="{{ url_for('auth.zwei_fa_einrichten') }}">🔐 2-Faktor</a>{% endif %}
+            </div>
+            {% endif %}
+            <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--sidebar-hover);font-size:11px;line-height:1.5;opacity:.65">
+                <a href="{{ PROJEKT_URL }}" target="_blank" rel="noopener" style="font-size:11px">NETTverwaltet</a>
+                – ehrenamtlich entwickelt<br>
+                <a href="{{ PROJEKT_SPENDE }}" target="_blank" rel="noopener" style="font-size:11px">❤️ NETTverwaltet unterstützen</a>
+            </div>
+        </div>
+    </aside>
+
+    {% if current_user.is_authenticated %}
+    <a href="{{ url_for('auth.logout') }}" title="Abmelden" aria-label="Abmelden" class="abmelden-knopf">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+    </a>
+    {% endif %}
+    <main class="content {% block inhalt_breite %}{% endblock %}">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-container">
+                {% for kategorie, text in messages %}
+                    <div class="flash flash-{{ kategorie }}">{{ text }}</div>
+                {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+</div>
+<script>
+    function _donutStatus() {
+        var d = document.querySelector('.donut');
+        if (!d) return;
+        var offen = document.body.classList.contains('nav-offen');
+        d.setAttribute('aria-expanded', offen ? 'true' : 'false');
+        d.setAttribute('aria-label', offen ? 'Menü schließen' : 'Menü öffnen');
+    }
+    function navUmschalten() { document.body.classList.toggle('nav-offen'); _donutStatus(); }
+    function navZu() { document.body.classList.remove('nav-offen'); _donutStatus(); }
+    function navGruppe(btn) {
+        var g = btn.closest('.nav-gruppe');
+        g.classList.toggle('offen');
+        try {
+            var st = JSON.parse(localStorage.getItem('navGruppen') || '{}');
+            st[g.dataset.gruppe] = g.classList.contains('offen');
+            localStorage.setItem('navGruppen', JSON.stringify(st));
+        } catch (e) {}
+    }
+    (function () {
+        var st = {};
+        try { st = JSON.parse(localStorage.getItem('navGruppen') || '{}'); } catch (e) {}
+        document.querySelectorAll('.nav-gruppe').forEach(function (g) {
+            if (g.querySelector('a.active')) { g.classList.add('offen'); return; }   // aktive Gruppe immer offen
+            if (st[g.dataset.gruppe] === true) g.classList.add('offen');
+            else if (st[g.dataset.gruppe] === false) g.classList.remove('offen');
+        });
+    })();
+</script>
+
+<style>
+    table.sortierbar th { cursor: pointer; user-select: none; }
+    table.sortierbar th.sort-asc::after  { content: " ▲"; font-size: 10px; opacity: .6; }
+    table.sortierbar th.sort-desc::after { content: " ▼"; font-size: 10px; opacity: .6; }
+</style>
+<script>
+/* Alle Datentabellen der Verwaltung per Klick auf die Überschrift sortieren.
+   Ausgenommen: Kalender-/Layout-Tabellen und Tabellen mit Klasse "no-sort". */
+(function () {
+    var AUSNAHME = ['kal-monat', 'kal-mini', 'kal-woche', 'no-sort'];
+    function schluessel(zelle) {
+        var d = zelle ? zelle.getAttribute('data-sort') : null;
+        var t = ((d !== null ? d : (zelle ? zelle.textContent : '')) || '').trim();
+        if (/^-?\d+([.,]\d+)?$/.test(t)) return [0, parseFloat(t.replace(',', '.'))];        // Zahl
+        var m = t.match(/^(\d{2})\.(\d{2})\.(\d{4})/);   // Datum TT.MM.JJJJ (auch mit Uhrzeit dahinter)
+        if (m) return [0, parseInt(m[3] + m[2] + m[1], 10)];
+        return [1, t.toLowerCase()];                                                          // Text
+    }
+    function sortierbarMachen(tab) {
+        if (!tab.tHead || tab.tHead.rows.length !== 1) return;
+        if (!tab.tBodies.length || tab.tBodies[0].rows.length < 2) return;
+        for (var a = 0; a < AUSNAHME.length; a++) if (tab.classList.contains(AUSNAHME[a])) return;
+        tab.classList.add('sortierbar');
+        var kopf = tab.tHead.rows[0].cells, koerper = tab.tBodies[0];
+        var aktiv = -1, richtung = 1;
+        function sortiere(i) {
+            richtung = (aktiv === i) ? -richtung : 1;
+            aktiv = i;
+            var zeilen = Array.prototype.slice.call(koerper.rows);
+            zeilen.sort(function (r1, r2) {
+                var k1 = schluessel(r1.cells[i]), k2 = schluessel(r2.cells[i]);
+                if (k1[0] !== k2[0]) return String(k1[1]).localeCompare(String(k2[1]), 'de') * richtung;
+                if (k1[0] === 0) return (k1[1] - k2[1]) * richtung;
+                return k1[1].localeCompare(k2[1], 'de') * richtung;
+            });
+            zeilen.forEach(function (r) { koerper.appendChild(r); });
+            for (var k = 0; k < kopf.length; k++) kopf[k].classList.remove('sort-asc', 'sort-desc');
+            kopf[i].classList.add(richtung === 1 ? 'sort-asc' : 'sort-desc');
+            // Blättert die Tabelle (Filterleiste), zeigt die aktuelle Seite nach dem
+            // Sortieren wieder die OBERSTEN Zeilen der neuen Reihenfolge (Audit 06.11.)
+            var ziel = tab.id ? '#' + tab.id : '';
+            if (ziel && window.tfAnwenden && window._tfZustand && window._tfZustand[ziel]) {
+                window.tfAnwenden(ziel);
+            }
+        }
+        for (var i = 0; i < kopf.length; i++) {
+            (function (i) { kopf[i].addEventListener('click', function () { sortiere(i); }); })(i);
+        }
+    }
+    var tabellen = document.querySelectorAll('main.content table');
+    for (var t = 0; t < tabellen.length; t++) sortierbarMachen(tabellen[t]);
+})();
+</script>
+<script src="{{ url_for('static', filename='erwaehnungen.js') }}" defer></script>
+<script id="fn-daten" type="application/json">{{ funktionen_index | tojson }}</script>
+<script>
+(function () {
+    var feld = document.getElementById("fn-suche"),
+        box = document.getElementById("fn-treffer");
+    if (!feld || !box) return;
+    var daten = [];
+    try { daten = JSON.parse(document.getElementById("fn-daten").textContent) || []; }
+    catch (e) { return; }
+    var aktiv = -1;
+
+    function zeigen(liste) {
+        box.innerHTML = "";
+        aktiv = -1;
+        if (!liste.length) {
+            box.innerHTML = '<div class="fn-leer">Nichts gefunden – anderes Stichwort probieren?</div>';
+            box.hidden = false;
+            return;
+        }
+        liste.slice(0, 8).forEach(function (f) {
+            var a = document.createElement("a");
+            a.href = f.p;
+            a.textContent = f.t;
+            var b = document.createElement("span");
+            b.className = "fn-bereich";
+            b.textContent = f.b;
+            a.appendChild(b);
+            box.appendChild(a);
+        });
+        box.hidden = false;
+    }
+
+    function suchen() {
+        var w = feld.value.trim().toLowerCase();
+        if (!w) { box.hidden = true; box.innerHTML = ""; return; }
+        zeigen(daten.filter(function (f) {
+            return (f.t + " " + f.b + " " + f.s).toLowerCase().indexOf(w) !== -1;
+        }));
+    }
+
+    feld.addEventListener("input", suchen);
+    feld.addEventListener("keydown", function (ev) {
+        var links = box.querySelectorAll("a");
+        if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+            if (!links.length) return;
+            ev.preventDefault();
+            aktiv = (ev.key === "ArrowDown")
+                ? (aktiv + 1) % links.length
+                : (aktiv - 1 + links.length) % links.length;
+            links.forEach(function (l, i) { l.classList.toggle("fn-aktiv", i === aktiv); });
+        } else if (ev.key === "Enter") {
+            if (links.length) { ev.preventDefault(); links[aktiv > -1 ? aktiv : 0].click(); }
+        } else if (ev.key === "Escape") {
+            feld.value = ""; box.hidden = true;
+        }
+    });
+    document.addEventListener("keydown", function (ev) {
+        if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "k") {
+            ev.preventDefault();
+            feld.focus();
+            feld.select();
+        }
+    });
+    document.addEventListener("click", function (ev) {
+        if (!ev.target.closest(".fn-suche")) box.hidden = true;
+    });
+})();
+</script>
+{% include "_feier.html" %}
+</body>
+</html>

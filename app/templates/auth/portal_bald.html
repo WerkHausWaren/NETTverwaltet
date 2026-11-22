@@ -1,0 +1,12 @@
+{% extends "auth/_layout.html" %}
+{% block title %}Mitgliederbereich{% endblock %}
+{% block inhalt %}
+<div class="auth-logo">👋</div>
+<h2 class="auth-titel">Hallo{{ ' ' ~ current_user.anzeigename if current_user.is_authenticated }}!</h2>
+<p>Schön, dass du da bist. Der <strong>Mitgliederbereich</strong> (Termine, eigene Daten, Schichten,
+   Dokumente, Chat) wird gerade gebaut und ist bald hier verfügbar.</p>
+<p class="feld-hinweis">Die Vereinsverwaltung selbst ist dem Vorstand vorbehalten.</p>
+<p style="text-align:center;margin-top:16px">
+    <a class="btn btn-sekundaer" href="{{ url_for('auth.logout') }}">Abmelden</a>
+</p>
+{% endblock %}

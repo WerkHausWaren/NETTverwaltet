@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Quittung – {{ a.titel }}</title>
+<style>
+    body { font-family: Georgia, 'Times New Roman', serif; color: #111; margin: 0; font-size: 14px; line-height: 1.6; }
+    .drucken { margin: 18px; font-family: -apple-system, Arial, sans-serif; }
+    .btn { background: #2563eb; color: #fff; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .blatt { width: 180mm; margin: 0 auto; padding: 20mm; box-sizing: border-box; }
+    .kopf { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #999; padding-bottom: 8px; margin-bottom: 26px; }
+    .kopf img { max-height: 22mm; max-width: 60mm; object-fit: contain; }
+    h1 { font-size: 20px; margin: 0 0 20px; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+    td, th { border: 1px solid #333; padding: 8px 10px; text-align: left; }
+    .summe td { font-weight: bold; font-size: 16px; }
+    .unterschrift { margin-top: 50px; }
+    .linie { border-top: 1px solid #333; width: 70mm; padding-top: 4px; font-size: 12px; }
+    @media print { .drucken { display: none; } .blatt { margin: 0; padding: 15mm; } }
+</style>
+</head>
+<body>
+<div class="drucken"><button class="btn" onclick="window.print()">🖨️ Drucken / Als PDF sichern</button></div>
+<div class="blatt">
+    <div class="kopf">
+        <div><strong>{{ einst.vereinsname }}</strong><br>{{ einst.strasse }}<br>{{ einst.plz }} {{ einst.ort }}
+            {% if einst.steuernummer %}<br>Steuernummer: {{ einst.steuernummer }}{% endif %}</div>
+        {% if einst.logo_dateiname %}<img src="{{ url_for('einstellungen.logo', verein_id=einst.id) }}" alt="">{% endif %}
+    </div>
+
+    <h1>Quittung</h1>
+    <p>Wir bestätigen den Erhalt des folgenden Betrags von <strong>{{ a.anmelder_name }}</strong>{% if a.ort %}, {{ a.plz }} {{ a.ort }}{% endif %}:</p>
+
+    <table>
+        <tr><th>Zweck</th><th style="text-align:right">Betrag</th></tr>
+        <tr><td>Teilnahmebeitrag „{{ a.titel }}“ ({{ a.datum | datum_de }}), {{ teilnehmer|length }} Teilnehmende</td>
+            <td style="text-align:right">{{ '%.2f'|format(a.betrag or 0) }} €</td></tr>
+        {% if a.spende %}<tr><td>Spende</td><td style="text-align:right">{{ '%.2f'|format(a.spende) }} €</td></tr>{% endif %}
+        <tr class="summe"><td>Summe</td><td style="text-align:right">{{ '%.2f'|format((a.betrag or 0) + (a.spende or 0)) }} €</td></tr>
+    </table>
+
+    <p>Zahlungsart: {{ a.zahlart or '—' }} · Status: {{ a.bezahlstatus }}{% if a.bezahlt_am %} (am {{ a.bezahlt_am | datum_de }}){% endif %}</p>
+
+    <div class="unterschrift">
+        <p>{{ einst.ort }}, den {{ heute }}</p>
+        <div class="linie">{{ einst.vereinsname }}</div>
+    </div>
+</div>
+</body>
+</html>

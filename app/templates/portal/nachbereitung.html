@@ -1,0 +1,25 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Nachbereitung{% endblock %}
+{% block inhalt %}
+<div class="mp-schmal">
+<p style="margin:14px 0 0"><a href="{{ url_for('portal.schichten') }}" style="text-decoration:none;color:var(--mp);font-weight:600">‹ Zurück</a></p>
+
+<div class="mp-karte">
+    <h2 style="margin:0 0 2px;font-size:18px">📝 Nachbereitung</h2>
+    <p class="feld-hinweis" style="margin:0 0 12px">{{ slot.titel }} · {{ slot.datum | datum_wt }}</p>
+    <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld"><label>Wie viele Besucher:innen waren da?</label>
+            <input type="number" name="besucher" min="0" inputmode="numeric" placeholder="z. B. 45"></div>
+        <div class="feld"><label>Einnahmen / Spenden (optional)</label>
+            <input type="text" name="einnahmen" placeholder="z. B. 120 € Eintritt, 30 € Spenden"></div>
+        <div class="feld"><label>Sind Fragen aufgetreten? (optional)</label>
+            <textarea name="fragen" rows="2" placeholder="z. B. Nachschlüssel fehlt"></textarea></div>
+        <div class="feld"><label>Nachricht an Vorstand / Mitglieder (optional)</label>
+            <textarea name="nachricht" rows="3" placeholder="Alles, was der Vorstand wissen sollte …"></textarea></div>
+        <p class="feld-hinweis" style="margin:2px 0 10px">Bei Fragen oder einer Nachricht wird der Vorstand automatisch benachrichtigt.</p>
+        <button type="submit" class="mp-btn">✓ Rückmeldung senden</button>
+    </form>
+</div>
+</div>
+{% endblock %}

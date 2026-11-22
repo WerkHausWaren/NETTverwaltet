@@ -1,0 +1,12 @@
+{% extends "auth/_layout.html" %}
+{% block title %}Zwei-Faktor{% endblock %}
+{% block inhalt %}
+<div class="auth-logo">🔐</div>
+<h2 class="auth-titel">Zwei-Faktor-Code</h2>
+<form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="feld"><label>6-stelliger Code aus deiner Authenticator-App</label>
+        <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" autofocus></div>
+    <button type="submit" class="btn">Bestätigen</button>
+</form>
+{% endblock %}

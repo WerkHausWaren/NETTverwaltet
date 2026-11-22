@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nachrücken – {{ a.titel }}</title>
+{% include "_oeffentlich_stil.html" %}
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--grund, #f1f5f9);
+           color: var(--text, #1e293b); min-height: 100vh; display: flex; align-items: center; justify-content: center;
+           padding: 18px; }
+    .karte { background: var(--flaeche, #fff); border-radius: 16px; padding: 26px 22px; max-width: 460px; width: 100%;
+             box-shadow: 0 10px 30px rgba(15, 23, 42, .08); text-align: center; }
+    .ico { font-size: 44px; margin-bottom: 8px; }
+    h1 { font-size: 21px; margin-bottom: 10px; }
+    p { line-height: 1.5; margin-bottom: 10px; }
+    .info { background: var(--flaeche-2, #f8fafc); border: 1px solid var(--linie, #e2e8f0); border-radius: 10px; padding: 12px;
+            margin: 12px 0; text-align: left; font-size: 14.5px; }
+    .btn { display: inline-block; border: 0; background: var(--gruen, #16a34a); color: #fff; border-radius: 11px;
+           padding: 13px 24px; font-size: 16px; font-weight: 800; cursor: pointer; margin-top: 8px; }
+    .hinweis { color: var(--text-hell, #64748b); font-size: 13px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="karte">
+    {% if zustand == 'bestaetigt' %}
+    <div class="ico">🎉</div>
+    <h1>Du bist dabei!</h1>
+    <p>Dein Platz für <strong>„{{ a.titel }}“</strong> am {{ a.datum | datum_de }} ist bestätigt.
+       Deinen Voucher bekommst du per E-Mail – oder gleich hier:</p>
+    <a class="btn" href="{{ url_for('veranstaltungen.voucher', token=a.token) }}">🎫 Voucher ansehen</a>
+    {% elif zustand == 'dabei' %}
+    <div class="ico">✅</div>
+    <h1>Schon bestätigt</h1>
+    <p>Deine Teilnahme an <strong>„{{ a.titel }}“</strong> steht bereits fest – alles gut!</p>
+    <a class="btn" href="{{ url_for('veranstaltungen.voucher', token=a.token) }}">🎫 Voucher ansehen</a>
+    {% elif zustand == 'storniert' %}
+    <div class="ico">✖️</div>
+    <h1>Reservierung storniert</h1>
+    <p>Diese Reservierung wurde storniert – das Angebot ist damit hinfällig.</p>
+    {% elif zustand == 'abgelaufen' %}
+    <div class="ico">⏳</div>
+    <h1>Angebot abgelaufen</h1>
+    <p>Die Frist für dieses Nachrück-Angebot ist leider vorbei – der Platz ging an die nächste
+       Person auf der Warteliste. Du bleibst aber auf der Liste und bekommst wieder eine
+       Nachricht, wenn erneut etwas frei wird.</p>
+    {% elif zustand == 'voll' %}
+    <div class="ico">😕</div>
+    <h1>Gerade wieder voll</h1>
+    <p>In der Zwischenzeit wurde der Platz anderweitig vergeben. Du bleibst auf der Warteliste –
+       wir melden uns, sobald wieder etwas frei wird.</p>
+    {% else %}
+    <div class="ico">🎟️</div>
+    <h1>Ein Platz ist frei geworden!</h1>
+    <div class="info">
+        <strong>{{ a.titel }}</strong><br>
+        📅 {{ a.datum | datum_de }}{% if a.uhrzeit %} · 🕒 {{ a.uhrzeit }} Uhr{% endif %}
+        {% if a.veranstaltungsort %} · 📍 {{ a.veranstaltungsort }}{% endif %}<br>
+        👤 {{ a.anmelder_name }}
+    </div>
+    <p>Bestätige deine Teilnahme bitte bis <strong>{{ frist }}</strong> – danach geht der Platz an
+       die nächste Person auf der Warteliste.</p>
+    <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn">✅ Ja, ich komme – Platz bestätigen</button>
+    </form>
+    <p class="hinweis">Du kannst nicht? Dann einfach nichts tun – das Angebot verfällt von selbst.</p>
+    {% endif %}
+</div>
+</body>
+</html>

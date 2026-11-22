@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{% block title %}Finanzen{% endblock %}
+{% block inhalt_breite %}inhalt-breit{% endblock %}
+{% block content %}
+<style>
+    .kasse-reihe { display:flex; flex-wrap:wrap; gap:14px; margin-bottom:20px; }
+    .kasse-karte { flex:1 1 180px; border:1px solid var(--grau-linie); border-radius:12px; padding:14px 16px; background:var(--weiss); }
+    .kasse-karte .k-name { font-size:13px; color:var(--text-hell); display:flex; align-items:center; gap:6px; }
+    .kasse-karte .k-stand { font-size:22px; font-weight:700; margin-top:4px; }
+    .kat-kachel { display:inline-flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+        width:110px; min-height:64px; padding:8px 6px; border:2px solid var(--grau-linie); border-radius:12px;
+        background:var(--weiss); cursor:pointer; font-size:12.5px; text-align:center; line-height:1.2; }
+    .kat-kachel .emo { font-size:22px; }
+    .kat-kachel.ein:hover { border-color:var(--gruen); }
+    .kat-kachel.aus:hover { border-color:var(--rot); }
+    .kat-kachel.gewaehlt { border-color:var(--blau); box-shadow:0 0 0 2px var(--blau) inset; }
+    .kat-gruppe-titel { font-weight:600; margin:10px 0 6px; }
+    .modus-schalter .btn.aktiv { outline:2px solid var(--blau); }
+</style>
+
+<div class="page-header">
+    <div><h1>Finanzen · Kassenbuch</h1><div class="sub">Belege buchen, Kassenstand im Blick, Bericht fürs Finanzamt</div></div>
+    <div class="aktionen">
+        <a href="{{ url_for('finanzen.dauerbuchungen') }}" class="btn btn-sekundaer">🔁 Wiederkehrend</a>
+        <a href="{{ url_for('bank.index') }}" class="btn btn-sekundaer">🏦 Sparkasse</a>
+        <a href="{{ url_for('finanzen.paypal') }}" class="btn btn-sekundaer">🅿️ PayPal</a>
+        <a href="{{ url_for('finanzen.kontoauszuege') }}" class="btn btn-sekundaer">📄 Kontoauszüge</a>
+        <a href="{{ url_for('finanzen.kassenbericht', jahr=jahr) }}" class="btn btn-sekundaer">📗 Kassenbericht</a>
+        <a href="{{ url_for('finanzen.budget', jahr=jahr) }}" class="btn btn-sekundaer">💶 Haushaltsplan</a>
+        <a href="{{ url_for('finanzen.ruecklagen') }}" class="btn btn-sekundaer">🏦 Rücklagen</a>
+        <a href="{{ url_for('finanzen.steuer', jahr=jahr) }}" class="btn btn-sekundaer">🧾 Steuer</a>
+        <a href="{{ url_for('finanzen.geldkonten_verwaltung') }}" class="btn btn-sekundaer">💶 Geldkonten</a>
+        <a href="{{ url_for('finanzen.kontenrahmen') }}" class="btn btn-sekundaer">📒 Konten</a>
+        <form method="get">
+            <select name="jahr" onchange="this.form.submit()">
+                {% for j in jahre %}<option value="{{ j.j }}" {{ 'selected' if j.j == jahr }}>{{ j.label }}</option>{% endfor %}
+            </select>
+        </form>
+    </div>
+</div>
+
+{# ---------- Kassenstand je Geldkonto ---------- #}
+<div class="kasse-reihe">
+    {% set gesamt = namespace(v=0) %}
+    {% for s in kassenstaende %}
+    {% set gesamt.v = gesamt.v + s.stand %}
+    <div class="kasse-karte">
+        <div class="k-name">{{ s.icon }} {{ s.name }}</div>
+        <div class="k-stand" style="color:{{ 'var(--gruen)' if s.stand>=0 else 'var(--rot)' }}">{{ s.stand | euro }}</div>
+        {% if s.bank_saldo is defined %}
+        {% if s.bank_differenz|abs < 0.01 %}
+        <div style="margin-top:6px;font-size:12px;background:var(--gut-grund);color:var(--gut-text);border-radius:8px;padding:4px 8px">✓ stimmt mit der Bank überein
+            <span style="opacity:.75">(gemeldet {{ s.bank_saldo_datum[:10] | datum_de }})</span></div>
+        {% else %}
+        <div style="margin-top:6px;font-size:12px;background:var(--warn-grund);color:var(--warn-text);border:1px solid var(--warn-rand);border-radius:8px;padding:4px 8px">
+            Bank meldet {{ s.bank_saldo | euro }} <span style="opacity:.75">({{ s.bank_saldo_datum[:10] | datum_de }})</span><br>
+            Differenz {{ s.bank_differenz | euro }} – meist unverbuchte Umsätze
+            (<a href="{{ url_for('bank.index') }}" style="color:inherit;text-decoration:underline">abrufen</a>)
+            oder der <a href="{{ url_for('finanzen.geldkonten_verwaltung') }}" style="color:inherit;text-decoration:underline">Anfangsbestand</a>.</div>
+        {% endif %}
+        {% endif %}
+    </div>
+    {% endfor %}
+    <div class="kasse-karte" style="background:var(--flaeche-2)">
+        <div class="k-name">🧮 Gesamtbestand</div>
+        <div class="k-stand" style="color:{{ 'var(--gruen)' if gesamt.v>=0 else 'var(--rot)' }}">{{ gesamt.v | euro }}</div>
+    </div>
+</div>
+
+<details class="hilfe-box" style="margin-bottom:20px">
+    <summary style="cursor:pointer;font-weight:600">❓ Wie buche ich einen Beleg? (kurz erklärt)</summary>
+    <div style="margin-top:10px;line-height:1.7">
+        Das <strong>Kassenbuch</strong> ist einfach eine Liste: <strong>Geld rein</strong> (Einnahme) und
+        <strong>Geld raus</strong> (Ausgabe). Für jeden Beleg (Rechnung, Quittung, Kontoauszug) machst du einen Eintrag.
+        <ol style="margin:8px 0 0 18px;padding:0">
+            <li><strong>Kategorie wählen</strong> – im <em>Einfachen Modus</em> tippst du auf eine der Kacheln
+                (z.B. „Spende" oder „Miete"). Ob Einnahme oder Ausgabe und der steuerliche Bereich werden automatisch gesetzt.</li>
+            <li><strong>Geldkonto wählen</strong> – wohin/woher floss das Geld? Barkasse, Bankkonto oder PayPal.</li>
+            <li><strong>Datum &amp; Betrag</strong> eintragen, optional <strong>Beleg anhängen</strong> und Notiz.</li>
+            <li>Auf <strong>„＋ Buchen"</strong> klicken – fertig. Der Kassenstand oben rechnet automatisch mit.</li>
+        </ol>
+        Am Jahresende erzeugst du oben den <strong>„📗 Kassenbericht"</strong> (für die Mitgliederversammlung/Kassenprüfung)
+        und die <strong>„🧾 Steuer"</strong>-Übersicht fürs Finanzamt.
+    </div>
+</details>
+
+<div class="karten-reihe">
+    <div class="kennzahl"><div class="wert" style="color:var(--gruen)">{{ einnahmen | euro }}</div><div class="label">Einnahmen {{ wj_label }}</div></div>
+    <div class="kennzahl"><div class="wert" style="color:var(--rot)">{{ ausgaben | euro }}</div><div class="label">Ausgaben {{ wj_label }}</div></div>
+    <div class="kennzahl"><div class="wert" style="color:{{ 'var(--gruen)' if saldo>=0 else 'var(--rot)' }}">{{ saldo | euro }}</div><div class="label">Saldo {{ wj_label }}</div></div>
+</div>
+
+{# ---------- Beleg buchen ---------- #}
+<div class="karte">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <h2 style="margin:0">➕ Beleg buchen</h2>
+        <div class="modus-schalter">
+            <button type="button" id="btnEinfach" class="btn btn-sekundaer btn-klein" onclick="setModus('einfach')">😊 Einfach</button>
+            <button type="button" id="btnProfi" class="btn btn-sekundaer btn-klein" onclick="setModus('profi')">⚙️ Profi</button>
+        </div>
+    </div>
+
+    <form method="post" action="{{ url_for('finanzen.neu') }}" enctype="multipart/form-data" id="buchForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="konto_id" id="konto_id" value="">
+
+        {# Einfacher Modus: Klartext-Kacheln #}
+        <div id="modusEinfach">
+            <div class="kat-gruppe-titel" style="color:var(--gruen)">Geld rein (Einnahmen)</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+                {% for k in einfach_ein %}
+                <div class="kat-kachel ein" data-konto="{{ k.konto_id }}" onclick="kachelWahl(this)">
+                    <span class="emo">{{ k.emoji }}</span><span>{{ k.label }}</span></div>
+                {% endfor %}
+            </div>
+            <div class="kat-gruppe-titel" style="color:var(--rot)">Geld raus (Ausgaben)</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+                {% for k in einfach_aus %}
+                <div class="kat-kachel aus" data-konto="{{ k.konto_id }}" onclick="kachelWahl(this)">
+                    <span class="emo">{{ k.emoji }}</span><span>{{ k.label }}</span></div>
+                {% endfor %}
+            </div>
+            <div class="feld-hinweis" id="gewaehltHinweis" style="margin-top:8px">Bitte oben eine Kategorie antippen.</div>
+        </div>
+
+        {# Profi-Modus: volles Kontenrahmen-Dropdown #}
+        <div id="modusProfi" style="display:none">
+            <div class="feld"><label>Konto (Kontenrahmen)</label>
+                <select id="kontoSelect" onchange="document.getElementById('konto_id').value=this.value">
+                    <option value="">— freie Buchung (ohne Konto) —</option>
+                    {% for skey, sname in sphaeren_namen.items() %}
+                    {% set konten_der_sphaere = konten | selectattr('sphaere','equalto',skey) | list %}
+                    {% if konten_der_sphaere %}
+                    <optgroup label="{{ sname }}">
+                        {% for k in konten_der_sphaere %}
+                        <option value="{{ k.id }}">{{ k.nummer }} · {{ k.name }} ({{ 'Einnahme' if k.typ=='einnahme' else 'Ausgabe' }})</option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+                <div class="feld-hinweis">Legt Einnahme/Ausgabe und die steuerliche Sphäre automatisch fest. Ohne Konto = freie Buchung.</div>
+            </div>
+            <div class="feld-reihe">
+                <div class="feld"><label>Art (nur ohne Konto)</label>
+                    <select name="typ"><option value="einnahme">Einnahme</option><option value="ausgabe">Ausgabe</option></select>
+                </div>
+                <div class="feld"><label>Kategorie (optional, frei)</label>
+                    <input type="text" name="kategorie" placeholder="frei, z.B. Sommerfest"></div>
+            </div>
+        </div>
+
+        {# Gemeinsame Felder #}
+        <div class="feld-reihe" style="margin-top:6px">
+            <div class="feld"><label>Datum</label><input type="date" name="datum" id="datumFeld" value="{{ wj_start }}" required></div>
+            <div class="feld"><label>Betrag (€)</label><input type="text" name="betrag" placeholder="0,00" required></div>
+            <div class="feld"><label>Geldkonto (wohin/woher?)</label>
+                <select name="geldkonto_id">
+                    <option value="">— nicht zugeordnet —</option>
+                    {% for g in geldkonten %}<option value="{{ g.id }}" {{ 'selected' if loop.first }}>{{ gk_icon.get(g.typ,'💳') }} {{ g.name }}</option>{% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Mitglied zuordnen (optional)</label>
+                <select name="mitglied_id">
+                    <option value="">— kein Mitglied —</option>
+                    {% for m in mitglieder %}<option value="{{ m.id }}">{{ m.nachname }}, {{ m.vorname }}</option>{% endfor %}
+                </select>
+                <div class="feld-hinweis">Bei „Spende" nötig für die Spendenbescheinigung.</div>
+            </div>
+            <div class="feld"><label>Beleg / Quittung (optional)</label>
+                <input type="file" name="beleg" accept="image/*,application/pdf">
+                <div class="feld-hinweis">Foto oder PDF der Quittung anhängen.</div>
+            </div>
+        </div>
+        <div class="feld"><label>Beschreibung</label><input type="text" name="beschreibung" placeholder="z.B. Spende Sommerfest"></div>
+        <button type="submit" class="btn">＋ Buchen</button>
+    </form>
+</div>
+
+{% if sphaeren %}
+<details class="karte" style="margin-top:0">
+    <summary style="cursor:pointer;font-weight:600">🏛️ Auswertung nach steuerlichen Sphären {{ jahr }}</summary>
+    <table style="box-shadow:none;margin-top:12px">
+        <thead><tr><th>Sphäre</th><th class="rechts">Einnahmen</th><th class="rechts">Ausgaben</th><th class="rechts">Saldo</th></tr></thead>
+        <tbody>
+        {% for s in sphaeren %}
+        <tr>
+            <td>{{ s.label }}</td>
+            <td class="rechts" style="color:var(--gruen)">{{ s.einnahmen | euro }}</td>
+            <td class="rechts" style="color:var(--rot)">{{ s.ausgaben | euro }}</td>
+            <td class="rechts" style="color:{{ 'var(--gruen)' if s.saldo>=0 else 'var(--rot)' }}">{{ s.saldo | euro }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</details>
+{% endif %}
+
+{% if buchungen %}
+{% set tf_chips = [{'label': '+ Einnahmen', 'wert': 'einnahme'}, {'label': '− Ausgaben', 'wert': 'ausgabe'}, {'label': '🏷️ ohne Kategorie', 'wert': 'ohnekat'}] %}
+{% set tf_ziel = '#kassenbuch' %}
+{% include '_tabellen_filter.html' %}
+<div class="tabellen-scroll">
+<table id="kassenbuch">
+    <thead><tr><th>Nr.</th><th>Datum</th><th>Konto</th><th>Geldkonto</th><th>Beschreibung</th><th>Beleg</th><th class="rechts">Betrag</th><th></th></tr></thead>
+    <tbody>
+    {% for b in buchungen %}
+        <tr data-tf="{{ b.typ }}{{ ' ohnekat' if not b.konto_nr and not b.kategorie }}">
+            <td class="feld-hinweis">{{ b.belegnr or '–' }}</td>
+            <td>{{ b.datum | datum_de }}</td>
+            <td>{% if b.konto_nr %}<span class="feld-hinweis">{{ b.konto_nr }}</span> {{ b.konto_name }}{% else %}{{ b.kategorie }}{% endif %}</td>
+            <td>{% if b.geldkonto_name %}<span class="feld-hinweis">{{ b.geldkonto_name }}</span>{% else %}<span class="feld-hinweis">–</span>{% endif %}</td>
+            <td>{{ b.beschreibung }}{% if b.vorname %} <span class="feld-hinweis">({{ b.vorname }} {{ b.nachname }})</span>{% endif %}
+                {% if b.id in storniert_ids %}<span class="badge badge-inaktiv" style="font-size:11px" title="Zu dieser Buchung existiert eine Storno-Gegenbuchung">↩️ storniert</span>{% endif %}
+                {% if b.storno_von %}<span class="badge badge-inaktiv" style="font-size:11px" title="Gegenbuchung zu Beleg-Nr. – neutralisiert das Original">Storno</span>{% endif %}
+                {% if b.split_gruppe %}<span class="badge badge-gruppe" style="font-size:11px" title="Teil einer aufgeteilten Buchung">➗</span>{% endif %}</td>
+            <td>{% if b.beleg_dateiname %}<a href="{{ url_for('finanzen.beleg', bid=b.id) }}" target="_blank" title="Beleg öffnen">📎</a>{% endif %}</td>
+            <td class="rechts" style="color:{{ 'var(--gruen)' if b.typ=='einnahme' else 'var(--rot)' }}">
+                {{ '+' if b.typ=='einnahme' else '−' }} {{ b.betrag | euro }}</td>
+            <td class="rechts" style="white-space:nowrap">
+                <a href="{{ url_for('finanzen.bearbeiten', bid=b.id) }}" class="btn btn-sekundaer btn-klein" title="Bearbeiten">✏️</a>
+                <a href="{{ url_for('finanzen.splitten', bid=b.id) }}" class="btn btn-sekundaer btn-klein" title="Aufteilen (z. B. Beitrag + Spende aus einer Überweisung)">➗</a>
+                {% if not b.storno_von and b.id not in storniert_ids %}
+                <form method="post" action="{{ url_for('finanzen.stornieren', bid=b.id) }}"
+                      onsubmit="return confirm('Storno-Gegenbuchung anlegen? Original und Storno bleiben beide sichtbar – buchhalterisch sauber.')" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein" title="Stornieren (Gegenbuchung, nichts verschwindet)">↩️</button>
+                </form>
+                {% endif %}
+                <form method="post" action="{{ url_for('finanzen.loeschen', bid=b.id) }}"
+                      onsubmit="return confirm('Buchung löschen?')" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein" title="Löschen">✕</button>
+                </form>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<div class="karte leer"><div class="icon">📊</div><p>Noch keine Buchungen für {{ jahr }}.</p></div>
+{% endif %}
+
+<script>
+function setModus(m){
+    document.getElementById('modusEinfach').style.display = m==='einfach'?'block':'none';
+    document.getElementById('modusProfi').style.display   = m==='profi'?'block':'none';
+    document.getElementById('btnEinfach').classList.toggle('aktiv', m==='einfach');
+    document.getElementById('btnProfi').classList.toggle('aktiv', m==='profi');
+    try { localStorage.setItem('finanzModus', m); } catch(e){}
+}
+function kachelWahl(el){
+    document.querySelectorAll('.kat-kachel').forEach(function(k){ k.classList.remove('gewaehlt'); });
+    el.classList.add('gewaehlt');
+    document.getElementById('konto_id').value = el.dataset.konto;
+    var sel = document.getElementById('kontoSelect'); if(sel) sel.value = el.dataset.konto;
+    document.getElementById('gewaehltHinweis').innerHTML = '✅ Kategorie: <strong>'+el.textContent.trim()+'</strong>';
+}
+(function(){ var m='einfach'; try{ m=localStorage.getItem('finanzModus')||'einfach'; }catch(e){} setModus(m);
+    // Wenn das gewählte Jahr das laufende ist: Datum auf heute vorbelegen
+    var df=document.getElementById('datumFeld');
+    if(df){ var h=new Date(), hy=h.getFullYear();
+        if(String(hy)==='{{ jahr }}'){ df.value = hy+'-'+('0'+(h.getMonth()+1)).slice(-2)+'-'+('0'+h.getDate()).slice(-2); } }
+})();
+</script>
+{% endblock %}

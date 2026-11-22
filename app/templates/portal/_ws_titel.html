@@ -1,0 +1,9 @@
+{# Titelbild im Website-Stil (Termine, Monat, Woche): nur bei body.ws sichtbar – Gäste am Computer.
+   Erwartet optional „untertitel“. #}
+{# Bild nur als CSS-Variable: außerhalb des Website-Stils (Handy, Mitglieder) wird es so nie geladen #}
+<div class="ws-titel"{% if design and design.website_titelbild %} style="--ws-titelbild:url('{{ url_for('portal.titelbild', v=design.website_titelbild) }}')"{% endif %}>
+    <div class="ws-titel-text">
+        <h1>{{ (design.website_titel if design else '') or 'Termine' }}</h1>
+        {% if untertitel %}<p>{{ untertitel }}</p>{% endif %}
+    </div>
+</div>

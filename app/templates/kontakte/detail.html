@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}{{ k.name if k else 'Neuer Kontakt' }}{% endblock %}
+{% block content %}
+{% set v = entwurf or k %}
+<div class="page-header">
+    <div><h1>📇 {{ k.name if k else 'Neuer Kontakt' }}</h1></div>
+    <a href="{{ url_for('kontakte.index') }}" class="btn btn-sekundaer">← Alle Kontakte</a>
+</div>
+{% if mitglied_doppelt %}
+<div class="karte" style="border-left:4px solid var(--rot);background:var(--fehler-grund)">
+    <h2 style="margin-top:0;font-size:16px;color:var(--fehler-text)">⚠️ Diese Person ist bereits Mitglied</h2>
+    <p style="margin:0 0 10px"><strong>{{ mitglied_doppelt.vorname }} {{ mitglied_doppelt.nachname }}</strong>
+        {%- if mitglied_doppelt.email %} ({{ mitglied_doppelt.email }}){% endif %}
+        steht schon in der Mitgliederliste. Ein zusätzlicher Kontakt hieße: zwei Adressen,
+        die beide gepflegt werden wollen – und irgendwann auseinanderlaufen.</p>
+    <a href="{{ url_for('mitglieder.detail', mid=mitglied_doppelt.id) }}" class="btn">
+        👥 Zum Mitglied wechseln</a>
+    <p class="feld-hinweis" style="margin:10px 0 0">Es ist wirklich etwas anderes – etwa dieselbe Person
+        als Firma oder Redaktion? Dann trag den Kontakt unten mit <strong>Trotzdem anlegen</strong> ein.</p>
+</div>
+{% endif %}
+
+<form method="post" class="karte">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="feld-reihe">
+        <div class="feld"><label>Name / Firma *</label><input type="text" name="name" required value="{{ v.name if v else '' }}"></div>
+        <div class="feld"><label>Ansprechpartner:in</label><input type="text" name="ansprechpartner" value="{{ v.ansprechpartner if v else '' }}"></div>
+    </div>
+    <div class="feld-reihe">
+        <div class="feld"><label>Straße &amp; Nr.</label><input type="text" name="strasse" value="{{ v.strasse if v else '' }}"></div>
+        <div class="feld" style="max-width:120px"><label>PLZ</label><input type="text" name="plz" value="{{ v.plz if v else '' }}"></div>
+        <div class="feld"><label>Ort</label><input type="text" name="ort" value="{{ v.ort if v else '' }}"></div>
+    </div>
+    <div class="feld-reihe">
+        <div class="feld"><label>E-Mail</label><input type="email" name="email" value="{{ v.email if v else '' }}"></div>
+        <div class="feld"><label>Telefon</label><input type="text" name="telefon" value="{{ v.telefon if v else '' }}"></div>
+        <div class="feld"><label>Gruppe / Kategorie</label>
+            <input type="text" name="kategorie" list="kat-vorschlaege" value="{{ v.kategorie if v else '' }}"
+                   placeholder="z. B. Firma, Sponsor:in, Presse">
+            <datalist id="kat-vorschlaege">
+                {% for kat in kategorie_liste %}<option value="{{ kat }}">{% endfor %}
+            </datalist>
+        </div>
+    </div>
+    <div class="feld"><label>Notizen</label><textarea name="notizen" rows="2">{{ v.notizen if v else '' }}</textarea></div>
+    <button class="btn">💾 Speichern</button>
+    {% if mitglied_doppelt %}
+    <button class="btn btn-sekundaer" name="trotzdem" value="1">Trotzdem anlegen</button>
+    {% endif %}
+    {% if k %}
+    <a href="{{ url_for('rechnungen.neu') }}?kontakt={{ k.id }}" class="btn btn-sekundaer">🧾 Rechnung an diesen Kontakt</a>
+    {% endif %}
+</form>
+{% if k %}
+<div class="karte">
+    <h2 style="margin-top:0">🧾 Rechnungen an diesen Kontakt</h2>
+    {% if rechnungen %}
+    <table class="tabelle">
+        <thead><tr><th>Nummer</th><th>Datum</th><th>Betreff</th><th style="text-align:right">Betrag</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for r in rechnungen %}
+        <tr><td><a href="{{ url_for('rechnungen.druck', rid=r.id) }}">{{ r.nummer }}</a></td>
+            <td>{{ r.datum | datum_de }}</td><td>{{ r.betreff }}</td>
+            <td style="text-align:right">{{ (r.netto * (1 + (r.ust_satz or 0) / 100)) | euro }}</td>
+            <td>{% if r.status == 'bezahlt' %}<span class="badge badge-bezahlt">bezahlt</span>{% elif r.status == 'storniert' %}<span class="badge badge-inaktiv">storniert</span>{% else %}<span class="badge badge-offen">offen</span>{% endif %}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}<p class="feld-hinweis">Noch keine Rechnungen an diesen Kontakt.</p>{% endif %}
+</div>
+<form method="post" action="{{ url_for('kontakte.loeschen', kid=k.id) }}" onsubmit="return confirm('Kontakt löschen? (Rechnungen bleiben erhalten.)')" style="margin-top:10px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn btn-sekundaer" style="color:var(--rot)">🗑 Kontakt löschen</button>
+</form>
+{% endif %}
+{% endblock %}

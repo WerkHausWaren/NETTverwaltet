@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Mein Absender{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <h1>✉️ Mein Absender</h1>
+        <div class="sub">Mit deiner eigenen Adresse schreiben – nur dort, wo du selbst sendest</div>
+    </div>
+</div>
+
+<div class="hilfe-box">
+    <strong>Wie das zusammenspielt.</strong>
+    Der Verein hat eine allgemeine Adresse
+    {% if verein_adresse %}(<b>{{ verein_adresse }}</b>){% endif %} – sie bleibt der
+    Standard, und alle automatischen Mails (Erinnerungen, Bestätigungen, Mahnungen)
+    tragen sie weiterhin. Hier hinterlegst du <b>deine eigene Adresse</b>: In der
+    Kommunikation und beim Einladen zur Versammlung kannst du dann wählen, ob der
+    Verein oder du selbst absendet. Antworten landen direkt bei dir.
+</div>
+
+<form method="post" id="absenderform">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+<div class="karte">
+    <h2 style="margin-top:0">Wer du im Postfach bist</h2>
+    <div class="feld-reihe">
+        <div class="feld">
+            <label for="name">Anzeigename</label>
+            <input type="text" id="name" name="name"
+                   value="{{ z.absender_name or '' }}"
+                   placeholder="{{ current_user.anzeigename }} · {{ e.vereinsname }}">
+            <div class="feld-hinweis">So steht es beim Empfänger vor der Adresse.
+                Leer = dein Kontoname.</div>
+        </div>
+        <div class="feld">
+            <label for="email">Deine E-Mail-Adresse</label>
+            <input type="email" id="email" name="email"
+                   value="{{ z.absender_email or '' }}" placeholder="vorname.nachname@verein.example">
+            <div class="feld-hinweis">Auf sie laufen die Antworten.</div>
+        </div>
+    </div>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Zugang zu deinem Postfach</h2>
+    <p class="feld-hinweis" style="margin-top:0">
+        Mit diesen Zugangsdaten sendet die Verwaltung <b>wirklich von deiner Adresse</b> –
+        sauber angemeldet an deinem eigenen Postfach. Lässt du sie weg, sendet der
+        Verein für dich: mit deinem Namen davor und deiner Adresse als Antwort-Ziel.
+    </p>
+    <div class="hilfe-box" style="margin-bottom:16px">
+        ⚠️ <strong>Microsoft-Adressen (outlook, hotmail, live.de):</strong> Microsoft hat
+        den Passwort-Login für Mailprogramme abgeschaltet – diese Felder funktionieren
+        damit nicht. Lass sie leer und speichere nur Name und Adresse: Der Verein sendet
+        dann für dich, Antworten landen bei dir.
+    </div>
+    <div class="feld-reihe">
+        <div class="feld">
+            <label for="smtp_host">Postausgangsserver</label>
+            <input type="text" id="smtp_host" name="smtp_host"
+                   value="{{ z.absender_smtp_host or '' }}" placeholder="mail.manitu.de">
+        </div>
+        <div class="feld">
+            <label for="smtp_port">Port</label>
+            <input type="number" id="smtp_port" name="smtp_port"
+                   value="{{ z.absender_smtp_port or '' }}" placeholder="587">
+        </div>
+        <div class="feld">
+            <label for="smtp_security">Verschlüsselung</label>
+            <select id="smtp_security" name="smtp_security">
+                <option value="starttls" {{ 'selected' if (z.absender_smtp_security or 'starttls') == 'starttls' }}>STARTTLS (Port 587)</option>
+                <option value="ssl" {{ 'selected' if z.absender_smtp_security == 'ssl' }}>SSL (Port 465)</option>
+                <option value="keine" {{ 'selected' if z.absender_smtp_security == 'keine' }}>Keine</option>
+            </select>
+        </div>
+    </div>
+    <div class="feld-reihe">
+        <div class="feld">
+            <label for="smtp_user">Benutzername</label>
+            <input type="text" id="smtp_user" name="smtp_user"
+                   value="{{ z.absender_smtp_user or '' }}" placeholder="meist die E-Mail-Adresse">
+        </div>
+        <div class="feld">
+            <label for="smtp_passwort">Passwort</label>
+            <input type="password" id="smtp_passwort" name="smtp_passwort" value=""
+                   placeholder="{{ 'gespeichert – leer lassen zum Behalten' if z.absender_smtp_passwort else '' }}"
+                   autocomplete="new-password">
+            <div class="feld-hinweis">Wird verschlüsselt gespeichert und nie angezeigt.</div>
+        </div>
+    </div>
+    {% if profil %}
+    <p class="feld-hinweis">
+        {% if profil.eigen_smtp %}✅ Vollständig – du sendest selbst von <b>{{ profil.email }}</b>.
+        {% else %}ℹ️ Nur Adresse hinterlegt – der Verein sendet für dich, Antworten gehen an <b>{{ profil.email }}</b>.{% endif %}
+    </p>
+    {% endif %}
+</div>
+
+<div class="aktionen" style="margin-bottom:30px">
+    <div class="feld" style="margin-top:10px">
+        <label for="signatur">✍️ Meine Signatur <span class="feld-hinweis">(persönlicher Zusatz)</span></label>
+        <textarea id="signatur" name="signatur" style="min-height:70px"
+                  placeholder="z. B. Schatzmeisterin&#10;Telefon 01234 56789">{{ z.absender_signatur or '' }}</textarea>
+        <div class="feld-hinweis">Erscheint mit deinem Namen über der Vereins-Signatur –
+            aber nur, wenn du in der Kommunikation „👤 Meine Adresse“ als Absender wählst.
+            Die Vereins-Signatur selbst (für alle gleich) pflegst du in den
+            Einstellungen unter „E-Mail-Versand“.</div>
+    </div>
+    <button type="submit" class="btn">💾 Speichern</button>
+    <button type="submit" name="aktion" value="testen" class="btn btn-sekundaer">
+        🔌 Speichern &amp; testen (mit Testmail an dich)</button>
+    {% if z.absender_email %}
+    <button type="submit" name="loeschen" value="1" class="btn btn-sekundaer"
+            onclick="return confirm('Persönlichen Absender entfernen und wieder über die Vereinsadresse senden?')">
+        Entfernen</button>
+    {% endif %}
+</div>
+</form>
+{% endblock %}

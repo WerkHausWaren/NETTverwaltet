@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Mitgliederliste</title>
+<style>
+    body { font-family: -apple-system, Arial, sans-serif; color: #1e293b; margin: 30px; font-size: 13px; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .kopf { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #1e293b; padding-bottom: 8px; margin-bottom: 16px; }
+    .kopf .sub { color: #64748b; font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #e2e8f0; }
+    th { background: #f1f5f9; font-size: 11px; text-transform: uppercase; }
+    .drucken { margin-bottom: 16px; }
+    .btn { background: #2563eb; color: #fff; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    @media print { .drucken { display: none; } body { margin: 0; } }
+</style>
+</head>
+<body>
+<div class="drucken"><button class="btn" onclick="window.print()">🖨️ Drucken / Als PDF sichern</button></div>
+<div class="kopf">
+    <div>
+        <h1>{{ einst.vereinsname or 'Mitgliederliste' }}</h1>
+        <div class="sub">Mitgliederliste · {{ mitglieder|length }} Einträge</div>
+    </div>
+    <div style="text-align:right">
+        {% if einst.logo_dateiname %}<img src="{{ url_for('einstellungen.logo', verein_id=einst.id) }}" style="max-height:16mm;max-width:48mm;object-fit:contain;display:block;margin:0 0 4px auto">{% endif %}
+        <div class="sub">{{ einst.strasse }}{% if einst.ort %}, {{ einst.plz }} {{ einst.ort }}{% endif %}</div>
+    </div>
+</div>
+<table>
+    <thead><tr><th>Nr.</th><th>Name</th><th>Anschrift</th><th>E-Mail</th><th>Telefon</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for m in mitglieder %}
+        <tr>
+            <td>{{ m.mitgliedsnummer }}</td>
+            <td>{{ m.vorname }} {{ m.nachname }}</td>
+            <td>{{ m.strasse }}, {{ m.plz }} {{ m.ort }}</td>
+            <td>{{ m.email }}</td>
+            <td>{{ m.telefon or m.mobil }}</td>
+            <td>{{ m.status }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</body>
+</html>

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Geldkonten{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>💶 Geldkonten</h1><div class="sub">Deine echten Geldtöpfe – Barkasse, Bankkonto, PayPal</div></div>
+    <div class="aktionen"><a href="{{ url_for('finanzen.liste') }}" class="btn btn-sekundaer">← Kassenbuch</a></div>
+</div>
+
+<div class="hilfe-box" style="margin-bottom:20px">
+    Ein <strong>Geldkonto</strong> ist ein echter Ort, an dem Geld liegt. Trage einmalig den
+    <strong>Anfangsbestand</strong> ein (was am Starttag in der Kasse / auf dem Konto war) – danach rechnet die App
+    jede Buchung automatisch dazu bzw. weg. So stimmt der Kassenstand immer mit der echten Kasse und dem Kontoauszug überein.
+</div>
+
+{% for g in geldkonten %}
+<div class="karte" {{ 'style=opacity:.6' if not g.aktiv }}>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <h2 style="margin:0">{{ gk_icon.get(g.typ,'💳') }} {{ g.name }}{% if not g.aktiv %} <span class="feld-hinweis">(inaktiv)</span>{% endif %}</h2>
+        <div style="text-align:right">
+            <div class="feld-hinweis">Aktueller Stand</div>
+            <div style="font-size:22px;font-weight:700;color:{{ 'var(--gruen)' if kassenstaende.get(g.id,0)>=0 else 'var(--rot)' }}">{{ kassenstaende.get(g.id,0) | euro }}</div>
+        </div>
+    </div>
+    <form method="post" style="margin-top:10px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="aktion" value="speichern"><input type="hidden" name="gid" value="{{ g.id }}">
+        <div class="feld-reihe">
+            <div class="feld"><label>Name</label><input type="text" name="name" value="{{ g.name }}"></div>
+            <div class="feld"><label>Art</label><select name="typ">
+                {% for tkey, tname in typen.items() %}<option value="{{ tkey }}" {{ 'selected' if g.typ==tkey }}>{{ gk_icon.get(tkey,'💳') }} {{ tname }}</option>{% endfor %}
+            </select></div>
+            <div class="feld"><label>Anfangsbestand (€)</label><input type="text" name="anfangsbestand" value="{{ '%.2f'|format(g.anfangsbestand or 0)|replace('.',',') }}"></div>
+            <div class="feld"><label>ab Datum (optional)</label><input type="date" name="anfangsdatum" value="{{ g.anfangsdatum or '' }}"></div>
+        </div>
+        <button class="btn btn-sekundaer btn-klein">💾 Speichern</button>
+    </form>
+    <form method="post" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="aktion" value="umschalten"><input type="hidden" name="gid" value="{{ g.id }}">
+        <button class="btn btn-sekundaer btn-klein">{{ '🚫 Deaktivieren' if g.aktiv else '✅ Aktivieren' }}</button>
+    </form>
+</div>
+{% endfor %}
+
+<div class="karte">
+    <h2 style="margin-top:0">🖨️ Druckvorlagen für die Kasse</h2>
+    <div class="feld-hinweis">Einzahlungsbeleg, Zählprotokoll und Auslagenerstattung findest du jetzt
+        im eigenen Menüpunkt <a href="{{ url_for('finanzen.vorlagen') }}">Finanzen → 🖨️ Vorlagen</a> –
+        am Bildschirm ausfüllbar oder zum Ausdrucken.</div>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">➕ Neues Geldkonto</h2>
+    <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="aktion" value="neu">
+        <div class="feld-reihe">
+            <div class="feld"><label>Name</label><input type="text" name="name" placeholder="z.B. Zweitkonto" required></div>
+            <div class="feld"><label>Art</label><select name="typ">
+                {% for tkey, tname in typen.items() %}<option value="{{ tkey }}">{{ gk_icon.get(tkey,'💳') }} {{ tname }}</option>{% endfor %}
+            </select></div>
+            <div class="feld"><label>Anfangsbestand (€)</label><input type="text" name="anfangsbestand" placeholder="0,00"></div>
+            <div class="feld"><label>ab Datum</label><input type="date" name="anfangsdatum"></div>
+        </div>
+        <button class="btn">＋ Anlegen</button>
+    </form>
+</div>
+{% endblock %}

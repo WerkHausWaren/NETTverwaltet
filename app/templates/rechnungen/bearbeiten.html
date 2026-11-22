@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Rechnung ' ~ r.nummer if r else 'Neue Rechnung' }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🧾 {{ 'Rechnung ' ~ r.nummer ~ ' bearbeiten' if r else 'Neue Rechnung' }}</h1>
+        <div class="sub">{{ 'Nummer und Zahlcode bleiben erhalten' if r else 'Nummer und Zahlcode werden automatisch vergeben' }}</div></div>
+    <a href="{{ url_for('rechnungen.index') }}" class="btn btn-sekundaer">← Zur Übersicht</a>
+</div>
+
+<form method="post" class="karte">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <h2 style="margin-top:0">Empfänger:in</h2>
+    <div class="feld" style="max-width:380px"><label>Mitglied wählen <span class="feld-hinweis">(füllt die Felder vor – oder frei eintragen)</span></label>
+        <select onchange="mitgliedFuellen(this)">
+            <option value="">— kein Mitglied / extern —</option>
+            {% for m in mitglieder %}
+            <option value="{{ m.id }}" data-name="{{ m.vorname }} {{ m.nachname }}" data-str="{{ m.strasse or '' }}"
+                    data-plz="{{ m.plz or '' }}" data-ort="{{ m.ort or '' }}" data-mail="{{ m.email or '' }}">{{ m.nachname }}, {{ m.vorname }}</option>
+            {% endfor %}
+        </select>
+        <input type="hidden" name="mitglied_id" id="re_mid" value="{{ r.mitglied_id or '' if r else '' }}">
+    </div>
+    <div class="feld" style="max-width:380px"><label>Oder Kontakt wählen <span class="feld-hinweis">(Firmen, Sponsoren … – <a href="{{ url_for('kontakte.index') }}">📇 Kontakte</a>)</span></label>
+        <select onchange="kontaktFuellen(this)">
+            <option value="">— Kontakt wählen —</option>
+            {% for k in kontakte %}
+            <option value="{{ k.id }}" data-name="{{ k.name }}" data-str="{{ k.strasse or '' }}"
+                    data-plz="{{ k.plz or '' }}" data-ort="{{ k.ort or '' }}" data-mail="{{ k.email or '' }}"
+                    {{ 'selected' if vorkontakt and vorkontakt.id == k.id }}>{{ k.name }}</option>
+            {% endfor %}
+        </select>
+        <input type="hidden" name="kontakt_id" id="re_kid" value="{{ (vorkontakt.id if vorkontakt else '') if not r else (r.kontakt_id or '') }}">
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;margin-top:6px">
+            <input type="checkbox" name="als_kontakt" value="1" checked style="width:16px;height:16px">
+            Neuen Empfänger automatisch als Kontakt speichern</label>
+    </div>
+    <div class="feld-reihe">
+        <div class="feld"><label>Name / Firma *</label><input type="text" name="empfaenger_name" id="re_name" required value="{{ r.empfaenger_name if r else '' }}"></div>
+        <div class="feld"><label>E-Mail <span class="feld-hinweis">(für den Versand)</span></label><input type="email" name="empfaenger_email" id="re_mail" value="{{ r.empfaenger_email if r else '' }}"></div>
+    </div>
+    <div class="feld-reihe">
+        <div class="feld"><label>Straße &amp; Nr.</label><input type="text" name="empfaenger_strasse" id="re_str" value="{{ r.empfaenger_strasse if r else '' }}"></div>
+        <div class="feld" style="max-width:120px"><label>PLZ</label><input type="text" name="empfaenger_plz" id="re_plz" value="{{ r.empfaenger_plz if r else '' }}"></div>
+        <div class="feld"><label>Ort</label><input type="text" name="empfaenger_ort" id="re_ort" value="{{ r.empfaenger_ort if r else '' }}"></div>
+    </div>
+
+    <h2>Rechnung</h2>
+    <div class="feld-reihe">
+        <div class="feld" style="max-width:180px"><label>Rechnungsdatum</label><input type="date" name="datum" value="{{ r.datum if r else heute }}"></div>
+        <div class="feld" style="max-width:180px"><label>Zahlbar bis <span class="feld-hinweis">(optional)</span></label><input type="date" name="faellig_am" value="{{ r.faellig_am if r else '' }}"></div>
+        <div class="feld" style="max-width:200px"><label>Leistungsdatum <span class="feld-hinweis">(§ 14 UStG)</span></label>
+            <input type="date" name="leistung_datum" value="{{ r.leistung_datum if r else '' }}">
+            <div class="feld-hinweis">Leer = „entspricht Rechnungsdatum"</div></div>
+        <div class="feld" style="max-width:220px"><label>Umsatzsteuer</label>
+            <select name="ust_satz">
+                <option value="0" {{ 'selected' if not r or not r.ust_satz }}>keine (gemeinnützig / § 19 UStG)</option>
+                <option value="7" {{ 'selected' if r and r.ust_satz == 7 }}>7 %</option>
+                <option value="19" {{ 'selected' if r and r.ust_satz == 19 }}>19 %</option>
+            </select>
+            {% if not einst.steuernummer %}<div class="feld-hinweis" style="color:var(--warn-text)">⚠️ Bei 7/19 % ist die
+                Steuernummer Pflichtangabe – bitte in den Einstellungen hinterlegen.</div>{% endif %}</div>
+    </div>
+    <div class="feld"><label>Betreff *</label><input type="text" name="betreff" required value="{{ r.betreff if r else '' }}" placeholder="z. B. Raumnutzung Juli 2026"></div>
+    <div class="feld"><label>Einleitungstext <span class="feld-hinweis">(optional)</span></label>
+        <textarea name="einleitung" rows="2" placeholder="wir erlauben uns, folgende Leistungen in Rechnung zu stellen:">{{ r.einleitung if r else '' }}</textarea></div>
+
+    <h2>Positionen</h2>
+    <table id="pos-tabelle">
+        <thead><tr><th>Beschreibung</th><th style="width:90px">Menge</th><th style="width:130px">Einzelpreis (€)</th><th style="width:120px" class="rechts">Summe</th><th style="width:40px"></th></tr></thead>
+        <tbody>
+        {% for p in (positionen if positionen else [None, None]) %}
+        <tr>
+            <td><input type="text" name="pos_text" value="{{ p.beschreibung if p else '' }}" placeholder="z. B. Saalmiete"></td>
+            <td><input type="text" name="pos_menge" inputmode="decimal" value="{{ ('%g' % p.menge) if p else '1' }}" oninput="summe()"></td>
+            <td><input type="text" name="pos_preis" inputmode="decimal" value="{{ ('%.2f' % p.einzelpreis)|replace('.', ',') if p else '' }}" oninput="summe()"></td>
+            <td class="rechts pos-summe">–</td>
+            <td><button type="button" class="btn btn-sekundaer btn-klein" onclick="this.closest('tr').remove();summe()">✕</button></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <button type="button" class="btn btn-sekundaer" style="margin-top:8px" onclick="zeile()">＋ Position</button>
+    <div style="margin:14px 0;font-size:16px">Gesamt: <strong id="ges-summe">0,00 €</strong>
+        <span class="feld-hinweis" id="ust-hinweis"></span></div>
+
+    <div class="feld"><label>Schlusstext <span class="feld-hinweis">(optional)</span></label>
+        <textarea name="schluss" rows="2" placeholder="Vielen Dank für die gute Zusammenarbeit!">{{ r.schluss if r else '' }}</textarea></div>
+
+    <button class="btn">💾 Speichern &amp; Vorschau</button>
+</form>
+
+<script>
+function zahl(f) { return parseFloat((f.value || '0').replace(',', '.')) || 0; }
+function summe() {
+    var netto = 0;
+    document.querySelectorAll('#pos-tabelle tbody tr').forEach(function (tr) {
+        var m = zahl(tr.querySelector('[name=pos_menge]')), p = zahl(tr.querySelector('[name=pos_preis]'));
+        var s = m * p;
+        netto += s;
+        tr.querySelector('.pos-summe').textContent = s ? s.toFixed(2).replace('.', ',') + ' €' : '–';
+    });
+    var satz = parseFloat(document.querySelector('[name=ust_satz]').value) || 0;
+    var brutto = netto * (1 + satz / 100);
+    document.getElementById('ges-summe').textContent = brutto.toFixed(2).replace('.', ',') + ' €';
+    document.getElementById('ust-hinweis').textContent = satz
+        ? '(netto ' + netto.toFixed(2).replace('.', ',') + ' € + ' + satz + ' % USt)' : '';
+}
+function zeile() {
+    var tb = document.querySelector('#pos-tabelle tbody');
+    var neu = tb.rows[0].cloneNode(true);
+    neu.querySelectorAll('input').forEach(function (f) { f.value = f.name === 'pos_menge' ? '1' : ''; });
+    tb.appendChild(neu);
+    summe();
+}
+function mitgliedFuellen(sel) {
+    var o = sel.options[sel.selectedIndex];
+    document.getElementById('re_mid').value = o.value;
+    if (!o.value) return;
+    document.getElementById('re_name').value = o.dataset.name || '';
+    document.getElementById('re_str').value = o.dataset.str || '';
+    document.getElementById('re_plz').value = o.dataset.plz || '';
+    document.getElementById('re_ort').value = o.dataset.ort || '';
+    document.getElementById('re_mail').value = o.dataset.mail || '';
+}
+function kontaktFuellen(sel) {
+    var o = sel.options[sel.selectedIndex];
+    document.getElementById('re_kid').value = o.value;
+    if (!o.value) return;
+    document.getElementById('re_mid').value = '';
+    document.getElementById('re_name').value = o.dataset.name || '';
+    document.getElementById('re_str').value = o.dataset.str || '';
+    document.getElementById('re_plz').value = o.dataset.plz || '';
+    document.getElementById('re_ort').value = o.dataset.ort || '';
+    document.getElementById('re_mail').value = o.dataset.mail || '';
+}
+{% if vorkontakt %}
+document.getElementById('re_name').value = {{ vorkontakt.name | tojson }};
+document.getElementById('re_str').value = {{ (vorkontakt.strasse or '') | tojson }};
+document.getElementById('re_plz').value = {{ (vorkontakt.plz or '') | tojson }};
+document.getElementById('re_ort').value = {{ (vorkontakt.ort or '') | tojson }};
+document.getElementById('re_mail').value = {{ (vorkontakt.email or '') | tojson }};
+{% endif %}
+document.querySelector('[name=ust_satz]').addEventListener('change', summe);
+summe();
+</script>
+{% endblock %}

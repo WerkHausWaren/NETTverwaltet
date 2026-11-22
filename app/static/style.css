@@ -1,0 +1,482 @@
+/* Vereinsverwaltung – Design
+   ===========================================================================
+   ALLE Farben stehen hier als Variablen. Keine feste Farbe in Vorlagen oder
+   Stilblöcken – sonst bleibt sie im Dunkelmodus hell und sticht heraus.
+
+   Es gibt drei Ebenen, die einander überschreiben:
+     1. dieser Satz hier          – die Grundfarben (hell und dunkel)
+     2. die Vereinsfarben         – aus den Einstellungen des Vereins
+     3. die Farben des Nutzers    – aus „Mein Aussehen"
+   Ebene 2 und 3 kommen als <style>-Block aus app/design.py und stehen später
+   im Dokument, überschreiben also diesen Satz.
+
+   Der Modus hängt am <html>-Element:  data-modus="hell" | "dunkel" | "auto"
+   =========================================================================== */
+:root {
+    /* --- Flächen, von hinten nach vorn --------------------------------- */
+    --grund:       #f4f6fb;   /* Seitenhintergrund                        */
+    --flaeche:     #ffffff;   /* Karten, Tabellen, Eingabefelder          */
+    --flaeche-2:   #f8fafc;   /* abgesetzt: Tabellenkopf, Zeilen-Hover    */
+    --flaeche-3:   #f1f5f9;   /* noch eine Stufe: Chips, Schalter         */
+
+    /* --- Linien --------------------------------------------------------- */
+    --linie:       #e2e8f0;
+    --linie-stark: #cbd5e1;
+
+    /* --- Schrift -------------------------------------------------------- */
+    --text:         #1e293b;
+    --text-stark:   #0f172a;   /* Überschriften, Beschriftungen           */
+    --text-hell:    #64748b;   /* Nebensächliches                         */
+    --text-schwach: #94a3b8;   /* sehr Nebensächliches                    */
+
+    /* --- Akzent (wird von Verein und Nutzer überschrieben) -------------- */
+    --blau:         #2563eb;
+    --blau-dunkel:  #1e40af;
+    --blau-text:    var(--blau);   /* Akzent als SCHRIFT auf Grund/Fläche –
+                                      wird im Dunkelsatz aufgehellt, damit
+                                      dunkle Vereinsfarben lesbar bleiben  */
+    --auf-primaer:  #ffffff;   /* Schrift auf der Akzentfarbe             */
+    --akzent-zart:  rgba(37, 99, 235, 0.12);   /* Fokusring, zarte Flächen */
+
+    /* --- Seitenleiste --------------------------------------------------- */
+    --sidebar:      #0f172a;
+    --auf-sidebar:  #cbd5e1;
+    --sidebar-hover: #1e293b;
+
+    /* --- Statusfarben: je Signalfarbe, Fläche und Schrift darauf -------- */
+    --gruen: #16a34a;  --gut-grund:     #dcfce7;  --gut-text:     #166534;
+    --rot:   #dc2626;  --rot-dunkel: #b91c1c;  --fehler-grund:  #fee2e2;  --fehler-text:  #991b1b;
+    --gelb:  #d97706;  --warn-grund:    #fef3c7;  --warn-text:    #92400e;  --warn-rand: #fde68a;
+                       --info-grund:    #dbeafe;  --info-text:    #1e40af;
+                       --neutral-grund: #f1f5f9;  --neutral-text: #475569;
+                       --gruppe-grund:  #e0e7ff;  --gruppe-text:  #3730a3;
+    --gut-rand:    #bbf7d0;
+    --fehler-rand: #fecaca;
+    --info-rand:   #bfdbfe;
+
+    /* --- Form ----------------------------------------------------------- */
+    --radius: 10px;
+    --schatten:       0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    --schatten-hoch:  0 10px 40px rgba(0,0,0,0.25);
+    --schleier:       rgba(15,23,42,0.45);   /* hinter Dialogen           */
+    --schrift-skala: 1;                       /* Textgröße des Nutzers     */
+
+    /* --- Alte Namen, damit vorhandene Vorlagen weiterlaufen ------------- */
+    --grau-bg:    var(--grund);
+    --grau-linie: var(--linie);
+    --weiss:      var(--flaeche);
+}
+
+/* =========================================================================
+   Dunkler Satz. Steht bewusst zweimal da – einmal fest gewählt, einmal nach
+   der Einstellung des Geräts. CSS kann einen Wertesatz nicht an zwei
+   Bedingungen gleichzeitig hängen.
+   ========================================================================= */
+:root[data-modus="dunkel"] {
+    --grund:       #0f131c;
+    --flaeche:     #1a2030;
+    --flaeche-2:   #222a3b;
+    --flaeche-3:   #2a3348;
+    --linie:       #2f3a4f;
+    --linie-stark: #3d4a63;
+    --text:         #e6ebf4;
+    --text-stark:   #f4f7fb;
+    --text-hell:    #9aa7bc;
+    --text-schwach: #74829a;
+    --sidebar:      #080c14;
+    --auf-sidebar:  #c3cddc;
+    --sidebar-hover: #1b2434;
+    --gut-grund:     #123021;  --gut-text:     #7ee2a8;  --gut-rand:    #1d4a33;
+    --fehler-grund:  #3a1719;  --fehler-text:  #ffa3a3;  --fehler-rand: #5c2427;
+    --rot-dunkel: #ef4444;
+    --warn-grund:    #33260a;  --warn-text:    #f2c579;  --warn-rand: #4d3a12;
+    --info-grund:    #16243f;  --info-text:    #a5c6ff;  --info-rand:   #23375c;
+    --neutral-grund: #252d3d;  --neutral-text: #aab6c8;
+    --gruppe-grund:  #1f2545;  --gruppe-text:  #b7bcff;
+    --schatten:      0 1px 3px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.4);
+    --schatten-hoch: 0 10px 40px rgba(0,0,0,0.7);
+    --schleier:      rgba(3,6,12,0.66);
+    --blau-text: color-mix(in srgb, var(--blau) 45%, #ffffff);
+    color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root[data-modus="auto"] {
+        --grund:       #0f131c;
+        --flaeche:     #1a2030;
+        --flaeche-2:   #222a3b;
+        --flaeche-3:   #2a3348;
+        --linie:       #2f3a4f;
+        --linie-stark: #3d4a63;
+        --text:         #e6ebf4;
+        --text-stark:   #f4f7fb;
+        --text-hell:    #9aa7bc;
+        --text-schwach: #74829a;
+        --sidebar:      #080c14;
+        --auf-sidebar:  #c3cddc;
+        --sidebar-hover: #1b2434;
+        --gut-grund:     #123021;  --gut-text:     #7ee2a8;  --gut-rand:    #1d4a33;
+        --fehler-grund:  #3a1719;  --fehler-text:  #ffa3a3;  --fehler-rand: #5c2427;
+        --rot-dunkel: #ef4444;
+        --warn-grund:    #33260a;  --warn-text:    #f2c579;  --warn-rand: #4d3a12;
+        --info-grund:    #16243f;  --info-text:    #a5c6ff;  --info-rand:   #23375c;
+        --neutral-grund: #252d3d;  --neutral-text: #aab6c8;
+        --gruppe-grund:  #1f2545;  --gruppe-text:  #b7bcff;
+        --schatten:      0 1px 3px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.4);
+        --schatten-hoch: 0 10px 40px rgba(0,0,0,0.7);
+        --schleier:      rgba(3,6,12,0.66);
+        --blau-text: color-mix(in srgb, var(--blau) 45%, #ffffff);
+        color-scheme: dark;
+    }
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text);
+    background: var(--grau-bg);
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+a { color: var(--blau-text, var(--blau)); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.layout { display: flex; min-height: 100vh; }
+
+/* Nur mobil sichtbar (siehe Media-Query unten) */
+.topbar { display: none; }
+.donut { display: none; }
+.sidebar-backdrop { display: none; }
+
+/* ---------- Seitenleiste ---------- */
+.sidebar {
+    width: 240px;
+    background: var(--sidebar);
+    color: var(--auf-sidebar);
+    display: flex;
+    flex-direction: column;
+    padding: 20px 14px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100dvh;
+    /* Eigenes Scrollen: bei ausgeklappten Menügruppen bleibt alles erreichbar */
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--linie-stark) transparent;
+}
+.sidebar::-webkit-scrollbar { width: 6px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--linie-stark); border-radius: 3px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.brand { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; margin-bottom: 22px; padding: 4px 6px 0; }
+.brand-logo { font-size: 56px; line-height: 1; }
+.brand-logo-img { width: 104px; height: 104px; max-width: 100%; object-fit: contain; background: var(--flaeche); border-radius: 14px; padding: 8px; }
+.brand-kreis { width: 100%; aspect-ratio: 1 / 1; border-radius: 50%; background-repeat: no-repeat;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.25); }
+.verein-wechsel { margin-bottom: 18px; }
+.verein-wechsel select { width: 100%; background: rgba(255,255,255,0.08); color: var(--auf-sidebar); border: 1px solid rgba(255,255,255,0.15); padding: 8px 10px; border-radius: 8px; font-size: 13px; }
+.verein-wechsel select option { color: var(--text); }
+.brand-name { font-weight: 700; font-size: 16px; line-height: 1.25; }
+.brand-adresse { font-size: 12px; line-height: 1.45; opacity: .72; }
+.brand-sub { font-size: 12px; opacity: .6; }
+.sidebar nav { display: flex; flex-direction: column; gap: 2px; }
+.sidebar nav a, .sidebar-bottom a {
+    color: var(--auf-sidebar);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: background 0.12s, color 0.12s;
+}
+.sidebar nav a:hover, .sidebar-bottom a:hover { background: var(--sidebar-hover); color: var(--text-stark); text-decoration: none; }
+.sidebar nav a.active, .sidebar-bottom a.active { background: var(--blau); color: var(--auf-primaer); }
+.sidebar-bottom { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--sidebar-hover); }
+.sidebar-bottom a { display: block; }
+
+/* ---------- Inhalt ---------- */
+.content { flex: 1; padding: 30px 40px; max-width: 1200px; min-width: 0; }
+
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; gap: 16px; flex-wrap: wrap; }
+.page-header h1 { font-size: 24px; margin: 0; }
+.page-header .sub { color: var(--text-hell); font-size: 14px; margin-top: 2px; }
+
+h1, h2, h3 { color: var(--text); }
+h2 { font-size: 18px; margin: 26px 0 12px; }
+
+/* ---------- Buttons ---------- */
+.btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--blau); color: var(--auf-primaer);
+    padding: 9px 16px; border-radius: 8px; border: none;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: background 0.12s;
+}
+.btn:hover { background: var(--blau-dunkel); text-decoration: none; }
+.btn-sekundaer { background: var(--flaeche); color: var(--text); border: 1px solid var(--linie); }
+.btn-sekundaer:hover { background: var(--flaeche-2); }
+.btn-gefahr { background: var(--rot); }
+.btn-gefahr:hover { background: var(--rot-dunkel); }
+.btn-klein { padding: 5px 10px; font-size: 13px; }
+
+/* ---------- Karten ---------- */
+.karte {
+    background: var(--weiss);
+    border-radius: var(--radius);
+    box-shadow: var(--schatten);
+    padding: 22px;
+    margin-bottom: 20px;
+    border: 1px solid var(--grau-linie);
+}
+.karten-reihe { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 22px; }
+.kennzahl { background: var(--weiss); border: 1px solid var(--grau-linie); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--schatten); }
+.kennzahl .wert { font-size: 26px; font-weight: 700; }
+.kennzahl .label { color: var(--text-hell); font-size: 13px; margin-top: 2px; }
+
+/* ---------- Tabellen ---------- */
+table { width: 100%; border-collapse: collapse; background: var(--weiss); border-radius: var(--radius); overflow: hidden; box-shadow: var(--schatten); }
+th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--grau-linie); }
+th { background: var(--flaeche-2); font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-hell); font-weight: 600; }
+tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: var(--flaeche-2); }
+td.rechts, th.rechts { text-align: right; }
+
+/* ---------- Formulare ---------- */
+form .feld { margin-bottom: 16px; }
+form label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 5px; color: var(--text-stark); }
+input[type=text], input[type=email], input[type=number], input[type=date], input[type=time],
+input[type=password], input[type=search], select, textarea {
+    width: 100%; padding: 9px 11px; border: 1px solid var(--grau-linie); border-radius: 8px;
+    font-size: 14px; font-family: inherit; background: var(--flaeche); color: var(--text);
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--blau); box-shadow: 0 0 0 3px var(--akzent-zart); }
+textarea { resize: vertical; min-height: 90px; }
+.feld-reihe { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+.feld-hinweis { font-size: 12px; color: var(--text-hell); margin-top: 4px; }
+fieldset { border: 1px solid var(--grau-linie); border-radius: var(--radius); padding: 18px; margin: 0 0 20px; }
+fieldset legend { font-weight: 700; padding: 0 8px; color: var(--blau); }
+
+/* ---------- Badges / Status ---------- */
+.badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.badge-aktiv { background: var(--gut-grund); color: var(--gut-text); }
+.badge-inaktiv { background: var(--neutral-grund); color: var(--neutral-text); }
+.badge-ausgetreten { background: var(--fehler-grund); color: var(--fehler-text); }
+.badge-ehrenmitglied { background: var(--warn-grund); color: var(--warn-text); }
+.badge-offen { background: var(--fehler-grund); color: var(--fehler-text); }
+.badge-bezahlt { background: var(--gut-grund); color: var(--gut-text); }
+.badge-gruppe { background: var(--gruppe-grund); color: var(--gruppe-text); margin: 2px; }
+
+/* ---------- Flash-Meldungen ---------- */
+.flash-container { margin-bottom: 20px; }
+.flash { padding: 12px 16px; border-radius: 8px; margin-bottom: 10px; font-weight: 500; border: 1px solid transparent; }
+.flash-erfolg { background: var(--gut-grund); color: var(--gut-text); border-color: var(--gut-rand); }
+.flash-fehler { background: var(--fehler-grund); color: var(--fehler-text); border-color: var(--fehler-rand); }
+.flash-info { background: var(--info-grund); color: var(--info-text); border-color: var(--info-rand); }
+
+/* ---------- Werkzeugleiste (Suche/Filter) ---------- */
+.werkzeug { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
+.werkzeug .suche { flex: 1; min-width: 200px; }
+.werkzeug select { width: auto; }
+
+.leer { text-align: center; padding: 50px 20px; color: var(--text-hell); }
+.leer .icon { font-size: 42px; margin-bottom: 10px; }
+
+.tag-auswahl { display: flex; flex-wrap: wrap; gap: 8px; }
+.tag-auswahl label { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; background: var(--flaeche-3); padding: 6px 12px; border-radius: 20px; cursor: pointer; margin: 0; }
+.tag-auswahl input { width: auto; }
+
+.aktionen { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* Detail-Ansicht */
+.detail-grid { display: grid; grid-template-columns: 160px 1fr; gap: 8px 16px; }
+.detail-grid dt { font-weight: 600; color: var(--text-hell); font-size: 13px; }
+.detail-grid dd { margin: 0; }
+
+.hilfe-box { background: var(--info-grund); border: 1px solid var(--info-rand); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 20px; font-size: 14px; }
+.hilfe-box strong { color: var(--blau-dunkel); }
+
+/* ---------- Kalenderansichten ---------- */
+.kal-tabs { display: inline-flex; gap: 2px; background: var(--flaeche-3); padding: 3px; border-radius: 9px; }
+.kal-tabs a { padding: 6px 15px; border-radius: 7px; font-weight: 600; color: var(--neutral-text); font-size: 13px; }
+.kal-tabs a:hover { text-decoration: none; color: var(--blau); }
+.kal-tabs a.aktiv { background: var(--flaeche); color: var(--blau); box-shadow: var(--schatten); }
+
+.kal-event { display: block; font-size: 11px; padding: 2px 5px; border-radius: 4px; margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; }
+.kal-event.eigen { background: var(--info-grund); color: var(--info-text); }
+.kal-event.eigen:hover { background: var(--info-rand); text-decoration: none; }
+.kal-event.extern { background: var(--neutral-grund); color: var(--neutral-text); }
+.kal-entwurf { border: 1px dashed rgba(255,255,255,0.9); }
+
+/* Monat */
+.kal-monat { width: 100%; border-collapse: collapse; table-layout: fixed; box-shadow: var(--schatten); }
+.kal-monat th { background: var(--flaeche-2); padding: 8px; font-size: 12px; text-transform: uppercase; color: var(--text-hell); border: 1px solid var(--grau-linie); }
+.kal-monat td { border: 1px solid var(--grau-linie); vertical-align: top; height: 100px; padding: 4px; background: var(--flaeche); overflow: hidden; }
+.kal-tag-nr { font-size: 12px; color: var(--text-hell); font-weight: 600; display: inline-block; min-width: 20px; text-align: center; }
+.kal-td-heute .kal-tag-nr { background: var(--blau); color: var(--auf-primaer); border-radius: 50%; }
+.kal-td-aus { background: var(--flaeche-2); }
+.kal-td-aus .kal-tag-nr { color: var(--text-schwach); }
+
+/* Woche */
+.kal-woche { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+.kal-wtag { background: var(--flaeche); border: 1px solid var(--grau-linie); border-radius: 10px; min-height: 200px; padding: 8px; box-shadow: var(--schatten); }
+.kal-wtag-kopf { font-weight: 700; font-size: 13px; margin-bottom: 8px; color: var(--text-stark); }
+
+/* Jahr */
+.kal-jahr { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; }
+.kal-mini { border: 1px solid var(--grau-linie); border-radius: 10px; padding: 12px; background: var(--flaeche); box-shadow: var(--schatten); }
+.kal-mini h3 { margin: 0 0 8px; font-size: 14px; }
+.kal-mini table { width: 100%; border-collapse: collapse; box-shadow: none; }
+.kal-mini td { text-align: center; font-size: 11px; padding: 3px 0; color: var(--text-stark); border: none; }
+.kal-mini td.aus { color: transparent; }
+.kal-mini td.hat { background: var(--blau); color: var(--auf-primaer); border-radius: 50%; font-weight: 700; }
+.kal-mini td.heute { outline: 2px solid var(--blau); border-radius: 50%; }
+
+/* Termin-Tooltip (Hover) */
+.kal-tip { position: fixed; z-index: 9999; display: none; max-width: 250px;
+    background: var(--sidebar); color: var(--auf-sidebar); padding: 8px 11px; border-radius: 8px;
+    font-size: 12px; line-height: 1.5; box-shadow: 0 4px 14px rgba(0,0,0,0.25); pointer-events: none; }
+
+/* Termin-Detail-Fenster (Klick) */
+.kal-modal-bg { position: fixed; inset: 0; z-index: 9998; display: none;
+    background: var(--schleier); align-items: center; justify-content: center; padding: 20px; }
+.kal-modal-box { background: var(--flaeche); border-radius: var(--radius); padding: 24px; max-width: 460px;
+    width: 100%; position: relative; box-shadow: var(--schatten-hoch); }
+.kal-modal-x { position: absolute; top: 12px; right: 12px; border: none; background: var(--flaeche-3);
+    width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 14px; color: var(--neutral-text); }
+.kal-modal-x:hover { background: var(--linie); }
+.kal-ev { cursor: pointer; }
+
+/* ---------- Mobile Ansicht: Seitenleiste als Schublade ---------- */
+@media (max-width: 760px) {
+    /* Obere Leiste mit Menü-Knopf */
+    .topbar {
+        display: flex; align-items: center; gap: 12px;
+        position: sticky; top: 0; z-index: 900;
+        background: var(--flaeche); border-bottom: 1px solid var(--linie);
+        padding: 10px 14px; padding-top: calc(10px + env(safe-area-inset-top));
+    }
+    .topbar-titel { font-weight: 700; font-size: 16px; }
+
+    /* Rundes Donut-Menü: schwebt unten rechts, öffnet die Navigation */
+    .donut {
+        display: grid; place-items: center; box-sizing: border-box;
+        position: fixed; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom));
+        z-index: 1001; width: 60px; height: 60px; padding: 0;
+        border-radius: 50%; cursor: pointer; color: var(--auf-primaer, #fff);
+        background: var(--blau);
+        border: 4px solid var(--flaeche);       /* äußerer Ring */
+        box-shadow: 0 6px 20px rgba(15,23,42,0.40),
+                    inset 0 0 0 3px rgba(255,255,255,0.35);  /* innerer Ring → Donut */
+        -webkit-tap-highlight-color: transparent;
+        transition: transform 0.2s ease;
+    }
+    .donut:active { transform: scale(0.94); }
+
+    /* Symbol: drei Striche, die sich beim Öffnen zum ✕ drehen */
+    .donut .donut-icon,
+    .donut .donut-icon::before,
+    .donut .donut-icon::after {
+        content: ""; display: block; width: 22px; height: 3px;
+        border-radius: 2px; background: currentColor;
+        transition: transform 0.22s ease, opacity 0.18s ease;
+    }
+    .donut .donut-icon { position: relative; }
+    .donut .donut-icon::before { position: absolute; left: 0; top: -7px; }
+    .donut .donut-icon::after  { position: absolute; left: 0; top: 7px; }
+    body.nav-offen .donut .donut-icon { background: transparent; }
+    body.nav-offen .donut .donut-icon::before { transform: translateY(7px) rotate(45deg); }
+    body.nav-offen .donut .donut-icon::after  { transform: translateY(-7px) rotate(-45deg); }
+
+    @media (prefers-reduced-motion: reduce) {
+        .donut, .donut .donut-icon,
+        .donut .donut-icon::before, .donut .donut-icon::after { transition: none; }
+    }
+
+    /* Layout stapeln, Seitenleiste als ausklappbare Schublade */
+    .layout { display: block; }
+    .sidebar {
+        position: fixed; top: 0; left: 0; height: 100vh; height: 100dvh;
+        width: min(84vw, 300px); z-index: 1000; overflow-y: auto;
+        transform: translateX(-100%); transition: transform 0.22s ease;
+    }
+    body.nav-offen .sidebar { transform: none; }
+    .sidebar-backdrop { position: fixed; inset: 0; z-index: 999; background: var(--schleier); }
+    body.nav-offen .sidebar-backdrop { display: block; }
+    body.nav-offen { overflow: hidden; }
+
+    .content { padding: 18px 16px; max-width: none; }
+    .page-header h1 { font-size: 20px; }
+
+    /* Datentabellen horizontal scrollbar (Kalender-Tabellen ausgenommen) */
+    .content table:not(.kal-monat):not(.kal-mini) {
+        display: block; overflow-x: auto; white-space: nowrap;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Detail-Ansicht einspaltig */
+    .detail-grid { grid-template-columns: 1fr; gap: 2px 0; }
+    .detail-grid dt { margin-top: 10px; }
+
+    /* Kalender kompakter */
+    .kal-woche { grid-template-columns: 1fr; }
+    .kal-monat td { height: auto; min-height: 46px; padding: 2px; }
+    .kal-monat th { padding: 5px 2px; font-size: 10px; }
+    .kal-tag-nr { min-width: 18px; }
+    .kal-event { font-size: 10px; padding: 1px 4px; }
+}
+
+@media print {
+    .sidebar { display: none; }
+    .content { padding: 0; max-width: none; }
+    .no-print { display: none !important; }
+}
+
+/* @-Erwähnungen: Auswahl-Box beim Tippen */
+.mention-box { position: absolute; z-index: 60; background: var(--flaeche); border: 1px solid var(--linie);
+    border-radius: 8px; box-shadow: 0 6px 20px rgba(20,40,70,.16); min-width: 190px; max-height: 210px;
+    overflow: auto; margin-top: 2px; }
+.mention-opt { padding: 8px 12px; cursor: pointer; font-size: 14px; white-space: nowrap; }
+.mention-opt.an, .mention-opt:hover { background: var(--flaeche-3); }
+
+/* ---------- Responsiv-Baukasten (Desktop mehrspaltig, mobil gestapelt) ---------- */
+/* Breite Seiten heben die 1200px-Grenze auf: {% block inhalt_breite %}inhalt-breit{% endblock %} */
+.content.inhalt-breit { max-width: none; }
+/* Scrollender Wrapper für breite Datentabellen – wirkt auf allen Breiten.
+   Schatten/Rundung trägt der Wrapper, sonst schnitte overflow den Tabellen-Schatten ab. */
+.tabellen-scroll { overflow-x: auto; border-radius: var(--radius); box-shadow: var(--schatten); }
+.tabellen-scroll > table { box-shadow: none; }
+/* Zweispalter: Hauptteil + Seitenspalte (Breite per --neben einstellbar), stapelt auf schmalen Screens */
+.haupt-neben { display: grid; grid-template-columns: minmax(0, 1fr) var(--neben, 320px); gap: 20px; align-items: start; }
+.haupt-neben.neben-links { grid-template-columns: var(--neben, 320px) minmax(0, 1fr); }
+/* Karten-Raster: bricht von selbst um; min(100%, …) schützt schmale Handys vor zu großen Mindestbreiten */
+.spalten { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--spalte-min, 280px)), 1fr)); gap: 16px; align-items: start; }
+@media (max-width: 980px) {
+    .haupt-neben, .haupt-neben.neben-links { grid-template-columns: 1fr; }
+}
+@media print {
+    .tabellen-scroll { overflow: visible; box-shadow: none; }
+    .abmelden-knopf { display: none; }
+}
+/* Abmelde-Knopf (base.html): fest oben rechts … */
+.abmelden-knopf { position: fixed; top: 12px; right: 14px; z-index: 60; width: 40px; height: 40px;
+    display: grid; place-items: center; border-radius: 11px; background: var(--flaeche);
+    border: 1px solid var(--linie); color: var(--text-hell);
+    box-shadow: 0 2px 8px rgba(20,40,70,.08); text-decoration: none; }
+/* … der die Knöpfe im Seitenkopf überdecken kann – dort Platz freihalten:
+   bis 1500px bei jeder Seite (Inhalt endet bei max. 1200px + Seitenleiste),
+   darüber nur bei Seiten in voller Breite (inhalt-breit) */
+@media (min-width: 761px) and (max-width: 1500px) {
+    .page-header { padding-right: 52px; }
+}
+@media (min-width: 1501px) {
+    .content.inhalt-breit .page-header { padding-right: 52px; }
+}
+@media (max-width: 760px) {
+    /* Mobil IN die Topbar-Leiste legen (sonst verdeckt die Topbar den Knopf, z-index 900) */
+    .abmelden-knopf { top: calc(6px + env(safe-area-inset-top)); right: 10px; z-index: 901; width: 34px; height: 34px; }
+    /* … und der Topbar-Titel läuft nicht unter den Knopf */
+    .topbar { padding-right: 54px; }
+}

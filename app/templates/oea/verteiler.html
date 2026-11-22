@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Presseverteiler{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>📇 Presseverteiler</h1><div class="sub">Redaktionen und Journalist:innen – Empfänger der Pressemitteilungen</div></div>
+</div>
+
+<div class="haupt-neben" style="--neben:340px;gap:16px">
+<div>
+    {% if kontakte %}
+    <table class="tabelle">
+        <thead><tr><th>Redaktion</th><th>Ansprechpartner:in</th><th>E-Mail</th><th>Redaktionsschluss</th><th class="rechts"></th></tr></thead>
+        <tbody>
+        {% for k in kontakte %}
+        <tr>
+            <td><a href="{{ url_for('oea.verteiler_bearbeiten', kid=k.id) }}" style="font-weight:700">{{ k.name }}</a>
+                {% if k.logindaten %}<br><span class="feld-hinweis" title="Zugangsdaten für eigene Eintragungen hinterlegt (im Bearbeiten-Dialog)">🔐 Portal-Zugang hinterlegt</span>{% endif %}</td>
+            <td>{{ k.ansprechpartner or '–' }}</td>
+            <td>{% if k.email %}<a href="mailto:{{ k.email }}">{{ k.email }}</a>{% else %}<span style="color:var(--fehler-text)">fehlt – bekommt nichts!</span>{% endif %}
+                {% if k.telefon %}<br><span class="feld-hinweis">📞 {{ k.telefon }}</span>{% endif %}</td>
+            <td style="min-width:170px">
+                <form method="post" action="{{ url_for('oea.verteiler_schluss', kid=k.id) }}" style="display:flex;gap:4px">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input name="redaktionsschluss" value="{{ k.redaktionsschluss or '' }}"
+                           placeholder="z. B. 15. des Vormonats" style="font-size:12.5px;padding:4px 6px"
+                           title="Steht hier ein Monatstag (1–28), trägt der Automat die Frist jeden Monat in den Redaktionsplan ein">
+                    <button class="btn btn-sekundaer btn-klein" title="Redaktionsschluss speichern">💾</button>
+                </form>
+            </td>
+            <td class="rechts" style="white-space:nowrap">
+                <a href="{{ url_for('oea.verteiler_bearbeiten', kid=k.id) }}" class="btn btn-sekundaer btn-klein" title="Bearbeiten (inkl. Zugangsdaten)">✏️</a>
+                <form method="post" action="{{ url_for('oea.verteiler_entfernen', kid=k.id) }}" style="display:inline"
+                      onsubmit="return confirm('Aus dem Presseverteiler entfernen? (Der Kontakt selbst bleibt erhalten.)')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein" title="Aus dem Verteiler entfernen">✕</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="karte leer"><div class="icon">📇</div><p>Noch keine Presse-Kontakte. Rechts die erste Redaktion anlegen –
+        z. B. die Lokalzeitung, das Amtsblatt oder den Regionalsender.</p></div>
+    {% endif %}
+
+    <div class="karte" style="margin-top:16px">
+        <h2 style="margin-top:0">📰 Stammtext für Pressemitteilungen</h2>
+        <form method="post" action="{{ url_for('oea.stammtext') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label>„Über den Verein" (Boilerplate – steht unter jeder Mitteilung)
+                <textarea name="presse_boilerplate" rows="4"
+                          placeholder="z. B. Der Musterverein Seeblick e. V. wurde 2015 gegründet und bringt mit über 120 Mitgliedern Kultur, Sport und Nachbarschaft an die Müritz …">{{ einst.presse_boilerplate or '' }}</textarea></label>
+            <label>Pressekontakt (Name, Telefon, E-Mail)
+                <input name="presse_kontakt" value="{{ einst.presse_kontakt or '' }}"
+                       placeholder="z. B. Maria Muster, 0170 1234567, presse@verein.de"></label>
+            <button class="btn">💾 Speichern</button>
+        </form>
+    </div>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0;font-size:16px">＋ Presse-Kontakt anlegen</h2>
+    <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>Redaktion / Medium *<input name="name" required placeholder="z. B. Müritz-Zeitung"></label>
+        <label>Ansprechpartner:in<input name="ansprechpartner" placeholder="z. B. Frau Schulz"></label>
+        <label>E-Mail<input type="email" name="email" placeholder="redaktion@zeitung.de"></label>
+        <label>Telefon<input name="telefon"></label>
+        <label>Redaktionsschluss <span class="feld-hinweis">(optional, z. B. „15. des Vormonats")</span>
+            <input name="redaktionsschluss" placeholder="z. B. 15. des Vormonats"></label>
+        <button class="btn" style="width:100%">Speichern</button>
+        <p class="feld-hinweis" style="margin-bottom:0">Landet auch in der zentralen <strong>Kontaktdatenbank</strong>
+            (Kategorie „Presse") – der Vorstand sieht die Kontakte dort ebenfalls.</p>
+        <p class="feld-hinweis">⏰ Steht beim Redaktionsschluss ein <strong>Monatstag (1–28)</strong>, trägt die
+            Automatik die Frist jeden Monat als Erinnerung in den Redaktionsplan ein.</p>
+    </form>
+</div>
+</div>
+{% endblock %}

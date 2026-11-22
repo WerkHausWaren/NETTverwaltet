@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Austritt – {{ m.vorname }} {{ m.nachname }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>👋 Austritt: {{ m.vorname }} {{ m.nachname }}</h1>
+        <div class="sub">Kündigung erfassen, Austrittsdatum nach Satzung bestimmen, Bestätigung senden</div></div>
+    <a href="{{ url_for('mitglieder.detail', mid=m.id) }}" class="btn btn-sekundaer">← Zurück zum Profil</a>
+</div>
+
+<div class="hilfe-box" style="margin-bottom:14px">💡 <strong>Wie das Datum entsteht:</strong> Laut euren Einstellungen
+    gilt eine Kündigungsfrist von <strong>{{ frist_tage }} Tagen {{ regel }}</strong>. Daraus ergibt sich der
+    Vorschlag unten. Passt die Regel nicht zu eurer Satzung, kannst du das Datum überschreiben – und die Regel
+    unter <a href="{{ url_for('einstellungen.index') }}">Einstellungen</a> dauerhaft anpassen.</div>
+
+{% if offene and offene.c %}
+<div class="karte" style="border:1px solid var(--gelb);background:var(--warn-grund)">
+    <strong>⚠️ Offene Beiträge:</strong> Für dieses Mitglied sind noch
+    <strong>{{ offene.c }} Beitrag/Beiträge über {{ offene.s | euro }}</strong> offen.
+    Bitte vor dem Austritt klären – bis zum Austrittstermin fällige Beiträge bleiben geschuldet.
+</div>
+{% endif %}
+
+<form method="post" class="karte">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="feld-reihe">
+        <div class="feld" style="max-width:200px"><label>Kündigung eingegangen am</label>
+            <input type="date" name="kuendigung_am" value="{{ m.kuendigung_am or heute }}"></div>
+        <div class="feld" style="max-width:200px"><label>Austritt wirksam zum *</label>
+            <input type="date" name="austrittsdatum" value="{{ m.austrittsdatum or vorschlag }}" required>
+            <div class="feld-hinweis">Vorschlag: {{ vorschlag | datum_de }}</div></div>
+        <div class="feld"><label>Grund (optional, intern)</label>
+            <input type="text" name="kuendigung_grund" value="{{ m.kuendigung_grund or '' }}"
+                   placeholder="z. B. Umzug, aus Zeitgründen"></div>
+    </div>
+
+    <div class="feld" style="background:var(--flaeche-2);border-radius:10px;padding:12px 14px">
+        <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;font-weight:400">
+            <input type="checkbox" name="bestaetigung" style="width:auto;margin-top:3px" checked
+                   {{ 'disabled' if not m.email }}>
+            <span><strong>Bestätigungsschreiben per E-Mail senden</strong>
+                {% if m.email %}<span class="feld-hinweis">an {{ m.email }} – freundlich formuliert,
+                    mit Hinweis auf das endende SEPA-Mandat</span>
+                {% else %}<span class="feld-hinweis" style="color:var(--rot)">keine E-Mail-Adresse hinterlegt –
+                    bitte per Brief bestätigen</span>{% endif %}</span>
+        </label>
+        <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;font-weight:400;margin-top:8px">
+            <input type="checkbox" name="sofort_beenden" style="width:auto;margin-top:3px">
+            <span><strong>Sofort auf „ausgetreten" setzen</strong>
+                <span class="feld-hinweis">Normalerweise nicht nötig: Liegt das Austrittsdatum in der Zukunft,
+                    bleibt die Mitgliedschaft bis dahin aktiv (Beiträge laufen weiter).</span></span>
+        </label>
+    </div>
+
+    <p class="feld-hinweis">Was automatisch passiert: Das SEPA-Mandat wird beendet, Kündigungs- und
+        Austrittsdatum werden im Profil festgehalten. Die Daten bleiben für die steuerlichen
+        Aufbewahrungsfristen erhalten – gelöscht wird nichts.</p>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn">👋 Austritt eintragen</button>
+        <a href="{{ url_for('mitglieder.detail', mid=m.id) }}" class="btn btn-sekundaer">Abbrechen</a>
+    </div>
+</form>
+{% endblock %}

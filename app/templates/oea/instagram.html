@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Instagram-Verbindung{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>📸 Instagram-Verbindung</h1><div class="sub">Beiträge direkt veröffentlichen und Kommentare beantworten</div></div>
+    <a href="{{ url_for('oea.index') }}" class="btn btn-sekundaer">‹ Cockpit</a>
+</div>
+
+{% if einst.ig_user_id %}
+<div class="karte" style="border-left:4px solid var(--gruen)">
+    <h2 style="margin-top:0;font-size:17px">✅ Verbunden mit @{{ einst.ig_konto }}</h2>
+    <p class="feld-hinweis">Freigegebene Instagram-Beiträge lassen sich jetzt im Redaktionsplan mit einem
+        Klick veröffentlichen. Kommentare landen im <a href="{{ url_for('oea.kommentare') }}">Postfach</a>.</p>
+    {% if test_meldung %}
+    <p style="font-weight:600;color:{{ 'var(--gut-text)' if test_ok else 'var(--fehler-text)' }}">{{ test_meldung }}</p>
+    {% endif %}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <a href="{{ url_for('oea.instagram', test=1) }}" class="btn btn-sekundaer">🧪 Verbindung testen</a>
+        <form method="post" style="display:inline" onsubmit="return confirm('Verbindung wirklich trennen? Veröffentlichen und Kommentare sind danach nicht mehr möglich.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="aktion" value="trennen">
+            <button class="btn btn-sekundaer">✕ Verbindung trennen</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<div class="karte">
+    <h2 style="margin-top:0;font-size:17px">{{ 'Neu verbinden' if einst.ig_user_id else 'Einrichten' }}</h2>
+    <div class="hilfe-box" style="margin-bottom:14px">
+        <strong>Was du einmalig bei Meta erledigen musst</strong> – danach läuft alles aus dieser App:
+        <ol style="margin:8px 0 0 4px;padding-left:18px;line-height:1.7">
+            <li>Das Instagram-Konto muss ein <strong>Business- oder Creator-Konto</strong> sein und mit einer
+                <strong>Facebook-Seite</strong> verbunden (Instagram-App → Einstellungen → Kontotyp).
+                Mit einem privaten Konto gibt es die Schnittstelle nicht.</li>
+            <li>Auf <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener">developers.facebook.com</a>
+                eine App vom Typ <strong>Business</strong> anlegen. App-ID und App-Geheimnis stehen dort
+                unter Einstellungen → Allgemeines.</li>
+            <li>Im <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener">Graph-API-Explorer</a>
+                ein Token erzeugen und diese Rechte anhaken:<br>
+                <span style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px">{{ rechte | join(', ') }}</span></li>
+            <li>Die drei Angaben hier eintragen. Das kurzlebige Token wird automatisch gegen ein
+                dauerhaftes getauscht – du musst das also nur einmal machen.</li>
+        </ol>
+        <p class="feld-hinweis" style="margin-bottom:0">Solange die Meta-App im Entwicklungsmodus steht, gilt das
+            nur für eure eigenen Konten – ein Prüfverfahren bei Meta ist dafür <strong>nicht</strong> nötig.</p>
+    </div>
+    <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld-reihe">
+            <div class="feld"><label>App-ID *</label>
+                <input type="text" name="ig_app_id" required value="{{ einst.ig_app_id or '' }}"
+                       placeholder="z. B. 1234567890123456"></div>
+            <div class="feld"><label>App-Geheimnis *</label>
+                <input type="password" name="ig_app_secret" required autocomplete="off"
+                       placeholder="{{ '•••••••• (gespeichert – neu eingeben zum Ändern)' if einst.ig_app_secret else 'App Secret' }}"></div>
+        </div>
+        <div class="feld"><label>Token aus dem Graph-API-Explorer *</label>
+            <textarea name="kurz_token" rows="3" required autocomplete="off" spellcheck="false"
+                      placeholder="EAAG… (das lange Token einfach hier einfügen)"></textarea>
+            <div class="feld-hinweis">Wird sofort gegen ein dauerhaftes Seiten-Token getauscht und
+                <strong>verschlüsselt</strong> gespeichert.</div></div>
+        <button class="btn">🔗 Verbinden</button>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>{{ 'Unterschriftenliste' if unterschriften else 'Teilnehmendenliste' }} – {{ t.titel }}</title>
+<style>
+    body { font-family: -apple-system, Arial, sans-serif; color: #1e293b; margin: 26px; font-size: 12.5px; }
+    h1 { font-size: 19px; margin: 0 0 2px; }
+    .kopf { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #1e293b; padding-bottom: 8px; margin-bottom: 14px; }
+    .kopf .sub { color: #64748b; font-size: 12px; }
+    .kopf img { max-height: 16mm; max-width: 48mm; object-fit: contain; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 6px 8px; border: 1px solid #cbd5e1; }
+    th { background: #f1f5f9; font-size: 10.5px; text-transform: uppercase; }
+    td.nr { width: 30px; text-align: center; color: #64748b; }
+    td.sig { width: 42%; }
+    tr { height: 26px; }
+    .drucken { margin-bottom: 14px; }
+    .btn { background: #2563eb; color: #fff; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    @media print { .drucken { display: none; } body { margin: 0; } }
+</style>
+</head>
+<body>
+<div class="drucken"><button class="btn" onclick="window.print()">🖨️ Drucken / Als PDF sichern</button></div>
+<div class="kopf">
+    <div><h1>{{ t.titel }}</h1>
+        <div class="sub">{{ 'Unterschriften-/Anwesenheitsliste' if unterschriften else 'Teilnehmendenliste' }} · {{ t.datum | datum_de }}{% if t.ort %} · {{ t.ort }}{% endif %} · {{ zeilen|length }} Teilnehmende</div></div>
+    {% if einst.logo_dateiname %}<img src="{{ url_for('einstellungen.logo', verein_id=einst.id) }}" alt="">{% endif %}
+</div>
+
+<table>
+    {% if unterschriften %}
+    <thead><tr><th class="nr">#</th><th>Teilnehmende</th><th>Anmelder:in</th><th class="sig">Unterschrift</th></tr></thead>
+    <tbody>
+        {% for r in zeilen %}
+        <tr><td class="nr">{{ loop.index }}</td><td>{{ r.teilnehmer_name }}</td><td>{{ r.anmelder_name }}{% if r.warteliste %} (Warteliste){% endif %}</td><td class="sig"></td></tr>
+        {% endfor %}
+    </tbody>
+    {% else %}
+    <thead><tr><th class="nr">#</th><th>Teilnehmende</th><th>Anmelder:in</th><th>Kontakt</th><th>Ort</th><th>Quelle</th><th>Foto</th><th>Zahlung</th><th>Erschienen</th></tr></thead>
+    <tbody>
+        {% for r in zeilen %}
+        <tr>
+            <td class="nr">{{ loop.index }}</td>
+            <td>{{ r.teilnehmer_name }}{% if r.warteliste %} <span style="color:#c0392b">(WL)</span>{% endif %}</td>
+            <td>{{ r.anmelder_name }}</td>
+            <td>{{ r.email }}{% if r.telefon %}<br>{{ r.telefon }}{% endif %}</td>
+            <td>{{ r.plz }} {{ r.ort }}</td>
+            <td>{{ r.quelle }}</td>
+            <td>{{ '✓' if r.foto_status == 'ja' else '✗' if r.foto_status == 'nein' else '?' }}{{ '+SM' if r.foto_social == 'ja' }}</td>
+            <td>{{ '%.2f'|format(r.betrag or 0) }} € {{ r.bezahlstatus }}</td>
+            <td>{{ (r.checkin_am or '')[11:16] or '–' }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    {% endif %}
+</table>
+{% if not zeilen %}<p style="color:#64748b;margin-top:14px">Noch keine Teilnehmende.</p>{% endif %}
+</body>
+</html>

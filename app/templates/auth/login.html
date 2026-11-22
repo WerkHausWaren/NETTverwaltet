@@ -1,0 +1,128 @@
+{% extends "auth/_layout.html" %}
+{% block title %}Anmelden{% endblock %}
+{% block inhalt %}
+{# Mehrere Vereine in einer Instanz (lokale Verwaltung): neutraler Kopf –
+   online (1 Verein je Container) Logo + Vereinsname. #}
+{% if vereine and vereine|length > 1 %}
+<div class="auth-logo">🔑</div>
+<h1 class="auth-titel">NETTverwaltet</h1>
+{% else %}
+{% if design and design.logo_dateiname %}
+<div style="text-align:center"><img src="{{ url_for('portal.logo') }}" alt="{{ verein_name }}"
+     style="height:80px;max-width:70%;object-fit:contain"></div>
+{% else %}
+<div class="auth-logo">🔑</div>
+{% endif %}
+<h1 class="auth-titel">{{ verein_name or 'Vereinsverwaltung' }}</h1>
+{% endif %}
+
+{% macro verein_wahl() %}
+    {% if vereine and vereine|length > 1 %}
+    <div class="feld"><label>Für welchen Verein?</label>
+        <select name="verein_id" required>
+            <option value="" disabled selected>Bitte wählen …</option>
+            {% for v in vereine %}<option value="{{ v.id }}">{{ v.vereinsname }}</option>{% endfor %}
+        </select>
+    </div>
+    {% elif vereine and vereine|length == 1 %}
+    <input type="hidden" name="verein_id" value="{{ vereine[0].id }}">
+    {% endif %}
+{% endmacro %}
+
+{% if design and design.freunde_registrierung %}
+<a href="{{ url_for('portal.home') }}" class="btn" style="background:var(--flaeche-3);color:var(--text-stark);border:1px solid var(--linie);margin-bottom:16px">
+    Weiter als Gast – für Kino, Veranstaltungen &amp; mehr</a>
+{% endif %}
+
+{# Face ID / Fingerabdruck (20.11.2026): nur sichtbar, wenn das Gerät es kann #}
+{% if not config.DEMO_LOGIN %}
+<div id="faceid-block" hidden style="margin-bottom:12px">
+    <button type="button" id="faceid-knopf" class="btn" style="background:var(--blau,#174290);color:#fff">
+        🙂 Mit Face ID / Fingerabdruck anmelden</button>
+    <p id="faceid-meldung" class="feld-hinweis" style="text-align:center;margin:6px 0 0" role="status"></p>
+</div>
+<script src="{{ url_for('static', filename='faceid.js') }}?v=1"></script>
+<script>
+(function () {
+    var block = document.getElementById("faceid-block");
+    if (!window.FaceID) return;
+    FaceID.verfuegbar().then(function (ja) { if (ja) block.hidden = false; });
+    document.getElementById("faceid-knopf").addEventListener("click", function () {
+        var meldung = document.getElementById("faceid-meldung"), knopf = this;
+        var schalter = document.getElementById("merken-schalter");
+        var weiter = new URLSearchParams(location.search).get("weiter") || "";
+        knopf.disabled = true; meldung.textContent = "";
+        FaceID.anmelden(schalter ? schalter.checked : true, weiter).then(function (r) {
+            if (r.ok) { location.href = r.weiter; return; }
+            knopf.disabled = false;
+            meldung.textContent = r.fehler || "Das hat nicht geklappt.";
+        });
+    });
+})();
+</script>
+{% endif %}
+
+{% if nc_konfiguriert %}
+<form method="post" action="{{ url_for('auth.login_nextcloud') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {{ verein_wahl() }}
+    <input type="hidden" name="merken" value="1">
+    <button type="submit" class="btn" style="background:var(--flaeche);color:var(--blau-text,#174290);border:1.5px solid var(--blau-text,#174290)">Anmelden</button>
+</form>
+{% endif %}
+
+{# Eine Checkbox für alle Anmelde-Wege (JS hält die Formulare synchron) #}
+<label style="display:flex;gap:8px;align-items:center;justify-content:center;font-size:13.5px;margin:12px 0 0;cursor:pointer"
+       title="Merkt dich bis zu 180 Tage auf diesem Gerät (Cookie) – bitte nur auf eigenen Geräten.">
+    <input type="checkbox" id="merken-schalter" checked
+           style="width:17px;height:17px;accent-color:var(--blau,#174290)"
+           onchange="document.querySelectorAll('input[name=merken]').forEach(function(i){i.value=this.checked?'1':''},this)">
+    <span>Eingeloggt bleiben <span class="feld-hinweis">(Mitglieder 180 Tage, Vorstand 1 Monat)</span></span>
+</label>
+
+{% if nc_konfiguriert %}
+<details style="margin-top:14px">
+    <summary class="feld-hinweis" style="cursor:pointer;text-align:center;list-style:none">✉️ Mit E-Mail &amp; Passwort anmelden</summary>
+    <form method="post" action="{{ url_for('auth.login_notfall') }}" style="margin-top:10px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {{ verein_wahl() }}
+        <div class="feld"><label>E-Mail</label><input type="email" name="email" required></div>
+        <div class="feld"><label>Passwort</label><input type="password" name="passwort" required></div>
+        <input type="hidden" name="merken" value="1">
+        <button type="submit" class="btn" style="background:var(--flaeche);color:var(--neutral-text);border:1.5px solid var(--linie-stark)">Anmelden</button>
+    </form>
+</details>
+{% else %}
+<form method="post" action="{{ url_for('auth.login_notfall') }}" style="margin-top:14px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {{ verein_wahl() }}
+    <div class="feld"><label>E-Mail</label><input type="email" name="email" required></div>
+    <div class="feld"><label>Passwort</label><input type="password" name="passwort" required></div>
+    <input type="hidden" name="merken" value="1">
+    <button type="submit" class="btn" style="background:var(--flaeche);color:var(--blau-text,#174290);border:1.5px solid var(--blau-text,#174290)">Anmelden</button>
+</form>
+{% endif %}
+
+<p style="text-align:center;margin:12px 0 0">
+    <a class="feld-hinweis" href="{{ url_for('auth.passwort_vergessen') }}">Passwort vergessen?</a>
+    {% if design and design.freunde_registrierung %}
+    · <a class="feld-hinweis" href="{{ url_for('auth.freund_registrieren') }}">Registrieren</a>
+    {% endif %}
+</p>
+
+{% if config.DEMO_LOGIN %}
+<hr>
+<p style="text-align:center;margin:0 0 10px;font-weight:700">🧪 Demo ausprobieren – ohne Anmeldung</p>
+<form method="post" action="{{ url_for('auth.demo_login') }}" style="margin-bottom:8px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="bereich" value="mitglied">
+    <button type="submit" class="btn" style="background:var(--gruen)">📱 Mitglieder-App testen</button>
+</form>
+<form method="post" action="{{ url_for('auth.demo_login') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="bereich" value="admin">
+    <button type="submit" class="btn" style="background:#0e7490;color:#fff">🛠️ Verwaltung (Vorstand) testen</button>
+</form>
+<p class="feld-hinweis" style="text-align:center;margin:10px 0 0">Mit Beispieldaten – einfach ausprobieren.</p>
+{% endif %}
+{% endblock %}

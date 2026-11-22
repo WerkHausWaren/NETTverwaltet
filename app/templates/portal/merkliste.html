@@ -1,0 +1,75 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Merkzettel{% endblock %}
+{% block inhalt %}
+<div class="mp-schmal">
+<div style="margin-top:14px"><a href="{{ url_for('portal.termine') }}" style="font-weight:600;text-decoration:none">‹ Alle Termine</a></div>
+
+{% if gast_ohne_konto %}
+<div class="mp-karte merk-gast">
+    <h1><span aria-hidden="true">♥</span> Merkzettel</h1>
+    <p class="feld-hinweis">Merk dir Veranstaltungen mit dem Herz – dafür brauchst du ein kostenloses Konto.</p>
+    <form method="post" action="{{ url_for('auth.login_notfall') }}" class="merk-login">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% if verein_id %}<input type="hidden" name="verein_id" value="{{ verein_id }}">{% endif %}
+        <input type="hidden" name="weiter" value="{{ url_for('portal.merkliste') }}">
+        <input type="hidden" name="merken" value="1">
+        <div class="feld"><label for="merk-email">E-Mail</label><input id="merk-email" type="email" name="email" autocomplete="username" required></div>
+        <div class="feld"><label for="merk-pw">Passwort</label><input id="merk-pw" type="password" name="passwort" autocomplete="current-password" required></div>
+        <button type="submit" class="mp-btn">Anmelden</button>
+        <a class="feld-hinweis merk-vergessen" href="{{ url_for('auth.passwort_vergessen') }}">Passwort vergessen?</a>
+    </form>
+    {% if design and design.freunde_registrierung %}
+    <div class="merk-oder"><span>oder</span></div>
+    <a class="merk-neu" href="{{ url_for('auth.freund_registrieren') }}">Kostenloses Konto anlegen</a>
+    {% endif %}
+    {% if nc_konfiguriert %}<p class="feld-hinweis merk-mitglied">Mitglied? <a href="{{ url_for('auth.login') }}">Mit dem Vereins-Konto anmelden</a></p>{% endif %}
+</div>
+<style>
+    .merk-gast h1 { margin: 0 0 4px; font-size: 22px; }
+    .merk-gast h1 span { color: #e11d48; }
+    .merk-gast > .feld-hinweis { margin: 0 0 14px; }
+    .merk-login .feld { margin-bottom: 10px; }
+    .merk-login .mp-btn { margin-top: 4px; }
+    .merk-vergessen { display: block; text-align: center; margin-top: 10px; }
+    .merk-oder { display: flex; align-items: center; gap: 10px; margin: 16px 0; color: var(--text-hell); font-size: 13px; }
+    .merk-oder::before, .merk-oder::after { content: ""; flex: 1; height: 1px; background: var(--linie); }
+    .merk-neu { display: block; text-align: center; padding: 12px; border-radius: calc(var(--radius) * 1.2);
+                border: 1.5px solid var(--mp); color: var(--mp); font-weight: 700; text-decoration: none; }
+    .merk-mitglied { text-align: center; margin: 14px 0 0; }
+</style>
+{% else %}
+<div class="mp-karte">
+    <h1 style="margin:0 0 4px;font-size:22px"><span style="color:#e11d48">♥</span> Mein Merkzettel</h1>
+    {% if not kommend and not vergangen %}
+    <p class="feld-hinweis" style="margin:8px 0 0">Noch nichts gemerkt. Tippe bei einer Veranstaltung auf das Herz ♡,
+        dann erscheint sie hier.</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('portal.merkliste_erinnern') }}" class="merk-erinnern"
+          style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:10px 0 4px;padding:10px 12px;border-radius:10px;background:var(--flaeche-2);border:1px solid var(--linie)">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label style="display:inline-flex;align-items:center;gap:8px;font-weight:600;margin:0">
+            <input type="checkbox" name="an" value="1" style="width:auto" onchange="this.form.submit()"{{ ' checked' if erinnern }}>
+            🔔 Am Vortag um 17 Uhr erinnern</label>
+        <span class="feld-hinweis">Kommt als Mitteilung aufs Gerät –
+            <button type="button" onclick="pushAktivieren(this)" style="border:none;background:none;padding:0;color:var(--blau-text);text-decoration:underline;cursor:pointer;font:inherit">Mitteilungen hier aktivieren</button>.</span>
+        <noscript><button type="submit">Speichern</button></noscript>
+    </form>
+    {% for gruppe, liste in [('Demnächst', kommend), ('Vorbei', vergangen)] %}
+    {% if liste %}
+    <h2 style="margin:16px 0 4px;font-size:15px;color:var(--text-hell)">{{ gruppe }}</h2>
+    {% for t in liste %}
+    <div class="merk-zeile" style="display:flex;align-items:center;gap:12px;padding:10px 0 10px 10px;border-left:4px solid {{ t.farbe|hexfarbe('var(--linie)') }};{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}{{ ';opacity:.6' if gruppe == 'Vorbei' }}">
+        <a href="{{ termin_link(t) }}" style="flex:1;min-width:0;text-decoration:none;color:inherit">
+            <div style="font-weight:600{{ ';text-decoration:line-through' if t.abgesagt }}">{{ t.titel }}</div>
+            <div class="feld-hinweis">{{ t.datum|wt }}, {{ t.datum[8:10] }}.{{ t.datum[5:7] }}.{{ t.datum[0:4] }}{% if t.uhrzeit %} · {{ t.uhrzeit }} Uhr{% endif %}{% if t.ort %} · {{ t.ort }}{% endif %}{% if t.abgesagt %} · ⛔ abgesagt{% endif %}</div>
+        </a>
+        <span class="herz an" role="button" tabindex="0" data-tid="{{ t.id }}" aria-pressed="true"
+              title="Gemerkt – nochmal tippen zum Entfernen"></span>
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endfor %}
+</div>
+{% endif %}
+</div>
+{% endblock %}

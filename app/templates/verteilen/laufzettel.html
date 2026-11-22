@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laufzettel – {{ a.titel }}</title>
+{% with akzent = (einst.farbe_primaer if einst else '') %}{% include "_oeffentlich_stil.html" %}{% endwith %}
+<style>
+    body { font-family: Arial, Helvetica, sans-serif; background: var(--flaeche); color: var(--text); margin: 0; padding: 18px; font-size: 13px; }
+    h1 { font-size: 18px; margin: 0 0 2px; }
+    .sub { color: var(--text-hell); margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 6px 6px; border-bottom: 1px solid var(--linie); vertical-align: top; }
+    th { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-hell); }
+    tr.strasse td { background: var(--flaeche-3); font-weight: 700; }
+    .kasten { display: inline-block; width: 14px; height: 14px; border: 1.5px solid var(--text); border-radius: 3px; vertical-align: -2px; }
+    .knopf { margin-bottom: 12px; }
+    .klein { color: var(--text-hell); font-size: 11px; }
+    @media print { .knopf { display: none; } body { padding: 0; background: #fff; color: #000; } @page { size: A4; margin: 12mm; } tr { break-inside: avoid; } }
+</style>
+</head>
+<body>
+<div class="knopf"><button onclick="window.print()">🖨 Drucken</button></div>
+<h1>📬 Laufzettel: {{ a.titel }}</h1>
+<div class="sub">{% if a.zustellung_was %}{{ a.zustellung_was }} · {% endif %}{{ liste|length }} Anschrift{{ 'en' if liste|length != 1 }} ·
+    Stand {{ heute | datum_de }}</div>
+<table>
+    <thead><tr><th>Nr.</th><th>Kontakt</th><th>Stand</th><th>Zugestellt</th><th>Nicht zustellbar (Grund)</th></tr></thead>
+    <tbody>
+    {% set ns = namespace(strasse='') %}
+    {% for z in liste %}
+    {% if (z.strasse ~ z.ort) != ns.strasse %}{% set ns.strasse = z.strasse ~ z.ort %}
+    <tr class="strasse"><td colspan="5">{{ z.strasse }}{% if z.ort %}, {{ z.plz }} {{ z.ort }}{% endif %}</td></tr>{% endif %}
+    <tr>
+        <td>{{ z.hausnr or '–' }}</td>
+        <td>{{ z.name }}{% if z.ansprechpartner %}<br><span class="klein">{{ z.ansprechpartner }}</span>{% endif %}</td>
+        <td class="klein">{{ {'offen': 'offen', 'laeuft': 'in Arbeit', 'zugestellt': 'zugestellt', 'nicht_zustellbar': 'nicht zustellbar'}.get(z.status, z.status) }}{% if z.wer %} · {{ z.wer }}{% endif %}</td>
+        <td>{% if z.status == 'zugestellt' %}✓{% else %}<span class="kasten"></span>{% endif %}</td>
+        <td class="klein">{% if z.grund %}{{ z.grund }}{% elif z.status != 'zugestellt' %}{% for g in gruende.values() %}<span class="kasten"></span> {{ g }} {% endfor %}{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+<p class="klein">Vertraulich: enthält Namen und Anschriften – nach der Runde bitte vernichten.</p>
+</body>
+</html>

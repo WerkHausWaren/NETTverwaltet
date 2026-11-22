@@ -1,0 +1,116 @@
+{# Wiederverwendbare Kontroll-Leiste für lange Tabellen: freie Live-Suche +
+   optionale Filter-Chips + Trefferzähler. Erwartet:
+     tf_ziel   – CSS-Selector der Tabelle (z. B. '#kassenbuch')
+     tf_chips  – optional: Liste von {label, wert} – filtert über data-tf der Zeilen
+     tf_seiten – optional: Liste von Seitengrößen (z. B. [10, 20, 50]) – blättert
+                 clientseitig; der mittlere Wert ist der Start. Beim Absenden von
+                 Formularen hilft tfVorSubmit(form): hakt unsichtbare Zeilen ab. #}
+<div class="tab-filter" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px">
+    <input type="search" placeholder="🔍 Freie Suche in der Tabelle …" data-ziel="{{ tf_ziel }}"
+           oninput="tfSuche(this)" style="flex:1;min-width:220px;padding:9px 12px;border:1px solid var(--grau-linie);border-radius:9px">
+    {% if tf_chips %}
+    <span data-tfgruppe="{{ tf_ziel }}">
+        <button type="button" class="btn btn-klein" onclick="tfChip(this, '')" data-aktiv="1">Alle</button>
+        {% for c in tf_chips %}
+        <button type="button" class="btn btn-klein btn-sekundaer" data-wert="{{ c.wert }}"
+                onclick="tfChip(this, this.dataset.wert)">{{ c.label }}</button>
+        {% endfor %}
+    </span>
+    {% endif %}
+    {% if tf_seiten %}
+    <span data-tfseiten="{{ tf_ziel }}">
+        <span class="feld-hinweis">je Seite:</span>
+        {% for n in tf_seiten %}
+        <button type="button" class="btn btn-klein {{ '' if loop.index == 2 else 'btn-sekundaer' }}"
+                data-n="{{ n }}" onclick="tfProSeite(this, {{ n }})">{{ n }}</button>
+        {% endfor %}
+        <button type="button" class="btn btn-klein btn-sekundaer" data-n="0"
+                onclick="tfProSeite(this, 0)">Alle</button>
+    </span>
+    <span data-tfnav="{{ tf_ziel }}" style="display:inline-flex;gap:6px;align-items:center">
+        <button type="button" class="btn btn-klein btn-sekundaer" onclick="tfBlaettern('{{ tf_ziel }}', -1)">‹</button>
+        <span class="feld-hinweis tf-seite"></span>
+        <button type="button" class="btn btn-klein btn-sekundaer" onclick="tfBlaettern('{{ tf_ziel }}', 1)">›</button>
+    </span>
+    {% endif %}
+    <span class="feld-hinweis tf-treffer" data-ziel="{{ tf_ziel }}"></span>
+</div>
+{% if tf_seiten %}<script>window._tfInit = window._tfInit || {}; window._tfInit["{{ tf_ziel }}"] = {{ tf_seiten[1] if tf_seiten|length > 1 else tf_seiten[0] }};</script>{% endif %}
+<script>
+if (!window.tfSuche) {
+    window._tfZustand = {};
+    window.tfAnwenden = function (ziel) {
+        var z = window._tfZustand[ziel] || {};
+        var q = (z.q || '').toLowerCase();
+        var chip = z.chip || '';
+        var proSeite = z.proSeite || 0;
+        var gesamt = 0, treffer = [];
+        document.querySelectorAll(ziel + ' tbody tr').forEach(function (tr) {
+            gesamt++;
+            var ok = (!q || tr.textContent.toLowerCase().indexOf(q) !== -1)
+                  && (!chip || (' ' + (tr.dataset.tf || '') + ' ').indexOf(' ' + chip + ' ') !== -1);
+            tr.style.display = 'none';
+            if (ok) treffer.push(tr);
+        });
+        var seiten = proSeite ? Math.max(1, Math.ceil(treffer.length / proSeite)) : 1;
+        z.seite = Math.min(Math.max(z.seite || 1, 1), seiten);
+        var von = proSeite ? (z.seite - 1) * proSeite : 0;
+        var bis = proSeite ? von + proSeite : treffer.length;
+        treffer.slice(von, bis).forEach(function (tr) { tr.style.display = ''; });
+        document.querySelectorAll('.tf-treffer[data-ziel="' + ziel + '"]').forEach(function (el) {
+            var basis = (q || chip) ? treffer.length + ' von ' + gesamt : gesamt + ' Einträge';
+            el.textContent = proSeite && treffer.length > proSeite
+                ? 'zeigt ' + (von + 1) + '–' + Math.min(bis, treffer.length) + ' · ' + basis : basis;
+        });
+        document.querySelectorAll('[data-tfnav="' + ziel + '"]').forEach(function (nav) {
+            nav.style.display = (proSeite && seiten > 1) ? 'inline-flex' : 'none';
+            nav.querySelector('.tf-seite').textContent = 'Seite ' + z.seite + '/' + seiten;
+        });
+    };
+    window.tfProSeite = function (btn, n) {
+        var gruppe = btn.closest('[data-tfseiten]');
+        var ziel = gruppe.dataset.tfseiten;
+        gruppe.querySelectorAll('button').forEach(function (b) { b.classList.add('btn-sekundaer'); });
+        btn.classList.remove('btn-sekundaer');
+        var z = (window._tfZustand[ziel] = window._tfZustand[ziel] || {});
+        z.proSeite = n; z.seite = 1;
+        window.tfAnwenden(ziel);
+    };
+    window.tfBlaettern = function (ziel, richtung) {
+        var z = (window._tfZustand[ziel] = window._tfZustand[ziel] || {});
+        z.seite = (z.seite || 1) + richtung;
+        window.tfAnwenden(ziel);
+    };
+    // Vor dem Absenden: unsichtbare (weggefilterte/weggeblätterte) Zeilen abhaken –
+    // verbucht wird nur, was gerade zu sehen ist.
+    window.tfVorSubmit = function (form) {
+        form.querySelectorAll('tbody tr').forEach(function (tr) {
+            if (tr.style.display === 'none') {
+                tr.querySelectorAll('input[type=checkbox]').forEach(function (c) { c.checked = false; });
+            }
+        });
+        return true;
+    };
+    window.tfSuche = function (feld) {
+        var ziel = feld.dataset.ziel;
+        (window._tfZustand[ziel] = window._tfZustand[ziel] || {}).q = feld.value;
+        window.tfAnwenden(ziel);
+    };
+    window.tfChip = function (btn, wert) {
+        var gruppe = btn.closest('[data-tfgruppe]');
+        var ziel = gruppe.dataset.tfgruppe;
+        gruppe.querySelectorAll('button').forEach(function (b) { b.classList.add('btn-sekundaer'); });
+        btn.classList.remove('btn-sekundaer');
+        (window._tfZustand[ziel] = window._tfZustand[ziel] || {}).chip = wert;
+        window.tfAnwenden(ziel);
+    };
+    document.addEventListener('DOMContentLoaded', function () {
+        Object.keys(window._tfInit || {}).forEach(function (ziel) {
+            (window._tfZustand[ziel] = window._tfZustand[ziel] || {}).proSeite = window._tfInit[ziel];
+        });
+        document.querySelectorAll('.tab-filter input[data-ziel]').forEach(function (f) {
+            window.tfAnwenden(f.dataset.ziel);
+        });
+    });
+}
+</script>

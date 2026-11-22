@@ -1,0 +1,66 @@
+{# Erledigt-Animation: fliegt von unten links nach oben rechts, mit Glitzerspur (Biene/Stern je Verein) #}
+{% if aufgabe_feier %}
+<div id="feierFlug" aria-hidden="true"><span id="feierSymbol">{{ '🐝' if aufgabe_feier == 'biene' else ('⭐' if aufgabe_feier == 'stern' else '✨') }}</span></div>
+<style>
+    #feierFlug {
+        position: fixed; left: 0; top: 0; z-index: 9999;
+        font-size: 54px; pointer-events: none; will-change: transform;
+        transform: translate(-80px, 92vh);
+        animation: feierBahn 3.4s cubic-bezier(.45,.05,.55,.95) forwards;
+        filter: drop-shadow(0 3px 8px rgba(0,0,0,.25));
+    }
+    @keyframes feierBahn {
+        from { transform: translate(-80px, 92vh); }
+        to   { transform: translate(calc(100vw + 90px), -12vh); }
+    }
+    #feierSymbol { display: inline-block;
+        {%- if aufgabe_feier == 'biene' %}
+        transform: scaleX(-1) rotate(18deg);   /* Emoji schaut nach links – gespiegelt fliegt sie nach rechts oben */
+        animation: feierWobble .5s ease-in-out infinite alternate;
+        {%- elif aufgabe_feier == 'stern' %}
+        animation: feierDreh 3.4s linear forwards;
+        {%- else %}
+        animation: feierPuls .6s ease-in-out infinite alternate;
+        {%- endif %}
+    }
+    @keyframes feierWobble { from { transform: scaleX(-1) rotate(10deg) translateY(0); }
+                             to   { transform: scaleX(-1) rotate(26deg) translateY(-14px); } }
+    @keyframes feierDreh { from { transform: rotate(0) scale(1); } 50% { transform: rotate(180deg) scale(1.35); } to { transform: rotate(360deg) scale(1); } }
+    @keyframes feierPuls { from { transform: scale(.9); } to { transform: scale(1.15); } }
+    .feier-glitzer {
+        position: fixed; left: 0; top: 0; z-index: 9998; pointer-events: none; will-change: transform, opacity;
+        animation: feierGlitzer 1.1s ease-out forwards;
+    }
+    @keyframes feierGlitzer {
+        from { opacity: 1; transform: translate(var(--gx), var(--gy)) scale(1) rotate(0deg); }
+        to   { opacity: 0; transform: translate(calc(var(--gx) + var(--gdx)), calc(var(--gy) + var(--gdy))) scale(.35) rotate(var(--gr)); }
+    }
+    @media (prefers-reduced-motion: reduce) { #feierFlug, .feier-glitzer { display: none !important; } }
+</style>
+<script>
+(function () {
+    var flug = document.getElementById('feierFlug');
+    if (!flug || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var art = {{ aufgabe_feier|tojson }};
+    var funken = art === 'biene' ? ['✨', '🌟', '💛', '✨'] : ['✨', '💫', '🌟', '⭐', '✨'];
+    var streuer = setInterval(function () {
+        var pos = flug.getBoundingClientRect();
+        if (!pos.width) return;
+        for (var i = 0; i < 3; i++) {
+            var g = document.createElement('span');
+            g.className = 'feier-glitzer';
+            g.textContent = funken[Math.floor(Math.random() * funken.length)];
+            g.style.fontSize = (9 + Math.random() * 17) + 'px';
+            g.style.setProperty('--gx', (pos.left + pos.width * .3 + (Math.random() - .5) * 44) + 'px');
+            g.style.setProperty('--gy', (pos.top + pos.height * .6 + (Math.random() - .5) * 40) + 'px');
+            g.style.setProperty('--gdx', ((Math.random() - .9) * 70) + 'px');   /* Funken treiben nach hinten */
+            g.style.setProperty('--gdy', (20 + Math.random() * 55) + 'px');     /* ... und sinken ab */
+            g.style.setProperty('--gr', ((Math.random() - .5) * 260) + 'deg');
+            document.body.appendChild(g);
+            setTimeout(function (el) { el.remove(); }, 1150, g);
+        }
+    }, 60);
+    setTimeout(function () { clearInterval(streuer); flug.remove(); }, 3500);
+})();
+</script>
+{% endif %}

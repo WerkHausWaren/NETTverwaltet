@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Fotoerlaubnis zum Ausdrucken – {{ t.titel }}{% endblock %}
+{% block content %}
+
+<div class="nicht-drucken">
+    <p><a href="{{ url_for('veranstaltungen.detail', tid=t.id) }}" class="feld-hinweis">‹ Zurück zur Veranstaltung</a></p>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+        <h1 style="margin:0">🖨️ Fotoerlaubnis zum Ausdrucken</h1>
+        <button class="btn" onclick="window.print()">Drucken</button>
+    </div>
+    {% if offene %}
+    <p class="feld-hinweis">{{ offene | length }} angemeldete Person(en) haben die Frage noch
+        nicht beantwortet – je eine vorausgefüllte Erklärung zum Unterschreiben. Nach dem
+        Rücklauf trägst du die Antwort in der Anmeldung ein (✏️ in der Teilnehmerliste).</p>
+    {% else %}
+    <div class="karte"><p style="margin:0">🎉 Alle Angemeldeten haben bereits geantwortet.</p></div>
+    {% endif %}
+</div>
+
+{% for a in offene %}
+<div class="druckseite">
+    <div class="nicht-drucken" style="text-align:right;margin-bottom:-14px">
+        <a class="btn btn-sekundaer btn-klein"
+           href="{{ url_for('veranstaltungen.foto_formular_pdf', aid=a.id) }}">📄 Nur diese Seite als PDF</a>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+        <div>
+            <div style="font-weight:800;font-size:17px">{{ einst.vereinsname }}</div>
+            {% if einst.strasse %}<div style="font-size:12.5px;color:var(--text-hell)">{{ einst.strasse }},
+                {{ einst.plz }} {{ einst.ort }}</div>{% endif %}
+        </div>
+        <div style="font-size:12.5px;color:var(--text-hell);text-align:right">
+            {{ t.titel }}<br>{{ t.datum | datum_de }}{% if t.uhrzeit %}, {{ t.uhrzeit }} Uhr{% endif %}
+        </div>
+    </div>
+
+    <h2 style="font-size:16.5px;margin:22px 0 4px">Einwilligung in die Anfertigung und
+        Veröffentlichung von Fotoaufnahmen</h2>
+    <p style="font-size:13px;color:var(--text-hell);margin:0 0 14px">nach Art. 6 Abs. 1 Buchst. a
+        Datenschutz-Grundverordnung (DSGVO) und § 22 Kunsturhebergesetz (KunstUrhG)</p>
+
+    <p style="margin:0 0 4px"><strong>Name:</strong> {{ a.anmelder_name }}</p>
+    <p style="margin:0 0 14px"><strong>Veranstaltung:</strong> „{{ t.titel }}“
+        am {{ t.datum | datum_de }}{% if t.ort %}, {{ t.ort }}{% endif %}</p>
+
+    <p>Bei der oben genannten Veranstaltung werden Fotoaufnahmen angefertigt, auf denen ich
+        erkennbar abgebildet sein kann. Ich willige ein, dass {{ einst.vereinsname }} diese
+        Aufnahmen unentgeltlich für die unten von mir angekreuzten Zwecke verwenden darf.
+        Eine Verwendung für andere Zwecke oder eine Weitergabe an Dritte außerhalb der
+        genannten Plattformen erfolgt nicht.</p>
+
+    <div style="border:1.5px solid var(--text-stark);border-radius:8px;padding:12px 14px;margin:12px 0">
+        <p style="margin:0 0 6px"><strong>1. Öffentlichkeitsarbeit des Vereins</strong><br>
+            <span style="font-size:13px">Vereinswebsite und Mitglieder-App, Aushänge und
+            Schaukästen, Programmhefte und Vereinspublikationen, Pressemitteilungen an
+            örtliche Medien.</span></p>
+        <p style="margin:0">☐ Ja, ich willige ein &nbsp;&nbsp;&nbsp; ☐ Nein</p>
+    </div>
+
+    <div style="border:1.5px solid var(--text-stark);border-radius:8px;padding:12px 14px;margin:12px 0">
+        <p style="margin:0 0 6px"><strong>2. Soziale Medien: Facebook, Instagram und WhatsApp-Kanal</strong><br>
+            <span style="font-size:13px">Auftritte des Vereins bei Facebook und Instagram
+            sowie der WhatsApp-Kanal des Vereins (Anbieter: Meta Platforms Ireland Ltd.
+            bzw. WhatsApp Ireland Ltd.). Mir ist bekannt: Dort veröffentlichte Aufnahmen
+            sind weltweit abrufbar; eine Übermittlung in Länder außerhalb der EU –
+            insbesondere die USA – ist möglich, ein mit der EU vergleichbares
+            Datenschutzniveau ist dort nicht gewährleistet; eine Weiterverbreitung oder
+            Vervielfältigung durch Dritte kann nicht ausgeschlossen werden, und eine
+            vollständige Löschung aus dem Internet ist nicht sichergestellt.</span></p>
+        <p style="margin:0">☐ Ja, ich willige ein &nbsp;&nbsp;&nbsp; ☐ Nein</p>
+    </div>
+
+    <p style="font-size:13px">Diese Einwilligung ist <strong>freiwillig</strong>. Verweigere
+        ich sie, entstehen mir keine Nachteile – ich kann selbstverständlich trotzdem an der
+        Veranstaltung teilnehmen. Ich kann die Einwilligung jederzeit ganz oder teilweise
+        <strong>mit Wirkung für die Zukunft widerrufen</strong> (formlos genügt, z. B. per
+        E-Mail{% if einst.email %} an {{ einst.email }}{% endif %}). Die Rechtmäßigkeit der bis
+        zum Widerruf erfolgten Verwendung bleibt davon unberührt; nach einem Widerruf werden
+        betroffene Aufnahmen aus den vereinseigenen Medien entfernt, soweit dies möglich und
+        zumutbar ist. Die Einwilligung gilt zeitlich unbeschränkt, soweit sie nicht widerrufen
+        wird.</p>
+
+    <div style="display:flex;gap:30px;margin-top:34px">
+        <div style="flex:1;border-top:1px solid var(--text-stark);padding-top:4px;font-size:12.5px">
+            Ort, Datum</div>
+        <div style="flex:1.4;border-top:1px solid var(--text-stark);padding-top:4px;font-size:12.5px">
+            Unterschrift (bei Minderjährigen: gesetzliche Vertretung)</div>
+    </div>
+</div>
+{% endfor %}
+
+<style>
+    .druckseite { padding:24px 0; border-bottom:1px dashed var(--linie-stark); max-width:760px; }
+    .druckseite:last-child { border-bottom:none; }
+    @media print {
+        /* Papier ist immer hell - auch wenn am Bildschirm der Dunkelmodus an ist */
+        :root, :root[data-modus] { --text:#000; --text-stark:#000; --text-hell:#444; --linie-stark:#333; --flaeche:#fff; --grund:#fff; }
+        .nicht-drucken, nav, header, footer, .sidebar { display:none !important; }
+        .druckseite { page-break-after:always; border:none; padding:0; max-width:none; }
+        body { background:#fff; color:#000; }
+    }
+</style>
+
+{% endblock %}

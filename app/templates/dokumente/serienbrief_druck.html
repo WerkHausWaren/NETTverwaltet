@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Serienbrief</title>
+<style>
+    body { font-family: -apple-system, Arial, sans-serif; color: #1e293b; margin: 0; }
+    .drucken { margin: 20px; }
+    .btn { background: #2563eb; color: #fff; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .brief { width: 170mm; min-height: 250mm; margin: 0 auto; padding: 25mm 20mm; page-break-after: always; box-sizing: border-box; }
+    .absender { font-size: 10px; color: #64748b; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px; margin-bottom: 30px; }
+    .anschrift { margin-bottom: 30px; line-height: 1.4; }
+    .betreff { font-weight: 700; margin-bottom: 18px; }
+    .text { white-space: pre-wrap; line-height: 1.6; }
+    @media print { .drucken { display: none; } .brief { margin: 0; } }
+</style>
+</head>
+<body>
+<div class="drucken"><button class="btn" onclick="window.print()">🖨️ Alle Briefe drucken / Als PDF sichern</button>
+    &nbsp;<span style="color:#64748b;font-size:13px">{{ briefe|length }} Brief(e) – jeder auf eigener Seite.</span></div>
+
+{% for b in briefe %}
+<div class="brief">
+    {% if einst.logo_dateiname %}<div style="text-align:right;margin-bottom:8px"><img src="{{ url_for('einstellungen.logo', verein_id=einst.id) }}" style="max-height:22mm;max-width:65mm;object-fit:contain"></div>{% endif %}
+    <div class="absender">
+        {{ einst.vereinsname }}{% if einst.strasse %} · {{ einst.strasse }}{% endif %}{% if einst.ort %} · {{ einst.plz }} {{ einst.ort }}{% endif %}
+    </div>
+    <div class="anschrift">
+        {{ b.m.anrede }} {{ b.m.titel }} {{ b.m.vorname }} {{ b.m.nachname }}<br>
+        {% if b.m.firma %}{{ b.m.firma }}<br>{% endif %}
+        {{ b.m.strasse }}<br>
+        {{ b.m.plz }} {{ b.m.ort }}
+    </div>
+    {% if b.betreff %}<div class="betreff">{{ b.betreff }}</div>{% endif %}
+    <div class="text">{{ b.text }}</div>
+</div>
+{% endfor %}
+</body>
+</html>

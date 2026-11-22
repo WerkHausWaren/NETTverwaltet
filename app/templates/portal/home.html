@@ -1,0 +1,329 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Start{% endblock %}
+{% block inhalt %}
+{% if mitglied and ist_abwesend(mitglied) %}
+<div class="mp-karte" style="background:var(--warn-grund);border-color:var(--gelb);display:flex;align-items:center;gap:12px;margin-top:14px">
+    <div style="font-size:26px">🌴</div>
+    <div style="flex:1;min-width:0">
+        <div style="font-weight:700;color:var(--warn-text)">Du bist als abwesend markiert{% if mitglied.abwesend_bis %} bis {{ mitglied.abwesend_bis[8:10] }}.{{ mitglied.abwesend_bis[5:7] }}.{% endif %}.</div>
+        <div class="feld-hinweis">Nicht vergessen, das wieder auszuschalten, wenn du zurück bist.</div>
+    </div>
+    <a href="{{ url_for('portal.profil') }}" style="text-decoration:none;white-space:nowrap;background:var(--warn-text);color:var(--warn-grund);padding:8px 13px;border-radius:9px;font-weight:600;font-size:13px">Ändern</a>
+</div>
+{% endif %}
+{# Begrüßung nur für Angemeldete – Gäste sehen gleich Highlights und Termine (Wunsch 19.11.2026) #}
+{% if current_user.is_authenticated %}
+<div class="mp-karte">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+        <div style="font-size:20px;font-weight:700">{{ begruessung[0] }}{{ ' ' ~ mitglied.vorname if mitglied and mitglied.vorname else (' ' ~ current_user.anzeigename if current_user.is_authenticated) }}! {{ begruessung[1] }}</div>
+        <div style="display:flex;gap:8px;align-items:center;flex:none">
+            {% if wetter %}<span title="Aktuell in {{ wetter.ort }}" style="font-size:14px;font-weight:700;color:var(--neutral-text);background:var(--neutral-grund);border-radius:999px;padding:4px 10px;white-space:nowrap">{{ wetter.emoji }} {{ wetter.temp }}°</span>{% endif %}
+            {% if mitglied %}<a href="{{ url_for('portal.start_anpassen') }}" title="Startseite anpassen" style="text-decoration:none;color:var(--text-schwach);font-size:20px">⚙️</a>{% endif %}
+        </div>
+    </div>
+    <p class="feld-hinweis" style="margin:6px 0 0">{{ begruessung[2] }}</p>
+    {% if einst and einst.portal_willkommen %}<p style="margin:8px 0 0">{{ einst.portal_willkommen }}</p>{% endif %}
+    {# Anmelden & Registrieren stehen oben rechts im Kopf #}
+    {% if not mitglied and current_user.rolle != 'extern' %}
+    <p class="feld-hinweis" style="margin:8px 0 0">Wir konnten dich noch keinem Mitglied zuordnen. Unter „Meine Daten" kannst du das prüfen – oder melde dich beim Vorstand.</p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if highlights %}
+<section class="hl-bereich" aria-label="Highlights">
+    {% for h in highlights %}{% include "portal/_highlight_karte.html" %}{% endfor %}
+</section>
+{% endif %}
+
+{# Desktopversion: ab 980px fließen die Karten mehrspaltig (.mp-fluss, siehe _layout.html);
+   auf dem Handy ändert der Wrapper nichts. #}
+<div class="mp-fluss">
+{% if mitglied %}
+<div class="mp-karte">
+    <h2 style="margin:0 0 6px;font-size:17px">✅ {{ t("k_aufgaben") }}</h2>
+    {% if meine_aufgaben %}
+    {% for a in meine_aufgaben %}
+    <div style="display:flex;align-items:center;gap:11px;padding:9px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}">
+        <form method="post" action="{{ url_for('portal.aufgabe_erledigt', aid=a.id) }}" style="margin:0">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button title="Erledigt" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--mp);padding:0;line-height:1">☐</button>
+        </form>
+        <div style="flex:1;min-width:0">
+            <div style="font-weight:600">{{ a.titel }}{% if a.wiederholung and a.wiederholung != 'einmalig' %} 🔁{% endif %}{% if a.zielgruppe == 'mitglieder' %} <span title="Aufgabe für alle Mitglieder – wer zuerst abhakt, erledigt sie für alle">👥</span>{% endif %}</div>
+            {% if a.faellig_am %}<div class="feld-hinweis">📅 {{ a.faellig_am[8:10] }}.{{ a.faellig_am[5:7] }}.{% if a.faellig_zeit %} · {{ a.faellig_zeit }}{% endif %}{% if a.faellig_am < heute_iso %} · <span style="color:var(--rot)">überfällig</span>{% endif %}</div>{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p style="margin:4px 0 6px">🎉 <strong>Alles erledigt – stark!</strong>
+        <span class="feld-hinweis">Gönn dir eine Pause oder leg direkt die nächste Aufgabe an.</span></p>
+    {% endif %}
+    <details style="margin-top:8px">
+        <summary style="cursor:pointer;color:var(--mp);font-weight:600;font-size:14px;list-style:none">＋ Neue Aufgabe</summary>
+        <form method="post" action="{{ url_for('portal.aufgabe_neu') }}" style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="text" name="titel" required maxlength="120" placeholder="Was ist zu tun?"
+                   style="width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--linie);border-radius:9px">
+            <div style="display:flex;gap:8px">
+                <input type="date" name="faellig_am" value="{{ heute_iso }}" style="flex:1;padding:9px;border:1px solid var(--linie);border-radius:9px">
+                <select name="wiederholung" style="flex:1;padding:9px;border:1px solid var(--linie);border-radius:9px">
+                    {% for w, txt in wiederholungen %}<option value="{{ w }}">{{ txt }}</option>{% endfor %}
+                </select>
+            </div>
+            <button class="mp-btn" style="align-self:flex-start">＋ Anlegen</button>
+        </form>
+    </details>
+</div>
+{% endif %}
+
+{% for va in verteil_karte or [] %}
+{% include 'portal/_verteil_karte.html' %}
+{% endfor %}
+
+{% for key in bloecke %}
+{% if key == 'tuer' and nuki_bereit and darf_tuer %}
+<div class="mp-karte" style="text-align:center">
+    <div style="font-weight:700;margin-bottom:10px">🔓 {{ (einst.werkhaus_name or 'Vereinsraum') }}</div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        <form method="post" action="{{ url_for('portal.tuer_aktion') }}" style="flex:1;min-width:130px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="aktion" value="oeffnen">
+            <button class="mp-btn tuer" style="width:100%" onclick="this.disabled=true;this.form.submit()">🔓 Öffnen</button>
+        </form>
+        <form method="post" action="{{ url_for('portal.tuer_aktion') }}" style="flex:1;min-width:130px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="aktion" value="schliessen">
+            <button class="mp-btn" style="width:100%;background:var(--text-hell);color:var(--flaeche)" onclick="this.disabled=true;this.form.submit()">🔒 Schließen</button>
+        </form>
+    </div>
+    <p class="feld-hinweis" style="margin:10px 0 0">Öffnet und schließt die Vereinstür direkt – deine Berechtigung kommt aus dem Schlüsselbuch.
+        {% if tuer_gueltig_bis %}<br>⏳ Deine Türberechtigung ist befristet <strong>bis {{ tuer_gueltig_bis | datum_de }}</strong>.{% endif %}</p>
+</div>
+
+{% elif key == 'tuer' and nuki_bereit %}
+{# Keine (gültige) Türberechtigung -> Kachel ausblenden. Der Block bleibt in der
+   Ansicht-Anpassung wählbar; sobald ein Schlüsselbuch-Eintrag vorliegt, erscheint er. #}
+
+{% elif key == 'tuer' and einst and einst.tuer_url %}
+<div class="mp-karte" style="text-align:center">
+    <a class="mp-btn tuer" href="{{ einst.tuer_url|sichere_url }}">🔓 {{ (einst.werkhaus_name or 'Vereinsraum') }}: Tür öffnen</a>
+    <p class="feld-hinweis" style="margin:10px 0 0">Öffnet die Nuki-App auf deinem Handy.</p>
+</div>
+
+{% elif key == 'neu' %}
+{% if neu_anzahl %}
+<a href="{{ url_for('portal.was_neu') }}" class="mp-karte" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit">
+    <div style="font-size:26px">✨</div>
+    <div style="flex:1"><div style="font-weight:700">Was ist neu?</div>
+        <div class="feld-hinweis">{{ neu_anzahl }} neue Funktion{{ 'en' if neu_anzahl != 1 }} seit deinem letzten Besuch</div></div>
+    <div style="color:var(--text-schwach)">›</div>
+</a>
+{% endif %}
+
+{% elif key == 'reservierungen' %}
+{% if reservierungen %}
+<div class="mp-karte">
+    <h2 style="margin:0 0 6px;font-size:17px">🎟️ {{ t("k_reservierungen") }}</h2>
+    {% for r in reservierungen %}
+    <div style="display:flex;align-items:center;gap:11px;padding:9px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}">
+        <a href="{{ url_for('portal.termin', tid=r.termin_id) }}" style="flex:1;min-width:0;color:inherit;text-decoration:none">
+            <div style="font-weight:600">{{ r.titel }}</div>
+            <div class="feld-hinweis">📅 {{ r.datum|wt }}, {{ r.datum[8:10] }}.{{ r.datum[5:7] }}.{% if r.uhrzeit %} · 🕒 {{ r.uhrzeit }} Uhr{% endif %}
+                · {{ r.plaetze }} Pl{{ 'atz' if r.plaetze == 1 else 'ätze' }}
+                {%- if r.warteliste %} · <span style="color:var(--warn-text);font-weight:600">Warteliste</span>{% endif %}</div>
+        </a>
+        {% if r.bezahl_link %}
+        <a href="{{ r.bezahl_link|sichere_url }}" target="_blank" rel="noopener"
+           style="flex:none;text-decoration:none;background:var(--gruen);color:var(--auf-primaer);border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600"
+           title="PayPal mit vorbefülltem Betrag ({{ '%.2f'|format(r.betrag)|replace('.', ',') }} €)">💳 Bezahlen</a>
+        {% endif %}
+        {% if not r.foto_status %}
+        <a href="{{ url_for('veranstaltungen.foto_public', token=r.token) }}"
+           style="flex:none;text-decoration:none;background:var(--warn-grund);color:var(--warn-text);border:1px solid var(--gelb);border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600"
+           title="Bitte beantworten: Dürfen wir Fotos von dir zeigen?">📷 Foto-Erlaubnis?</a>
+        {% else %}
+        <a href="{{ url_for('veranstaltungen.foto_public', token=r.token) }}" class="feld-hinweis"
+           style="flex:none;text-decoration:none;border:1px solid var(--linie);border-radius:8px;padding:6px 10px"
+           title="Deine Antwort ansehen oder ändern">{{ '📷 ✓' if r.foto_status == 'ja' else '🚫📷' }}</a>
+        {% endif %}
+        <a href="{{ url_for('veranstaltungen.storno_public', token=r.token) }}" class="feld-hinweis"
+           style="flex:none;text-decoration:none;border:1px solid var(--linie);border-radius:8px;padding:6px 10px">Stornieren</a>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% elif key == 'umfragen' %}
+<a href="{{ url_for('portal.umfragen') }}" class="mp-karte" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit">
+    <div style="font-size:26px">🗳️</div>
+    <div style="flex:1"><div style="font-weight:700">{{ t("k_umfragen") }}{% if nav_zaehler and nav_zaehler.umfragen %}<span class="mp-zahl" title="Hier fehlt noch deine Stimme">{{ nav_zaehler.umfragen }}</span>{% endif %}</div>
+        <div class="feld-hinweis">{% if nav_zaehler and nav_zaehler.umfragen %}Hier fehlt noch deine Stimme!{% else %}Mitbestimmen und Termine abstimmen{% endif %}</div></div>
+    <div style="color:var(--text-schwach)">›</div>
+</a>
+
+{% elif key == 'news' %}
+{% if ist_admin or news %}
+<div class="mp-karte">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2 style="margin:0;font-size:17px">📣 {{ t("k_ankuendigungen") }}</h2>
+    </div>
+    {% if ist_admin %}
+    <details style="margin-top:6px">
+        <summary style="cursor:pointer;color:var(--mp);font-weight:600;font-size:14px;list-style:none">＋ Neue Ankündigung</summary>
+        <form method="post" action="{{ url_for('portal.news_neu') }}" style="margin-top:8px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="text" name="titel" required placeholder="Titel" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--linie);border-radius:9px;margin-bottom:6px">
+            <textarea name="text" rows="2" placeholder="Text" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--linie);border-radius:9px"></textarea>
+            <label style="display:flex;gap:8px;align-items:flex-start;font-size:14px;margin-top:8px;cursor:pointer">
+                <input type="checkbox" name="oeffentlich" value="1" style="width:17px;height:17px;flex:none;margin-top:1px;accent-color:var(--mp)">
+                <span>🌍 Öffentlich – auch für Gäste &amp; Freund:innen sichtbar
+                    <span class="feld-hinweis" style="display:block">Ohne Häkchen sehen nur Mitglieder und Vorstand die Ankündigung.</span></span>
+            </label>
+            <button class="mp-btn" style="margin-top:6px">Veröffentlichen</button>
+        </form>
+    </details>
+    {% endif %}
+    {% for n in news %}
+    <div style="padding:10px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}">
+        <div style="display:flex;justify-content:space-between;gap:8px">
+            <div style="font-weight:700">{{ n.titel }}
+                {% if ist_admin %}<span title="{{ 'Auch für Gäste & Freund:innen sichtbar' if n.oeffentlich else 'Nur für Mitglieder & Vorstand' }}"
+                    style="font-size:11px;font-weight:600;color:{{ 'var(--gut-text)' if n.oeffentlich else 'var(--neutral-text)' }};background:{{ 'var(--gut-grund)' if n.oeffentlich else 'var(--neutral-grund)' }};border-radius:999px;padding:2px 8px;vertical-align:2px">{{ '🌍 öffentlich' if n.oeffentlich else '🔒 intern' }}</span>{% endif %}</div>
+            {% if ist_admin %}<form method="post" action="{{ url_for('portal.news_loeschen', nid=n.id) }}" onsubmit="return confirm('Löschen?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="feld-hinweis" style="background:none;border:none;cursor:pointer">✕</button></form>{% endif %}
+        </div>
+        {% if n.text %}<div style="font-size:14px;margin-top:2px;white-space:pre-line">{{ n.text }}</div>{% endif %}
+        <div class="feld-hinweis" style="margin-top:3px">{{ n.erstellt_am[8:10] }}.{{ n.erstellt_am[5:7] }}.{{ n.erstellt_am[0:4] }}</div>
+    </div>
+    {% endfor %}
+    {% if not news %}<p class="feld-hinweis" style="margin:6px 0 0">Noch keine Ankündigungen.</p>{% endif %}
+</div>
+{% endif %}
+
+{% elif key == 'geburtstage' %}
+{% if geburtstage %}
+<div class="mp-karte">
+    <h2 style="margin:0 0 6px;font-size:17px">🎂 {{ t("k_geburtstage") }}</h2>
+    {% for g in geburtstage %}
+    <div style="display:flex;justify-content:space-between;padding:7px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}">
+        <span>{{ g.name }}</span>
+        <span class="feld-hinweis">{{ '%02d.%02d.'|format(g.tag, g.monat) }} · {% if g.in_tagen==0 %}heute! 🎉{% elif g.in_tagen==1 %}morgen{% else %}in {{ g.in_tagen }} Tagen{% endif %}</span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% elif key == 'infos' %}
+<a href="{{ url_for('portal.infos') }}" class="mp-karte" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit">
+    <div style="font-size:26px">❓</div>
+    <div style="flex:1"><div style="font-weight:700">{{ t("k_infos") }}</div>
+        <div class="feld-hinweis">Öffnungszeiten, Tür öffnen, Ansprechpartner:in …</div></div>
+    <div style="color:var(--text-schwach)">›</div>
+</a>
+
+{% elif key == 'pinnwand' %}
+<a href="{{ url_for('portal.pinnwand') }}" class="mp-karte" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit">
+    <div style="font-size:26px">📌</div>
+    <div style="flex:1"><div style="font-weight:700">{{ t("brett") }}{% if nav_zaehler and nav_zaehler.pinnwand %}<span class="mp-zahl" title="Neue Beiträge seit deinem letzten Besuch">{{ nav_zaehler.pinnwand }}</span>{% endif %}</div>
+        <div class="feld-hinweis">{% if nav_zaehler and nav_zaehler.pinnwand %}{{ nav_zaehler.pinnwand }} neue{{ 'r' if nav_zaehler.pinnwand == 1 }} Beitr{{ 'ag' if nav_zaehler.pinnwand == 1 else 'äge' }} seit deinem letzten Besuch{% else %}Gesuche, Angebote & Infos der Mitglieder{% endif %}</div></div>
+    <div style="color:var(--text-schwach)">›</div>
+</a>
+
+{% elif key == 'kino' %}
+<div class="mp-karte hz-karte">
+    <h2 class="hz-kopf"><a href="{{ url_for('portal.kino') }}">🎬 {{ kino_titel }} <span aria-hidden="true">›</span></a></h2>
+    {% if kino_next %}{% with t = kino_next %}<div class="hz-liste">{% include "portal/_termin_zeile.html" %}</div>{% endwith %}
+    {% else %}<p class="feld-hinweis" style="margin:8px 0 0">Kommende Filme &amp; Trailer</p>{% endif %}
+</div>
+
+{% elif key == 'galerie' %}
+<a href="{{ url_for('portal.galerie') }}" class="mp-karte" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit">
+    <div style="font-size:26px">📸</div>
+    <div style="flex:1"><div style="font-weight:700">{{ t("k_galerie") }}</div>
+        <div class="feld-hinweis">Bilder von unseren Veranstaltungen</div></div>
+    <div style="color:var(--text-schwach)">›</div>
+</a>
+
+{% elif key == 'beitrag' %}
+<a href="{{ url_for('portal.beitrag') }}" class="mp-karte" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit">
+    <div style="font-size:26px">💶</div>
+    <div style="flex:1"><div style="font-weight:700">{{ t("k_beitrag") }}</div>
+        <div class="feld-hinweis">Dein Beitrags-, Spenden- und Zahlungsstand</div></div>
+    <div style="color:var(--text-schwach)">›</div>
+</a>
+
+{% elif key == 'berichte' %}
+<a href="{{ url_for('portal.rueckmeldungen') }}" class="mp-karte" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit">
+    <div style="font-size:26px">📊</div>
+    <div style="flex:1"><div style="font-weight:700">{{ t("k_berichte") }}</div>
+        <div class="feld-hinweis">{{ t("k_berichte_sub") }}</div></div>
+    <div style="color:var(--text-schwach)">›</div>
+</a>
+
+{% elif key == 'push' %}
+<div class="mp-karte" id="pushKarte" style="display:none">
+    <button type="button" class="mp-btn" style="background:var(--mp)" onclick="pushAktivieren(this)">🔔 Benachrichtigungen aktivieren</button>
+    <p class="feld-hinweis" style="margin:10px 0 0">Wir melden dich bei neuen Terminen, Schichten und wichtigen Infos – auch wenn die App zu ist.
+        <a href="{{ url_for('portal.mitteilungen') }}">Welche Mitteilungen du bekommst, wählst du selbst.</a></p>
+</div>
+<script>
+    (function(){
+        try {
+            if (("serviceWorker" in navigator) && ("PushManager" in window) &&
+                (typeof Notification !== "undefined") && Notification.permission !== "granted") {
+                var k=document.getElementById("pushKarte"); if(k) k.style.display="block";
+            }
+        } catch(e){}
+    })();
+</script>
+
+{% elif key == 'termine' %}
+<div class="mp-karte hz-karte">
+    <h2 class="hz-kopf"><a href="{{ url_for('portal.termine') }}">📅 {{ t("k_termine_naechste") }} <span aria-hidden="true">›</span></a></h2>
+    {% if termine %}
+        <div class="hz-liste">{% for t in termine %}{% include "portal/_termin_zeile.html" %}{% endfor %}</div>
+    {% else %}
+        <p class="feld-hinweis" style="margin:8px 0 0">Aktuell keine anstehenden Termine.</p>
+    {% endif %}
+</div>
+{% endif %}
+{% endfor %}
+
+{% if ist_gast %}
+{# Eigene Spendenaktion (Signage → Hausfolien anpassen; 19.11.2026): Dank ohne Geldwert – KEINE Freikarten
+   versprechen, solange die Steuerfrage (Gegenleistung → Spendenabzug) nicht geklärt ist. #}
+{% set sp_url = (einst.signage_spenden_url if einst and einst.signage_spenden_url else '') %}
+{% if sp_url and sp_url.startswith(('https://', 'http://')) %}
+{% set sp_titel = einst.signage_spenden_titel or 'Unterstütze uns!' %}
+<div class="mp-karte hz-stern">
+    <div class="hz-stern-titel">⭐ {{ sp_titel }}</div>
+    {% if einst.signage_spenden_text %}<p>{{ einst.signage_spenden_text }}</p>{% endif %}
+    <a class="hz-stern-knopf" href="{{ sp_url }}" target="_blank" rel="noopener">{% if sp_titel.startswith('Werde ') %}Jetzt {{ sp_titel[6:].rstrip('!') }} werden{% else %}Jetzt unterstützen{% endif %}</a>
+</div>
+{% endif %}
+<div class="hz-mitglied">
+    <span>{{ t("k_mitglied_werden") }}</span>
+    <a href="{{ url_for('mitglieder.antrag_public') }}">Mitglied werden ›</a>
+</div>
+{% endif %}
+{% include "portal/_termin_zeile_stil.html" %}
+<style>
+    /* „Nächste Termine“ und Kino im Look der Terminliste (19.11.2026) */
+    .hz-kopf { margin: 0 0 10px; font-size: 17px; }
+    .hz-kopf a { color: inherit; text-decoration: none; }
+    .hz-kopf a span { color: var(--text-schwach); font-weight: 400; }
+    .hz-kopf a:hover { text-decoration: underline; }
+    /* WerkHaus-Stern: Gold wie auf der Spendenseite; Mitglied werden bewusst dezent */
+    .hz-stern { border-top: 5px solid #F0B429; background: color-mix(in srgb, #F0B429 9%, var(--flaeche)); }
+    .hz-stern-titel { font-weight: 800; font-size: 18px; margin-bottom: 6px; }
+    .hz-stern p { margin: 0 0 12px; font-size: 14.5px; line-height: 1.5; color: var(--text); }
+    .hz-stern-knopf { display: inline-block; padding: 10px 18px; border-radius: 999px; background: #F0B429; color: #3a2a00;
+                      font-weight: 700; font-size: 14.5px; text-decoration: none; }
+    .hz-stern-knopf:hover { filter: brightness(1.05); }
+    .hz-mitglied { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px 10px; margin: 14px 0 0; font-size: 14px;
+                   color: var(--text-hell); }
+    .hz-mitglied a { color: var(--mp); font-weight: 600; text-decoration: none; }
+</style>
+
+</div>
+{% endblock %}

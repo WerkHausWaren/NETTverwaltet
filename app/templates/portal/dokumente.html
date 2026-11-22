@@ -1,0 +1,24 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Dokumente{% endblock %}
+{% block inhalt %}
+<div class="mp-schmal">
+<div class="mp-karte">
+    <h2 style="margin:0 0 6px;font-size:18px">📄 Dokumente</h2>
+    {% if dokumente %}
+        {% for d in dokumente %}
+        <a href="{{ url_for('portal.dokument_ansicht', did=d.id) }}"
+           style="display:flex;gap:10px;align-items:center;padding:12px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }};text-decoration:none;color:inherit">
+            <span style="font-size:22px">📎</span>
+            <div style="flex:1;min-width:0">
+                <div style="font-weight:600">{{ d.titel or d.original_name }}</div>
+                <div class="feld-hinweis">{{ d.kategorie }}</div>
+            </div>
+            <span class="feld-hinweis">öffnen ›</span>
+        </a>
+        {% endfor %}
+    {% else %}
+        <p class="feld-hinweis">Es sind noch keine Dokumente für Mitglieder freigegeben.</p>
+    {% endif %}
+</div>
+</div>
+{% endblock %}

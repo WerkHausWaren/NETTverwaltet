@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="{{ sprache_aktiv }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ ue('Danke') }} – {{ t.titel }}</title>
+{% with akzent = (einst.farbe_primaer if einst else '') %}{% include "_oeffentlich_stil.html" %}{% endwith %}
+<style>
+    body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; color: var(--text, #1e293b); margin: 0; background: var(--grund, #eef1f5); }
+    .kopf { background: var(--akz); color: var(--auf-primaer, #fff); padding: 18px 20px; display: flex; align-items: center; gap: 12px; }
+    .kopf img { height: 40px; background: var(--logo-teller, #fff); border-radius: 6px; padding: 3px; }
+    .kopf .vn { font-weight: 800; font-size: 17px; }
+    .wrap { max-width: 560px; margin: 0 auto; padding: 30px 16px; }
+    .karte { background: var(--flaeche, #fff); border-radius: 14px; padding: 26px; text-align: center; box-shadow: var(--schatten, 0 3px 14px rgba(0,0,0,.05)); }
+    .ok { font-size: 46px; }
+    h1 { font-size: 22px; margin: 8px 0; }
+    .btn { display: inline-block; background: var(--akz); color: var(--auf-primaer, #fff); text-decoration: none; border-radius: 11px; padding: 12px 20px; font-weight: 700; margin-top: 14px; }
+    .warte { background: var(--warn-grund, #fff4e5); border: 1px solid var(--warn-rand, #ffd8a8); color: var(--warn-text, inherit); border-radius: 10px; padding: 12px; margin-top: 14px; }
+    p { color: var(--text-hell, #475569); }
+</style>
+</head>
+<body>
+<div class="kopf">
+    <a href="{{ url_for('portal.home') }}" title="Zur Startseite" style="display:contents;color:inherit;text-decoration:none">
+        {% if einst and einst.logo_dateiname %}<img src="{{ url_for('einstellungen.logo', verein_id=einst.id) }}" alt="">{% endif %}
+        <span class="vn">{{ einst.vereinsname if einst else '' }}</span>
+    </a>
+</div>
+<div class="wrap">
+    <div class="karte">
+        <div class="ok">{{ '💛' if feedback else '✅' }}</div>
+        {% if feedback %}
+        <h1>{{ ue('Danke für dein Feedback!') }}</h1>
+        <p>{{ ue('feedback_text') if sprache_aktiv != 'de' else 'Deine Rückmeldung zu' }} „{{ t.titel }}“ {{ ue('feedback_text2') if sprache_aktiv != 'de' else 'hilft uns sehr.' }}</p>
+        {% else %}
+        <h1>{{ ue('Anmeldung eingegangen!') }}</h1>
+        <p>{{ ue('danke_text') if sprache_aktiv != 'de' else 'Danke für deine Anmeldung zu' }} „{{ t.titel }}“.{% if a and a.email %} {{ ue('Eine Bestätigung geht an') }} {{ a.email }}.{% endif %}</p>
+        {% if warte %}<div class="warte">{{ ue('warte_box') if sprache_aktiv != 'de' else 'Die Veranstaltung ist aktuell ausgebucht – du stehst auf der Warteliste' }}{% if platz %} ({{ ue('Platz') }} {{ platz }}){% endif %}{{ '' if sprache_aktiv != 'de' else ', und wir melden uns, sobald ein Platz frei wird.' }}</div>{% endif %}
+        {% if zahl_link %}
+        <a class="btn" style="background:var(--gruen, #16a34a)" href="{{ zahl_link }}" target="_blank" rel="noopener">{{ ue('💳 Jetzt online bezahlen') }} ({{ '%.2f'|format(a.betrag)|replace('.', ',') }} €)</a>
+        <p style="font-size:13px;color:var(--text-hell, #64748b);margin:10px 0 0">{{ ue('paypal_hinweis') if sprache_aktiv != 'de' else 'Öffnet PayPal mit vorbefülltem Betrag – alternativ einfach überweisen (Kontodaten stehen in deiner Bestätigungs-E-Mail).' }}</p>
+        {% endif %}
+        {% if a and a.betrag and a.bezahlstatus == 'offen' and a.zahlcode %}
+        <p style="font-size:14px;background:var(--flaeche-3, #f4f6fb);border-radius:10px;padding:10px 12px;margin:12px 0 0">
+            🏦 {{ ue('ueberweisung_zweck') if sprache_aktiv != 'de' else 'Du überweist lieber? Bitte gib diesen Verwendungszweck an:' }}
+            <strong style="font-family:ui-monospace,Menlo,monospace">{{ a.zahlcode }}</strong>
+            {% if einst and einst.bank_iban %}<br><span style="color:var(--text-hell, #64748b);font-size:13px">IBAN: {{ einst.bank_iban }}
+            {% if einst.bank_kontoinhaber %} · {{ einst.bank_kontoinhaber }}{% endif %}</span>{% endif %}</p>
+        {% endif %}
+        {% if a and a.spende %}
+        <p style="font-size:14px;color:var(--warn-text, #b45309);margin:12px 0 0">{% if sprache_aktiv != 'de' %}{{ ue('spende_danke') % ('%.2f'|format(a.spende)|replace('.', ',')) }}{% else %}💛 Darin enthalten: {{ '%.2f'|format(a.spende)|replace('.', ',') }} €
+            freiwillige Spende – herzlichen Dank für deine Unterstützung!{% endif %}</p>
+        {% endif %}
+        {% if a and a.token %}<a class="btn" href="{{ url_for('veranstaltungen.voucher', token=a.token) }}">{{ ue('🎫 Voucher ansehen') }}</a>
+        <a class="btn" style="background:var(--flaeche-3, #eef2f7);color:var(--text, #33404d)" href="{{ url_for('veranstaltungen.kalender_ics', token=a.token) }}">{{ ue('📅 Zum Kalender hinzufügen') }}</a>
+        <p style="font-size:13px;color:var(--text-hell, #64748b);margin-top:16px">{{ ue('Du kannst doch nicht kommen?') }}
+            <a href="{{ url_for('veranstaltungen.storno_public', token=a.token) }}">{{ ue('Hier stornieren') }}</a>
+            {{ ue('storno_mail_hinweis') if sprache_aktiv != 'de' else '– der Link steht auch in deiner Bestätigungs-E-Mail.' }}</p>{% endif %}
+        {% endif %}
+        <p style="margin-top:18px"><a href="{{ url_for('portal.termine') }}"
+            style="color:var(--akz-text, var(--akz));text-decoration:none;font-weight:600">{{ ue('📅 Weitere Termine ansehen') }}</a></p>
+    </div>
+</div>
+</body>
+</html>

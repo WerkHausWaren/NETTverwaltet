@@ -1,0 +1,28 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Umfragen{% endblock %}
+{% block inhalt %}
+<div class="mp-karte">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <h2 style="margin:0;font-size:18px">🗳️ {{ t("k_umfragen") }}</h2>
+        {% if ist_admin %}<a href="{{ url_for('portal.umfrage_neu') }}" class="mp-btn" style="width:auto;padding:8px 14px;font-size:14px">+ Neu</a>{% endif %}
+    </div>
+</div>
+
+{# Desktopversion: Umfrage-Kacheln im Raster (.mp-grid) – mobil unverändert #}
+<div class="mp-grid">
+{% if liste %}
+{% for u in liste %}
+<a href="{{ url_for('portal.umfrage', uid=u.id) }}" class="mp-karte" style="display:flex;gap:12px;align-items:center;text-decoration:none;color:inherit">
+    <div style="font-size:26px">{{ '📅' if u.typ=='termin' else '🗳️' }}</div>
+    <div style="flex:1;min-width:0">
+        <div style="font-weight:600">{{ u.titel }}</div>
+        <div class="feld-hinweis">{{ 'Terminfindung' if u.typ=='termin' else 'Abstimmung' }} · {{ u.teilnehmer }} Teilnehmende{% if not u.aktiv %} · <span style="color:var(--rot)">geschlossen</span>{% endif %}</div>
+    </div>
+    <div style="color:var(--text-schwach)">›</div>
+</a>
+{% endfor %}
+{% else %}
+<div class="mp-karte"><p class="feld-hinweis" style="margin:0">Aktuell gibt es keine Umfragen.{% if ist_admin %} Lege oben eine neue an.{% endif %}</p></div>
+{% endif %}
+</div>
+{% endblock %}

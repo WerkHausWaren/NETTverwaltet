@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mitglied werden – {{ einst.vereinsname }}</title>
+<meta name="description" content="Werde Mitglied im {{ einst.vereinsname }} – der Antrag dauert zwei Minuten.">
+{% with akzent = (einst.farbe_primaer if einst else '') %}{% include "_oeffentlich_stil.html" %}{% endwith %}
+<style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; color: var(--text, #1e293b); margin: 0;
+           background: var(--grund, #eef1f5); line-height: 1.55; }
+    .wrap { max-width: 660px; margin: 0 auto; padding: 0 14px 48px; }
+    .kopf { background: var(--flaeche, #fff); padding: calc(14px + env(safe-area-inset-top)) 16px 16px; border-radius: 0 0 22px 22px;
+            border-bottom: 1px solid var(--linie, #eceff3); box-shadow: 0 2px 10px rgba(20,40,70,.05); display: flex; align-items: center; gap: 14px; }
+    .kopf img { height: 72px; max-width: 44%; object-fit: contain; background: var(--logo-teller, transparent); border-radius: 8px; }
+    .kopf .vn { font-weight: 800; font-size: 21px; }
+    .karte { background: var(--flaeche, #fff); border-radius: 14px; padding: 20px; margin-top: 16px; box-shadow: 0 3px 14px rgba(0,0,0,.05); }
+    .feld { margin: 10px 0; } label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+    input, select, textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--linie-stark, #cbd5e1); border-radius: 9px; font-size: 15px; }
+    .zeile { display: flex; gap: 10px; flex-wrap: wrap; } .zeile > .feld { flex: 1; min-width: 130px; }
+    .check { display: flex; gap: 10px; align-items: flex-start; padding: 7px 0; font-size: 14px; }
+    .check input { width: 18px; height: 18px; flex: none; margin-top: 2px; accent-color: var(--akz); }
+    .btn { background: var(--akz); color: var(--auf-primaer, #fff); border: none; border-radius: 11px; padding: 15px; font-size: 16.5px;
+           font-weight: 700; width: 100%; cursor: pointer; margin-top: 8px; }
+    .hp { position: absolute; left: -9999px; } .hint { color: var(--text-hell, #64748b); font-size: 13.5px; }
+    .flash { background: var(--fehler-grund, #fdecea); color: var(--fehler-text, inherit); border: 1px solid var(--fehler-rand, #f5c6cb); border-radius: 9px; padding: 10px 12px; margin-top: 14px; }
+    h1 { font-size: 23px; margin: 0 0 6px; line-height: 1.25; }
+    h2 { font-size: 17px; margin: 0 0 4px; }
+    .schritt { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .6px;
+               text-transform: uppercase; color: var(--akz-text, var(--akz)); margin-bottom: 6px; }
+    .wahl { border: 1.5px solid var(--linie, #dbe2ea); border-radius: 12px; padding: 13px 14px; margin: 8px 0; cursor: pointer;
+            display: flex; gap: 11px; align-items: flex-start; transition: border-color .15s, background .15s; }
+    .wahl:hover { border-color: var(--akz); }
+    .wahl input { width: 19px; height: 19px; flex: none; margin-top: 2px; accent-color: var(--akz); }
+    .wahl.gewaehlt { border-color: var(--akz); background: color-mix(in srgb, var(--akz) 5%, var(--flaeche, #fff)); }
+    .wahl .t { font-weight: 700; font-size: 15px; }
+    .wahl .u { font-size: 13.5px; color: var(--text-hell, #64748b); margin-top: 2px; }
+    .preis { margin-left: auto; font-weight: 800; font-size: 16px; white-space: nowrap; padding-left: 8px; }
+    .angebote { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 0; padding: 0; list-style: none; }
+    .angebote li { background: var(--flaeche-3, #eef2f7); border-radius: 999px; padding: 4px 11px; font-size: 13px; }
+    .ablauf { counter-reset: s; list-style: none; padding: 0; margin: 10px 0 0; }
+    .ablauf li { counter-increment: s; position: relative; padding: 0 0 12px 34px; font-size: 14.5px; }
+    .ablauf li::before { content: counter(s); position: absolute; left: 0; top: -1px; width: 23px; height: 23px;
+        border-radius: 50%; background: var(--akz); color: var(--auf-primaer, #fff); font-size: 13px; font-weight: 700;
+        display: flex; align-items: center; justify-content: center; }
+    .rechtlich { font-size: 12.5px; color: var(--text-hell, #64748b); }
+    .sepa { border: 1px solid var(--linie, #e2e8f0); border-radius: 12px; padding: 14px; margin: 10px 0; }
+</style>
+</head>
+<body>
+<div class="kopf">
+    <a href="{{ url_for('portal.home') }}" style="display:contents;color:inherit;text-decoration:none">
+        {% if einst.logo_dateiname %}<img src="{{ url_for('einstellungen.logo', verein_id=einst.id) }}" alt="">{% endif %}
+        <span class="vn">{{ einst.vereinsname }}</span></a>
+</div>
+<div class="wrap">
+    <p style="margin:14px 0 0"><a href="{{ url_for('portal.home') }}" style="text-decoration:none;color:var(--akz-text, var(--akz));font-weight:600">‹ Zur Startseite</a></p>
+    {% with messages = get_flashed_messages() %}{% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}{% endwith %}
+
+    {# ── Warum überhaupt? ───────────────────────────────────────────── #}
+    <div class="karte">
+        <h1>🤝 Mitglied werden</h1>
+        {% if einst.ueber_text %}
+        <p style="margin:0 0 6px">{{ einst.ueber_text }}</p>
+        {% else %}
+        <p style="margin:0 0 6px">Schön, dass du dabei sein möchtest!</p>
+        {% endif %}
+        <p class="hint" style="margin:0">Als Mitglied trägst du mit, was hier stattfindet – und
+            entscheidest mit, wohin es geht. Der Antrag dauert zwei Minuten.</p>
+    </div>
+
+    {# ── Ablauf: was passiert nach dem Absenden ─────────────────────── #}
+    <div class="karte">
+        <span class="schritt">So geht es weiter</span>
+        <ol class="ablauf">
+            <li><strong>Du füllst das Formular aus.</strong> Unverbindlich – es entsteht noch keine Mitgliedschaft.</li>
+            <li><strong>Wir melden uns innerhalb von {{ antwort_stunden }} Stunden bei dir.</strong>
+                Persönlich, per E-Mail oder Telefon – und beantworten alles, was noch offen ist.</li>
+            <li><strong>Der Vorstand bestätigt die Aufnahme.</strong>
+                Erst damit und mit dem ersten Beitrag beginnt deine Mitgliedschaft.</li>
+        </ol>
+    </div>
+
+    {# ── Beitrag ────────────────────────────────────────────────────── #}
+    {% if einst.beitrag_normal or einst.beitrag_ermaessigt or einst.beitrag_hinweis %}
+    <div class="karte">
+        <span class="schritt">Was es kostet</span>
+        <h2>Der Mitgliedsbeitrag</h2>
+        <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:15px">
+            {% if einst.beitrag_normal %}
+            <tr><td style="padding:6px 0;border-bottom:1px solid var(--linie, #eef1f5)">Normaler Beitrag</td>
+                <td style="padding:6px 0;border-bottom:1px solid var(--linie, #eef1f5);text-align:right;font-weight:700">
+                    {{ einst.beitrag_normal }} € {{ einst.beitrag_intervall or 'jährlich' }}</td></tr>
+            {% endif %}
+            {% if einst.beitrag_ermaessigt %}
+            <tr><td style="padding:6px 0;border-bottom:1px solid var(--linie, #eef1f5)">Ermäßigter Beitrag</td>
+                <td style="padding:6px 0;border-bottom:1px solid var(--linie, #eef1f5);text-align:right;font-weight:700">
+                    {{ einst.beitrag_ermaessigt }} € {{ einst.beitrag_intervall or 'jährlich' }}</td></tr>
+            {% else %}
+            <tr><td style="padding:6px 0;border-bottom:1px solid var(--linie, #eef1f5)">Ermäßigter Beitrag</td>
+                <td style="padding:6px 0;border-bottom:1px solid var(--linie, #eef1f5);text-align:right">nach Absprache</td></tr>
+            {% endif %}
+            <tr><td style="padding:6px 0">Aufnahmegebühr</td>
+                <td style="padding:6px 0;text-align:right;font-weight:700">keine</td></tr>
+        </table>
+        {% if einst.beitrag_hinweis %}<p class="hint" style="margin:10px 0 0">{{ einst.beitrag_hinweis }}</p>{% endif %}
+        <p class="hint" style="margin:8px 0 0">Am Geld soll es nicht scheitern: Der Vorstand kann den
+            Beitrag in Härtefällen ermäßigen oder erlassen – schreib uns einfach unten ins Feld.</p>
+    </div>
+    {% endif %}
+
+    {# ── Das Formular ───────────────────────────────────────────────── #}
+    <form method="post" class="karte" id="antragForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off">
+
+        <span class="schritt">Schritt 1</span>
+        <h2>Welche Mitgliedschaft?</h2>
+        <label class="wahl gewaehlt">
+            <input type="radio" name="mitgliedsart" value="Ordentliches Mitglied" checked onchange="wahlMarkieren()">
+            <span><span class="t">Ordentliche Mitgliedschaft</span>
+                <span class="u">Du gehörst dazu, darfst mitentscheiden, wählen und gewählt werden.</span></span>
+        </label>
+        <label class="wahl">
+            <input type="radio" name="mitgliedsart" value="Fördermitglied" onchange="wahlMarkieren()">
+            <span><span class="t">Fördermitgliedschaft</span>
+                <span class="u">Du unterstützt den Verein finanziell, ohne dich einbringen zu müssen –
+                    ohne Stimmrecht in der Mitgliederversammlung.</span></span>
+        </label>
+
+        <div style="margin-top:14px">
+            <h2 style="font-size:15px">Welcher Beitrag?</h2>
+            <label class="wahl gewaehlt" style="padding:11px 13px">
+                <input type="radio" name="beitragsart" value="normal" checked onchange="wahlMarkieren()">
+                <span><span class="t">Normaler Beitrag</span></span>
+                {% if einst.beitrag_normal %}<span class="preis">{{ einst.beitrag_normal }} €</span>{% endif %}
+            </label>
+            <label class="wahl" style="padding:11px 13px">
+                <input type="radio" name="beitragsart" value="ermaessigt" onchange="wahlMarkieren()">
+                <span><span class="t">Ermäßigter Beitrag</span>
+                    <span class="u">z. B. bei geringem Einkommen, in Ausbildung oder Rente</span></span>
+                <span class="preis">{% if einst.beitrag_ermaessigt %}{{ einst.beitrag_ermaessigt }} €
+                    {%- else %}<span style="font-size:13px;font-weight:600;color:var(--text-hell, #64748b)">nach Absprache</span>{% endif %}</span>
+            </label>
+        </div>
+
+        <span class="schritt" style="margin-top:20px">Schritt 2</span>
+        <h2>Wer bist du?</h2>
+        <div class="zeile">
+            <div class="feld" style="max-width:120px"><label for="anrede">Anrede</label>
+                <select id="anrede" name="anrede"><option value=""></option><option>Frau</option><option>Herr</option><option>divers</option></select></div>
+            <div class="feld"><label for="vorname">Vorname *</label><input id="vorname" type="text" name="vorname" required autocomplete="given-name"></div>
+            <div class="feld"><label for="nachname">Nachname *</label><input id="nachname" type="text" name="nachname" required autocomplete="family-name"></div>
+        </div>
+        <div class="feld"><label for="organisation">Organisation <span class="hint">(nur wenn du für einen Verein, eine Firma oder Einrichtung beitrittst)</span></label>
+            <input id="organisation" type="text" name="organisation" autocomplete="organization"></div>
+        <div class="zeile">
+            <div class="feld" style="max-width:190px"><label for="geburtsdatum">Geburtsdatum</label>
+                <input id="geburtsdatum" type="date" name="geburtsdatum" onchange="alterPruefen()"></div>
+            <div class="feld"><label for="email">E-Mail *</label><input id="email" type="email" name="email" required autocomplete="email"></div>
+            <div class="feld"><label for="telefon">Telefon</label><input id="telefon" type="tel" name="telefon" autocomplete="tel"></div>
+        </div>
+        <div class="feld"><label for="strasse">Straße &amp; Nr.</label><input id="strasse" type="text" name="strasse" autocomplete="street-address"></div>
+        <div class="zeile">
+            <div class="feld" style="max-width:120px"><label for="plz">PLZ</label><input id="plz" type="text" name="plz" autocomplete="postal-code" inputmode="numeric"></div>
+            <div class="feld"><label for="ort">Ort</label><input id="ort" type="text" name="ort" autocomplete="address-level2"></div>
+        </div>
+        <div class="feld" id="vertreterFeld" style="display:none">
+            <label for="vertreter">Gesetzliche:r Vertreter:in</label>
+            <input id="vertreter" type="text" name="vertreter" placeholder="Name eines Elternteils oder Vormunds">
+            <p class="hint" style="margin:4px 0 0">Unter 18? Dann brauchen wir laut Satzung das schriftliche
+                Einverständnis eines gesetzlichen Vertreters. Wir melden uns dazu bei dir.</p>
+        </div>
+
+        <span class="schritt" style="margin-top:20px">Schritt 3</span>
+        <h2>Wie möchtest du zahlen?</h2>
+        <label class="wahl gewaehlt">
+            <input type="radio" name="zahlungsweg" value="lastschrift" checked onchange="zahlwegUmschalten()">
+            <span><span class="t">🏦 Lastschrift <span class="u" style="display:inline">(empfohlen)</span></span>
+                <span class="u">Wir ziehen den Beitrag ein – du musst an nichts denken.</span></span>
+        </label>
+        <label class="wahl">
+            <input type="radio" name="zahlungsweg" value="ueberweisung" onchange="zahlwegUmschalten()">
+            <span><span class="t">💶 Überweisung oder Dauerauftrag</span>
+                <span class="u">Du überweist selbst. Die Kontodaten bekommst du mit der Aufnahmebestätigung.</span></span>
+        </label>
+
+        <div class="sepa" id="sepaBlock">
+            <strong style="font-size:14.5px">SEPA-Lastschriftmandat</strong>
+            <p class="hint" style="margin:4px 0 10px">
+                {% if einst.glaeubiger_id %}Gläubiger-Identifikationsnummer: <strong>{{ einst.glaeubiger_id }}</strong><br>{% endif %}
+                Die Mandatsreferenz teilen wir dir mit der Aufnahmebestätigung mit.</p>
+            <div class="feld"><label for="iban">IBAN</label>
+                <input id="iban" type="text" name="iban" placeholder="DE00 0000 0000 0000 0000 00"
+                       autocomplete="off" spellcheck="false"></div>
+            <div class="zeile">
+                <div class="feld"><label for="kontoinhaber">Kontoinhaber:in <span class="hint">(nur falls abweichend)</span></label>
+                    <input id="kontoinhaber" type="text" name="kontoinhaber"></div>
+                <div class="feld" style="max-width:190px"><label for="bic">BIC <span class="hint">(nur bei nicht-deutschem Konto)</span></label>
+                    <input id="bic" type="text" name="bic"></div>
+            </div>
+            <p class="hint" style="margin:6px 0 0">Mit dem Absenden ermächtigst du {{ einst.vereinsname }},
+                den Mitgliedsbeitrag von deinem Konto einzuziehen, und weist dein Kreditinstitut an,
+                die Lastschriften einzulösen. Das Mandat wird erst mit der Aufnahme wirksam.
+                {% if einst.beitrag_intervall %}Eingezogen wird zum Eintritt und danach jeweils zum 1. Januar.{% endif %}</p>
+        </div>
+
+        <span class="schritt" style="margin-top:20px">Schritt 4</span>
+        <h2>Fast geschafft</h2>
+        <div class="feld"><label for="bemerkung">Möchtest du uns etwas mitteilen?</label>
+            <textarea id="bemerkung" name="bemerkung" rows="3"
+                placeholder="Worauf hast du Lust? Wobei möchtest du mitmachen? Brauchst du eine Ermäßigung?"></textarea></div>
+
+        <label class="check"><input type="checkbox" name="satzung_ok" required>
+            <span>Ich erkenne die
+                {% if einst.satzung_url %}<a href="{{ einst.satzung_url|sichere_url }}" target="_blank" rel="noopener">Satzung</a>{% else %}Satzung{% endif %}
+                und die
+                {% if einst.beitragsordnung_url %}<a href="{{ einst.beitragsordnung_url|sichere_url }}" target="_blank" rel="noopener">Beitragsordnung</a>{% else %}Beitragsordnung{% endif %}
+                in der jeweils gültigen Fassung als für mich verbindlich an. *</span></label>
+        <label class="check"><input type="checkbox" name="datenschutz_ok" required>
+            <span>Ich habe die
+                <a href="{{ einst.datenschutz_url|sichere_url or url_for('einstellungen.rechtliches') }}" target="_blank" rel="noopener">Datenschutzhinweise</a>
+                gelesen. Mir ist bekannt, dass der Verein Anschrift, Alter und Bankverbindung zur
+                Mitgliederverwaltung speichert. *</span></label>
+
+        <button class="btn">🤝 Antrag absenden</button>
+        <p class="hint" style="text-align:center;margin-top:10px">
+            Unverbindlich – wir melden uns innerhalb von {{ antwort_stunden }} Stunden bei dir.</p>
+    </form>
+
+    {# ── Was hier stattfindet ───────────────────────────────────────── #}
+    <div class="karte">
+        <h2>Das passiert bei uns</h2>
+        <ul class="angebote">
+            {% for a in angebote %}<li>{{ a }}</li>{% endfor %}
+        </ul>
+        <p class="hint" style="margin:12px 0 0">Noch Fragen? Schreib uns
+            {% if einst.email %}an <a href="mailto:{{ einst.email }}">{{ einst.email }}</a>{% else %}einfach{% endif %}
+            {%- if einst.telefon %} oder ruf an: {{ einst.telefon }}{% endif %} – oder komm einfach vorbei
+            {%- if einst.werkhaus_adresse %}: <strong>{{ einst.werkhaus_adresse }}</strong>{% else %}.{% endif %}</p>
+    </div>
+
+    <p class="rechtlich" style="text-align:center;margin-top:18px">
+        {{ einst.vereinsname }}{% if einst.strasse %} · {{ einst.strasse }}, {{ einst.plz }} {{ einst.ort }}{% endif %}
+        {%- if einst.registernummer %} · {{ einst.registernummer }}{% if einst.registergericht %} {{ einst.registergericht }}{% endif %}{% endif %}<br>
+        <a href="{{ einst.datenschutz_url|sichere_url or url_for('einstellungen.rechtliches') }}" target="_blank" rel="noopener"
+           style="color:var(--text-hell, #64748b)">Impressum &amp; Datenschutz</a>
+    </p>
+</div>
+
+<script>
+function wahlMarkieren() {
+    document.querySelectorAll('.wahl').forEach(function (w) {
+        var r = w.querySelector('input[type=radio]');
+        w.classList.toggle('gewaehlt', r && r.checked);
+    });
+}
+function zahlwegUmschalten() {
+    var lastschrift = document.querySelector('input[name=zahlungsweg][value=lastschrift]').checked;
+    document.getElementById('sepaBlock').style.display = lastschrift ? '' : 'none';
+    wahlMarkieren();
+}
+function alterPruefen() {
+    // Minderjährige brauchen laut Satzung die Zustimmung eines gesetzlichen Vertreters
+    var wert = document.getElementById('geburtsdatum').value;
+    var zeigen = false;
+    if (wert) {
+        var g = new Date(wert), h = new Date();
+        var jahre = h.getFullYear() - g.getFullYear();
+        if (h.getMonth() < g.getMonth() || (h.getMonth() === g.getMonth() && h.getDate() < g.getDate())) { jahre--; }
+        zeigen = jahre < 18 && jahre >= 0;
+    }
+    document.getElementById('vertreterFeld').style.display = zeigen ? '' : 'none';
+}
+wahlMarkieren();
+</script>
+</body>
+</html>

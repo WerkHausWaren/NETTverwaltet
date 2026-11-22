@@ -1,0 +1,26 @@
+{% extends "auth/_layout.html" %}
+{% block title %}Erst-Einrichtung{% endblock %}
+{% block inhalt %}
+<div class="auth-logo">🛡️</div>
+<h2 class="auth-titel">Erst-Einrichtung: Verein &amp; Notfall-Admin</h2>
+<form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h3 style="margin:10px 0 4px">Dein Verein</h3>
+    <p class="feld-hinweis">Name und Ort erscheinen überall in der App – du kannst beides später
+       unter Einstellungen ändern und dort auch Logo, Adresse und Farben ergänzen.</p>
+    <div class="feld"><label>Vereinsname</label>
+        <input type="text" name="vereinsname" required placeholder="z.B. Musterverein e.V."></div>
+    <div class="feld"><label>Ort (optional)</label>
+        <input type="text" name="ort" placeholder="z. B. Musterstadt"></div>
+    <div class="feld"><label>Vereins-E-Mail (optional)</label>
+        <input type="email" name="vereins_email" placeholder="z.B. hallo@verein.de"></div>
+
+    <h3 style="margin:16px 0 4px">Notfall-Admin</h3>
+    <p class="feld-hinweis">Dieses Konto funktioniert auch dann, wenn die Nextcloud einmal nicht erreichbar ist.
+       Bewahre E-Mail und Passwort sicher auf.</p>
+    <div class="feld"><label>E-Mail</label><input type="email" name="email" required></div>
+    <div class="feld"><label>Passwort (mind. 8 Zeichen)</label><input type="password" name="passwort" required></div>
+    <div class="feld"><label>Passwort wiederholen</label><input type="password" name="passwort2" required></div>
+    <button type="submit" class="btn">Verein einrichten</button>
+</form>
+{% endblock %}

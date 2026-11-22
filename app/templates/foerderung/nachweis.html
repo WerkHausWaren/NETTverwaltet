@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verwendungsnachweis – {{ p.titel }}</title>
+<style>
+    body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; color: #1b2430; line-height: 1.55;
+           margin: 0; background: #eef1f6; font-size: 14px; }
+    .blatt { max-width: 800px; margin: 22px auto; background: #fff; padding: 38px 44px 46px;
+             box-shadow: 0 4px 20px rgba(20,35,60,.10); }
+    .kopf { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;
+            border-bottom: 2px solid #1b2430; padding-bottom: 14px; margin-bottom: 22px; }
+    .kopf img { height: 54px; object-fit: contain; }
+    h1 { font-size: 21px; margin: 0 0 4px; }
+    h2 { font-size: 15px; margin: 26px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #d8dee8;
+         text-transform: uppercase; letter-spacing: .5px; }
+    table { width: 100%; border-collapse: collapse; margin: 6px 0 4px; }
+    th, td { padding: 5px 6px; text-align: left; border-bottom: 1px solid #e8ecf2; vertical-align: top; }
+    th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .4px; color: #64748b; }
+    .r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .summe td { font-weight: 700; border-top: 2px solid #1b2430; border-bottom: none; }
+    .meta { display: grid; grid-template-columns: 175px 1fr; gap: 3px 14px; }
+    .meta div:nth-child(odd) { color: #64748b; }
+    .text { white-space: pre-wrap; }
+    .fuss { margin-top: 34px; font-size: 12px; color: #64748b; }
+    .unterschrift { margin-top: 46px; display: flex; gap: 40px; }
+    .unterschrift div { flex: 1; border-top: 1px solid #1b2430; padding-top: 5px; font-size: 12px; color: #64748b; }
+    .drucken { max-width: 800px; margin: 16px auto 0; text-align: right; }
+    .drucken button { font: inherit; padding: 9px 18px; border: 0; border-radius: 8px; background: #174290;
+                      color: #fff; font-weight: 600; cursor: pointer; }
+    @media print {
+        body { background: #fff; }
+        .blatt { box-shadow: none; margin: 0; max-width: none; padding: 0; }
+        .drucken { display: none; }
+    }
+</style>
+</head>
+<body>
+<div class="drucken"><button onclick="window.print()">🖨 Drucken / als PDF sichern</button></div>
+<div class="blatt">
+    <div class="kopf">
+        <div>
+            <h1>Verwendungsnachweis</h1>
+            <div>{{ p.titel }}</div>
+        </div>
+        {% if einst.logo_dateiname %}
+        <img src="{{ url_for('einstellungen.logo', verein_id=einst.id) }}" alt="">
+        {% endif %}
+    </div>
+
+    <h2>Zuwendungsempfänger</h2>
+    <div class="meta">
+        <div>Verein</div><div><strong>{{ einst.vereinsname }}</strong></div>
+        {% if einst.strasse or einst.ort %}
+        <div>Anschrift</div><div>{{ einst.strasse }}{% if einst.strasse and einst.ort %}, {% endif %}{{ einst.plz }} {{ einst.ort }}</div>
+        {% endif %}
+        {% if einst.registergericht or einst.registernummer %}
+        <div>Register</div><div>{{ [einst.registergericht, einst.registernummer] | select | join(", ") }}</div>
+        {% endif %}
+        {% if einst.steuernummer %}<div>Steuernummer</div><div>{{ einst.steuernummer }}</div>{% endif %}
+    </div>
+
+    <h2>Zuwendung</h2>
+    <div class="meta">
+        <div>Fördergeber</div><div>{{ p.geber_name or '—' }}</div>
+        {% if p.aktenzeichen %}<div>Aktenzeichen</div><div>{{ p.aktenzeichen }}</div>{% endif %}
+        {% if p.bescheid_am %}<div>Zuwendungsbescheid vom</div><div>{{ p.bescheid_am | datum_de }}</div>{% endif %}
+        <div>Bewilligte Zuwendung</div><div><strong>{{ p.bewilligt | euro if p.bewilligt else '—' }}</strong></div>
+        {% if finanz_name %}<div>Finanzierungsart</div><div>{{ finanz_name }}</div>{% endif %}
+        {% if p.eigenanteil %}<div>Eigenanteil</div><div>{{ p.eigenanteil | euro }}</div>{% endif %}
+        {% if p.vmb_am %}<div>Vorzeitiger Maßnahmenbeginn</div><div>genehmigt am {{ p.vmb_am | datum_de }}</div>{% endif %}
+        {% if p.gesamtkosten %}<div>Gesamtkosten (Plan)</div><div>{{ p.gesamtkosten | euro }}</div>{% endif %}
+        {% if p.projekt_von or p.projekt_bis %}
+        <div>Bewilligungszeitraum</div><div>{{ p.projekt_von | datum_de if p.projekt_von else '—' }}
+            bis {{ p.projekt_bis | datum_de if p.projekt_bis else '—' }}</div>
+        {% endif %}
+    </div>
+
+    <h2>Zahlenmäßiger Nachweis – Ausgaben nach Kostenarten</h2>
+    {% if nach_kategorie %}
+    <table>
+        <thead><tr><th>Kostenart</th><th class="r">Betrag</th><th class="r">Anteil</th></tr></thead>
+        <tbody>
+        {% for name, betrag in nach_kategorie %}
+        <tr><td>{{ name }}</td><td class="r">{{ betrag | euro }}</td>
+            <td class="r">{{ (((betrag / summe_ausgaben * 100) | round(1)) if summe_ausgaben else 0)
+            | string | replace(".", ",") }} %</td></tr>
+        {% endfor %}
+        <tr class="summe"><td>Summe der Ausgaben</td><td class="r">{{ summe_ausgaben | euro }}</td><td class="r">100 %</td></tr>
+        </tbody>
+    </table>
+    {% else %}
+    <p>Für dieses Projekt sind noch keine Ausgaben zugeordnet.</p>
+    {% endif %}
+
+    {% if einnahmen %}
+    <h2>Einnahmen im Projekt</h2>
+    <table>
+        <thead><tr><th>Datum</th><th>Beschreibung</th><th class="r">Betrag</th></tr></thead>
+        <tbody>
+        {% for b in einnahmen %}
+        <tr><td>{{ b.datum | datum_de }}</td><td>{{ b.beschreibung }}</td><td class="r">{{ b.betrag | euro }}</td></tr>
+        {% endfor %}
+        <tr class="summe"><td colspan="2">Summe der Einnahmen</td><td class="r">{{ summe_einnahmen | euro }}</td></tr>
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if p.bewilligt %}
+    <h2>Abgleich mit der Bewilligung</h2>
+    <table>
+        <tbody>
+        <tr><td>Bewilligte Zuwendung</td><td class="r">{{ p.bewilligt | euro }}</td></tr>
+        <tr><td>Nachgewiesene Ausgaben</td><td class="r">{{ summe_ausgaben | euro }}</td></tr>
+        {% set diff = p.bewilligt - summe_ausgaben %}
+        <tr class="summe"><td>{{ 'Nicht verbrauchte Mittel' if diff >= 0 else 'Mehrausgaben (aus Eigenmitteln)' }}</td>
+            <td class="r">{{ (diff if diff >= 0 else -diff) | euro }}</td></tr>
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if ausgaben %}
+    <h2>Belegliste</h2>
+    <table>
+        <thead><tr><th style="width:34px">Nr.</th><th style="width:84px">Datum</th><th>Beschreibung</th>
+            <th>Kostenart</th><th class="r">Betrag</th></tr></thead>
+        <tbody>
+        {% for b in ausgaben %}
+        <tr><td>{{ loop.index }}</td><td>{{ b.datum | datum_de }}</td><td>{{ b.beschreibung }}</td>
+            <td>{{ b.konto_name or b.kategorie or '—' }}</td><td class="r">{{ b.betrag | euro }}</td></tr>
+        {% endfor %}
+        <tr class="summe"><td colspan="4">Summe</td><td class="r">{{ summe_ausgaben | euro }}</td></tr>
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if p.sachbericht %}
+    <h2>Sachbericht</h2>
+    <div class="text">{{ p.sachbericht }}</div>
+    {% endif %}
+
+    <div class="fuss">
+        Es wird bestätigt, dass die Ausgaben notwendig waren, wirtschaftlich und sparsam verfahren wurde
+        und die Angaben mit den Büchern und Belegen übereinstimmen. Die Belege werden beim Zuwendungsempfänger
+        aufbewahrt und auf Anforderung vorgelegt.
+    </div>
+
+    <div class="unterschrift">
+        <div>Ort, Datum &nbsp;·&nbsp; {{ einst.ort or '' }}, {{ heute | datum_de }}</div>
+        <div>Unterschrift Vorstand</div>
+    </div>
+</div>
+</body>
+</html>

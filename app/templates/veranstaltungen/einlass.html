@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="csrf" content="{{ csrf_token() }}">
+<title>Einlass – {{ t.titel }}</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: #0f172a;
+           color: #e2e8f0; min-height: 100vh; padding: 12px 14px calc(20px + env(safe-area-inset-bottom));
+           max-width: 640px; margin: 0 auto; }
+    a { color: #93c5fd; text-decoration: none; }
+    .zurueck { font-size: 14px; }
+    header { text-align: center; margin: 4px 0 14px; }
+    .auge { font-size: 13px; letter-spacing: 3px; color: #94a3b8; font-weight: 700; }
+    h1 { font-size: clamp(24px, 6.5vw, 34px); line-height: 1.15; margin: 6px 0 4px;
+         text-wrap: balance; }
+    .wann { color: #94a3b8; font-size: 14px; }
+    .status { display: flex; align-items: center; justify-content: center; gap: 10px;
+              flex-wrap: wrap; margin: 12px 0; }
+    .status .laeuft { border-radius: 999px; padding: 7px 16px; font-weight: 800; font-size: 14px;
+              background: #14532d; color: #86efac; }
+    .status .zu { background: #334155; color: #cbd5e1; }
+    .kacheln { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+    .kachel { border-radius: 18px; padding: 16px 10px 14px; text-align: center; }
+    .kachel .zahl { font-size: clamp(44px, 13vw, 64px); font-weight: 800; line-height: 1;
+                    font-variant-numeric: tabular-nums; }
+    .kachel .wort { font-size: 14px; font-weight: 700; margin-top: 6px; letter-spacing: 1px; }
+    .kachel.da { background: #14532d; color: #dcfce7; }
+    .kachel.offen { background: #713f12; color: #fef3c7; }
+    .karte { background: #1e293b; border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+    video { width: 100%; border-radius: 10px; background: #000; display: none; max-height: 44vh; object-fit: cover; }
+    button, .knopf { border: 0; border-radius: 10px; padding: 12px 16px; font-size: 15px; font-weight: 700;
+             background: #2563eb; color: #fff; cursor: pointer; }
+    button.zweit { background: #334155; }
+    button.klein { padding: 7px 14px; font-size: 13px; }
+    input[type=search] { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #334155;
+             background: #0f172a; color: #e2e8f0; font-size: 16px; }
+    .liste button { display: block; width: 100%; text-align: left; background: #0f172a; font-weight: 500;
+             margin-top: 6px; border: 1px solid #334155; }
+    .liste button small { color: #94a3b8; }
+    #ergebnis { display: none; }
+    .ampel { border-radius: 14px; padding: 16px; font-size: 22px; font-weight: 800; margin-bottom: 10px;
+             text-align: center; }
+    .ampel.gruen { background: #14532d; color: #dcfce7; }
+    .ampel.gelb  { background: #713f12; color: #fef9c3; }
+    .ampel.rot   { background: #7f1d1d; color: #fee2e2; }
+    .ampel ul { font-size: 14px; font-weight: 500; margin: 10px auto 0; max-width: 440px;
+                text-align: left; padding-left: 18px; }
+    .person { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+              background: #0f172a; border: 1px solid #334155; margin-top: 6px; font-weight: 600; }
+    .person.da { background: #14532d; border-color: #16a34a; }
+    .person small { margin-left: auto; color: #94a3b8; font-weight: 400; }
+    .aktionen { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; justify-content: center; }
+    .hinweis { color: #94a3b8; font-size: 13px; margin-top: 8px; text-align: center; }
+    .badge { display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: 12px;
+             font-weight: 700; background: #334155; margin-left: 6px; }
+</style>
+</head>
+<body>
+<a class="zurueck" href="{{ urls.zurueck }}">‹ Zurück</a>
+<header>
+    <div class="auge">🎫 EINLASS</div>
+    <h1>{{ t.titel }}</h1>
+    <div class="wann">{{ t.datum | datum_de }}{% if t.uhrzeit %} · {{ t.uhrzeit }} Uhr{% endif %}{% if t.ort %} · {{ t.ort }}{% endif %}</div>
+</header>
+
+<div class="status">
+    <span class="laeuft {{ '' if einlass_start else 'zu' }}" id="status-pille">
+        {{ '🟢 Einlass läuft seit ' + einlass_start + ' Uhr' if einlass_start else '⏸ Einlass geschlossen' }}</span>
+    <button class="zweit klein" id="schalter" onclick="schalten()">
+        {{ 'Einlass schließen' if einlass_start else '🎫 Einlass öffnen' }}</button>
+</div>
+{% if t.uhrzeit %}
+<p class="hinweis" style="margin:-6px 0 10px">Schließt ca. 10 Minuten nach Beginn ({{ t.uhrzeit }} Uhr)
+    automatisch – danach lässt er sich hier jederzeit wieder öffnen.</p>
+{% endif %}
+
+<div class="kacheln">
+    <div class="kachel da"><div class="zahl" id="z-da">{{ da }}</div><div class="wort">✅ EINGECHECKT</div></div>
+    <div class="kachel offen"><div class="zahl" id="z-offen">{{ [gesamt - da, 0] | max }}</div><div class="wort">⏳ OFFEN</div></div>
+</div>
+<p class="hinweis" style="margin:-6px 0 12px">von <span id="z-gesamt">{{ gesamt }}</span> angemeldeten Personen</p>
+
+<div class="karte" id="scanner">
+    <video id="video" playsinline muted></video>
+    <div class="aktionen">
+        <button id="kamera-start" onclick="kameraStart()">📷 Kamera starten</button>
+        <button id="kamera-stopp" class="zweit" onclick="kameraStopp()" style="display:none">Kamera aus</button>
+    </div>
+    <p class="hinweis">Voucher-QR vor die Kamera halten – oder unten Name/Token eingeben.</p>
+</div>
+
+<div class="karte" id="ergebnis">
+    <div class="ampel" id="ampel"></div>
+    <div id="gruppe"></div>
+    <div class="aktionen">
+        <button id="btn-alle" onclick="aktion('alle')">✅ Alle einchecken</button>
+        <button id="btn-bezahlt" class="zweit" onclick="aktion('bezahlt')" style="display:none">💶 Bar kassiert – als bezahlt markieren</button>
+        <button class="zweit" onclick="weiterScannen()">🔄 Weiter scannen</button>
+    </div>
+</div>
+
+<div class="karte">
+    <input type="search" id="suche" placeholder="🔍 Name suchen oder Token eintippen …"
+           oninput="sucheTippen(this.value)" autocomplete="off">
+    <div class="liste" id="suchliste"></div>
+</div>
+
+<canvas id="leinwand" style="display:none"></canvas>
+<script src="{{ url_for('static', filename='jsqr.min.js') }}"></script>
+<script>
+var CSRF = document.querySelector('meta[name=csrf]').content;
+var URLS = {{ urls | tojson }};
+var ANMELDUNGEN = {{ suchliste | tojson }};
+var aktuelleGruppe = null;
+var strom = null, scanAktiv = false, letzterCode = "", letzteZeit = 0;
+
+function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+        return {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c];
+    });
+}
+function post(url, daten) {
+    return fetch(url, {method: "POST", headers: {"Content-Type": "application/json",
+                                                 "X-CSRFToken": CSRF},
+                       body: JSON.stringify(daten)})
+        .then(function (r) {
+            if (!r.ok || ((r.headers.get("Content-Type") || "").indexOf("json") === -1)) {
+                throw new Error("HTTP " + r.status);
+            }
+            return r.json();
+        })
+        .catch(function () {
+            if (navigator.vibrate) navigator.vibrate([80, 60, 80]);
+            return {status: "rot", gruende: ["Verbindung oder Anmeldung fehlgeschlagen – "
+                    + "bitte Seite neu laden und ggf. neu anmelden."]};
+        });
+}
+
+function standZeigen(z) {
+    if (!z || z.da === undefined) return;
+    document.getElementById("z-da").textContent = z.da;
+    document.getElementById("z-offen").textContent = z.offen;
+    document.getElementById("z-gesamt").textContent = z.gesamt;
+    var pille = document.getElementById("status-pille");
+    var knopf = document.getElementById("schalter");
+    if (z.start) {
+        pille.className = "laeuft";
+        pille.textContent = "🟢 Einlass läuft seit " + z.start + " Uhr";
+        knopf.textContent = "Einlass schließen";
+    } else {
+        pille.className = "laeuft zu";
+        pille.textContent = "⏸ Einlass geschlossen";
+        knopf.textContent = "🎫 Einlass öffnen";
+    }
+}
+function schalten() {
+    var laeuft = document.getElementById("status-pille").className === "laeuft";
+    post(URLS.schalter, {aktion: laeuft ? "stopp" : "start"}).then(standZeigen);
+}
+// Mehrere Geräte checken gleichzeitig ein – der Stand gleicht sich alle 10 s ab
+setInterval(function () {
+    if (document.hidden) return;
+    fetch(URLS.stand).then(function (r) { return r.ok ? r.json() : null; })
+        .then(standZeigen).catch(function () {});
+}, 10000);
+
+function kameraStart() {
+    navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}}).then(function (s) {
+        strom = s;
+        var v = document.getElementById("video");
+        v.srcObject = s; v.style.display = "block"; v.play();
+        document.getElementById("kamera-start").style.display = "none";
+        document.getElementById("kamera-stopp").style.display = "";
+        scanAktiv = true;
+        schleife();
+    }).catch(function () {
+        alert("Kamera nicht verfügbar – bitte unten Name oder Token eingeben.");
+    });
+}
+function kameraStopp() {
+    scanAktiv = false;
+    if (strom) { strom.getTracks().forEach(function (t) { t.stop(); }); strom = null; }
+    document.getElementById("video").style.display = "none";
+    document.getElementById("kamera-start").style.display = "";
+    document.getElementById("kamera-stopp").style.display = "none";
+}
+function schleife() {
+    if (!scanAktiv) return;
+    var v = document.getElementById("video");
+    if (v.readyState === v.HAVE_ENOUGH_DATA) {
+        var c = document.getElementById("leinwand");
+        c.width = v.videoWidth; c.height = v.videoHeight;
+        var ctx = c.getContext("2d", {willReadFrequently: true});
+        ctx.drawImage(v, 0, 0, c.width, c.height);
+        var bild = ctx.getImageData(0, 0, c.width, c.height);
+        var qr = jsQR(bild.data, c.width, c.height, {inversionAttempts: "dontInvert"});
+        var jetzt = Date.now();
+        if (qr && qr.data && (qr.data !== letzterCode || jetzt - letzteZeit > 4000)) {
+            letzterCode = qr.data; letzteZeit = jetzt;
+            if (navigator.vibrate) navigator.vibrate(80);
+            pruefen(qr.data);
+        }
+    }
+    setTimeout(function () { requestAnimationFrame(schleife); }, 180);
+}
+
+function pruefen(code) {
+    post(URLS.pruefen, {code: code}).then(zeigen);
+}
+function aktion(art) {
+    if (!aktuelleGruppe) return;
+    post(URLS.checkin, {anmeldung_id: aktuelleGruppe.anmeldung.id, aktion: art}).then(zeigen);
+}
+function personToggle(tnId) {
+    post(URLS.checkin, {anmeldung_id: aktuelleGruppe.anmeldung.id,
+                        teilnehmer_id: tnId, aktion: "wechsel"}).then(zeigen);
+}
+function zeigen(d) {
+    aktuelleGruppe = d.anmeldung ? d : null;
+    var e = document.getElementById("ergebnis");
+    e.style.display = "block";
+    var ampel = document.getElementById("ampel");
+    ampel.className = "ampel " + d.status;
+    var symbol = d.status === "gruen" ? "🟢" : (d.status === "gelb" ? "🟡" : "🔴");
+    var html = symbol;
+    if (d.anmeldung) html += " " + esc(d.anmeldung.name);
+    if (d.gruende && d.gruende.length) {
+        html += "<ul>";
+        d.gruende.forEach(function (g) { html += "<li>" + esc(g) + "</li>"; });
+        html += "</ul>";
+    }
+    ampel.innerHTML = html;
+    var gruppe = document.getElementById("gruppe");
+    gruppe.innerHTML = "";
+    if (d.anmeldung) {
+        var kopf = document.createElement("div");
+        kopf.innerHTML = "<strong>" + esc(d.anmeldung.name) + "</strong>"
+            + (d.anmeldung.betrag ? "<span class='badge'>" + d.anmeldung.betrag.toFixed(2).replace(".", ",")
+               + " € · " + d.anmeldung.bezahlstatus + "</span>" : "")
+            + (d.anmeldung.warteliste ? "<span class='badge'>Warteliste</span>" : "");
+        gruppe.appendChild(kopf);
+        (d.teilnehmer || []).forEach(function (tn) {
+            var b = document.createElement("button");
+            b.className = "person" + (tn.checkin ? " da" : "");
+            b.innerHTML = (tn.checkin ? "✅ " : "☐ ") + esc(tn.name)
+                + (tn.checkin ? "<small>" + tn.checkin + " Uhr</small>" : "");
+            b.onclick = function () { personToggle(tn.id); };
+            gruppe.appendChild(b);
+        });
+        var offenAlle = (d.teilnehmer || []).some(function (tn) { return !tn.checkin; });
+        document.getElementById("btn-alle").style.display =
+            (!d.anmeldung.storniert && offenAlle) ? "" : "none";
+        document.getElementById("btn-bezahlt").style.display =
+            (d.anmeldung.betrag > 0 && d.anmeldung.bezahlstatus === "offen") ? "" : "none";
+    } else {
+        document.getElementById("btn-alle").style.display = "none";
+        document.getElementById("btn-bezahlt").style.display = "none";
+    }
+    if (d.zaehler) standZeigen(d.zaehler);
+    e.scrollIntoView({behavior: "smooth", block: "start"});
+}
+function weiterScannen() {
+    document.getElementById("ergebnis").style.display = "none";
+    aktuelleGruppe = null;
+    letzterCode = "";
+    document.getElementById("suche").value = "";
+    sucheTippen("");
+    window.scrollTo({top: 0, behavior: "smooth"});
+}
+
+function sucheTippen(wert) {
+    var ziel = document.getElementById("suchliste");
+    ziel.innerHTML = "";
+    var roh = (wert || "").trim();       // Tokens sind groß-/kleinschreibungs-sensibel
+    wert = roh.toLowerCase();
+    var treffer = ANMELDUNGEN.filter(function (a) {
+        return !wert || a.name.toLowerCase().indexOf(wert) !== -1;
+    }).slice(0, 12);
+    treffer.forEach(function (a) {
+        var b = document.createElement("button");
+        b.innerHTML = esc(a.name)
+            + (a.storniert ? " <small>(storniert)</small>" : (a.warteliste ? " <small>(Warteliste)</small>" : ""));
+        b.onclick = function () { pruefen(a.token); };
+        ziel.appendChild(b);
+    });
+    if (roh && !treffer.length) {
+        var b = document.createElement("button");
+        b.textContent = "🔎 „" + roh + "“ als Token prüfen";
+        b.onclick = function () { pruefen(roh); };
+        ziel.appendChild(b);
+    }
+}
+sucheTippen("");
+</script>
+</body>
+</html>

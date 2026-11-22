@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nicht verfügbar</title>
+{% include "_oeffentlich_stil.html" %}
+<style>
+    body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; color: var(--text, #1e293b); margin: 0; background: var(--grund, #eef1f5); }
+    .wrap { max-width: 480px; margin: 60px auto; padding: 0 16px; text-align: center; }
+    .karte { background: var(--flaeche, #ffffff); border-radius: 14px; padding: 34px; box-shadow: 0 3px 14px rgba(0,0,0,.05); }
+    .ic { font-size: 44px; }
+    h1 { font-size: 20px; }
+    p { color: var(--text-hell, #475569); }
+</style>
+</head>
+<body>
+<div class="wrap"><div class="karte">
+    <div class="ic">🔍</div>
+    <h1>{{ meldung }}</h1>
+    <p>Bitte prüfe den Link oder wende dich an den Verein.</p>
+    <p style="margin-top:14px"><a href="{{ url_for('portal.home') }}"
+        style="color:var(--akz-text, #174290);text-decoration:none;font-weight:600">{{ ue('‹ Zur Startseite') }}</a></p>
+</div></div>
+</body>
+</html>

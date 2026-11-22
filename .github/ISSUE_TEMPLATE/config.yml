@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Frage stellen
+    url: https://github.com/WerkHausWaren/NETTverwaltet/discussions
+    about: Für Fragen zur Einrichtung und Nutzung – andere Vereine helfen mit.
+  - name: Sicherheitslücke melden (vertraulich)
+    url: https://github.com/WerkHausWaren/NETTverwaltet/security/advisories/new
+    about: Bitte Sicherheitsprobleme nie öffentlich melden.

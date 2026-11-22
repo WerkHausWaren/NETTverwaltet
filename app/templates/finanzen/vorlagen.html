@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Druckvorlagen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🖨️ Vorlagen</h1><div class="sub">Formulare für die Kasse – am Bildschirm ausfüllen oder drucken</div></div>
+    <div class="aktionen"><a href="{{ url_for('finanzen.liste') }}" class="btn btn-sekundaer">← Kassenbuch</a></div>
+</div>
+
+<div class="hilfe-box" style="margin-bottom:20px">
+    Für eine saubere Buchführung gilt: <strong>keine Buchung ohne Beleg</strong>. Diese PDF-Vorlagen
+    kannst du direkt am Bildschirm ausfüllen (echte Formularfelder) oder ausdrucken und handschriftlich
+    ausfüllen. Euer Vereinsname steht automatisch drauf, auf Zählprotokoll und Erstattungsantrag
+    auch euer Logo.
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">💶 Einzahlungsbeleg (Bareinzahlung)</h2>
+    <p>Quittiert Bargeld, das in die Kasse oder auf ein Konto eingezahlt wird: Betrag in Ziffern und
+    in Worten, wer einzahlt, wofür – und das Ziel-Geldkonto zum Ankreuzen (bis zu vier eurer aktiven
+    Geldkonten stehen drauf, weitere über „Sonstiges“). Je A4-Seite zwei Belege mit Schnittlinie.
+    Die Beleg-Nr. kannst du frei lassen – die vergibt das Kassenbuch beim Verbuchen.</p>
+    <a class="btn" href="{{ url_for('finanzen.vorlage_pdf', name='einzahlungsbeleg') }}">⬇️ Herunterladen (PDF)</a>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">🧮 Zählprotokoll Bargeld</h2>
+    <p>Die Stückelung (Scheine und Münzen zählen) für den Kassensturz, die Kassenprüfung oder bevor
+    ihr Bargeld zur Bank bringt – mit Abgleich zum Kassenbuch und zwei Unterschriften
+    (Vier-Augen-Prinzip).</p>
+    <a class="btn" href="{{ url_for('finanzen.vorlage_pdf', name='zaehlprotokoll') }}">⬇️ Herunterladen (PDF)</a>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">🧾 Antrag auf Auslagenerstattung</h2>
+    <p>Wenn jemand für den Verein ausgelegt hat: Aufstellung der Auslagen mit Belegen, Auszahlung per
+    Überweisung oder bar – oder Verzicht zugunsten einer <strong>Aufwandsspende</strong> (mit Hinweis
+    auf die Voraussetzungen nach § 10b Abs. 3 EStG). Unten füllt die Kasse den Genehmigungsblock aus.</p>
+    <a class="btn" href="{{ url_for('finanzen.vorlage_pdf', name='auslagenerstattung') }}">⬇️ Herunterladen (PDF)</a>
+</div>
+
+<div class="feld-hinweis">Tipp: Zum Ausfüllen am Bildschirm die PDF im Browser oder einem
+PDF-Programm öffnen, Felder ausfüllen und speichern. Unterschriften bleiben bewusst
+handschriftlich.</div>
+{% endblock %}

@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Beitrag bearbeiten' if b else 'Neuer Beitrag' }}{% endblock %}
+{% block content %}
+{% set typ_wert = (b.typ if b else (vor_typ or 'social')) %}
+{% set kanal_wert = (b.kanal if b else '') %}
+<div class="page-header">
+    <div><h1>{{ '✏️ Beitrag bearbeiten' if b else '＋ Neuer Beitrag' }}</h1>
+        <div class="sub">{% if b %}Status: <strong>{{ status_namen.get(b.status) or b.status or '–' }}</strong>{% if b.freigegeben_von %} · freigegeben von {{ b.freigegeben_von }}{% endif %}{% else %}Für Social Media oder als Pressemitteilung{% endif %}</div></div>
+    <div class="aktionen"><a href="{{ url_for('oea.plan') }}" class="btn btn-sekundaer">‹ Redaktionsplan</a></div>
+</div>
+
+<div class="haupt-neben" style="--neben:320px;gap:16px">
+<form method="post" class="karte">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <label>Art
+            <select name="typ" id="oea-typ" onchange="oeaTyp()">
+                <option value="social" {{ 'selected' if typ_wert == 'social' }}>Social-Media-Beitrag</option>
+                <option value="presse" {{ 'selected' if typ_wert == 'presse' }}>Pressemitteilung</option>
+            </select></label>
+        <label id="oea-kanal-feld">Kanal
+            <select name="kanal" id="oea-kanal" onchange="oeaZaehler()">
+                <option value="">– wählen –</option>
+                {% for k, f in formate.items() if k != 'presse' %}
+                <option value="{{ k }}" {{ 'selected' if kanal_wert == k }}>{{ f.symbol }} {{ f.label }}</option>
+                {% endfor %}
+            </select></label>
+    </div>
+    <label>Titel / Überschrift
+        <input name="titel" value="{{ b.titel if b }}" maxlength="200" placeholder="z. B. Sommerfest am Seeufer"></label>
+    <label>Text <span class="feld-hinweis" id="oea-zaehler" style="float:right"></span>
+        <span id="oea-geruest-zeile" style="display:none">
+            <button type="button" class="btn btn-sekundaer btn-klein" onclick="oeaGeruest()"
+                    title="Ein leeres Pressemitteilungs-Gerüst zum Ausfüllen einsetzen">📄 Presse-Gerüst einfügen</button>
+        </span>
+        <textarea name="text" id="oea-text" rows="14" oninput="oeaZaehler()"
+                  placeholder="Der Beitragstext …">{{ b.text if b }}</textarea></label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <label>Gehört zu Veranstaltung
+            <select name="termin_id">
+                <option value="">– keine –</option>
+                {% for t in termine %}
+                <option value="{{ t.id }}" {{ 'selected' if (b and b.termin_id == t.id) or (not b and vor_termin == t.id) }}>{{ t.datum | datum_de }} – {{ t.titel }}</option>
+                {% endfor %}
+            </select></label>
+        <label>Geplant für
+            <input type="date" name="geplant_am" value="{{ b.geplant_am if b }}"></label>
+    </div>
+    {% if kanal_wert == 'instagram' and not (design and design.modul_contenthub and design.hub_instagram) %}
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:12px;align-items:end">
+        <label>Uhrzeit
+            <input type="time" name="geplant_um" value="{{ b.geplant_um if b else '' }}" placeholder="09:00"></label>
+        <label style="display:flex;gap:8px;align-items:center;cursor:pointer;padding-bottom:10px">
+            <input type="checkbox" name="auto_posten" style="width:auto" {{ 'checked' if b and b.auto_posten }}>
+            <span><strong>🤖 Automatisch veröffentlichen</strong>
+                <span class="feld-hinweis">– der Server postet zur geplanten Zeit von selbst
+                (nur nach Freigabe und mit Bild)</span></span></label>
+    </div>
+    {% if b and b.auto_fehler %}
+    <div style="background:var(--fehler-grund);color:var(--fehler-text);border:1px solid var(--fehler-rand);border-radius:10px;padding:10px 12px;margin-top:8px;font-size:14px">
+        ⚠️ <strong>Automatisches Posten fehlgeschlagen</strong> ({{ b.auto_versuche }}. Versuch): {{ b.auto_fehler }}
+        {% if not b.auto_posten %}<br><span class="feld-hinweis">Die Automatik wurde für diesen Beitrag abgeschaltet –
+            Ursache beheben und den Haken oben neu setzen.</span>{% endif %}
+    </div>
+    {% endif %}
+    {% endif %}
+    {% if b and b.termin_id and (termin_bild or fotos) %}
+    <label>Bild für Instagram <span class="feld-hinweis">(Instagram veröffentlicht nur mit Bild)</span>
+        <select name="bild_foto_id">
+            {% if termin_bild %}<option value="">Veranstaltungsbild</option>{% else %}<option value="">– keins –</option>{% endif %}
+            {% for f in fotos %}
+            <option value="{{ f.id }}" {{ 'selected' if b.bild_foto_id == f.id }}>📸 Foto {{ loop.index }}{{ ' – ' + f.beschreibung if f.beschreibung }}</option>
+            {% endfor %}
+        </select></label>
+    {% elif b and b.termin_id %}
+    <p class="feld-hinweis">📸 Für Instagram fehlt noch ein Bild: Veranstaltungsbild hinterlegen oder ein
+        freigegebenes Foto ins <a href="{{ url_for('oea.fotos', album=b.termin_id) }}">Album</a> laden.</p>
+    {% endif %}
+    <div id="oea-bildmeta" style="display:none;grid-template-columns:1fr 1fr;gap:12px">
+        <label>Bildunterschrift <span class="feld-hinweis">(fürs Presse-PDF; leer = Veranstaltungstitel bzw. Foto-Beschreibung)</span>
+            <input name="bild_unterschrift" value="{{ b.bild_unterschrift if b and b.bild_unterschrift }}"
+                   placeholder="z. B. Die Band auf der Bühne im Vereinshaus"></label>
+        <label>Bildnachweis / Copyright <span class="feld-hinweis">(leer = „Foto: Vereinsname“)</span>
+            <input name="bild_copyright" value="{{ b.bild_copyright if b and b.bild_copyright }}"
+                   placeholder="z. B. Foto: Anna Beispiel"></label>
+    </div>
+    <label>Interne Notiz
+        <input name="notiz" value="{{ b.notiz if b }}" placeholder="z. B. Bild aus dem Fotoarchiv Album Sommerfest nehmen"></label>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+        <button class="btn">💾 Speichern</button>
+        {% if b %}
+        <button class="btn btn-sekundaer" type="button" onclick="navigator.clipboard.writeText(document.getElementById('oea-text').value).then(()=>this.textContent='✓ Kopiert!')">📋 Text kopieren</button>
+        {% if b.typ == 'presse' %}<a class="btn btn-sekundaer" href="{{ url_for('oea.presse_pdf_export', bid=b.id) }}">📄 PDF</a>{% endif %}
+        {% endif %}
+    </div>
+</form>
+
+<div>
+    {% set hub_an = design and design.modul_contenthub %}
+    {% if b and hub_an and b.typ == 'social' %}
+    <div class="karte" style="margin-bottom:12px;border-left:4px solid var(--blau);border-radius:6px">
+        <h2 style="margin-top:0;font-size:16px">🚀 Content-Hub</h2>
+        {% if b.hub_status %}
+        <p class="feld-hinweis" style="margin:0 0 8px">Stand: <strong>{{ {'an_hub': 'beim Hub – wartet auf Freigabe', 'geplant': 'eingeplant', 'probelauf': 'im Probelauf', 'veroeffentlicht': 'veröffentlicht', 'fehler': 'Fehler', 'storniert': 'zurückgezogen'}.get(b.hub_status, b.hub_status) }}</strong>
+            · <a href="{{ url_for('oea.hub') }}">zum Cockpit ›</a></p>
+        {% else %}
+        <p class="feld-hinweis" style="margin:0 0 8px">Der Hub baut daraus die Fassungen für Instagram, Facebook, App und Signal. Freigegeben wird im Content-Hub-Cockpit – von einer anderen Person aus Vorstand oder Öffentlichkeitsarbeit.</p>
+        <form method="post" action="{{ url_for('oea.an_hub', bid=b.id) }}" onsubmit="return confirm('Diesen Beitrag an den Content-Hub geben?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn" style="width:100%">🚀 An den Hub geben</button>
+        </form>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% if b %}
+    <div class="karte" style="margin-bottom:12px">
+        <h2 style="margin-top:0;font-size:16px">Freigabe</h2>
+        {% if b.status == 'entwurf' %}
+        <form method="post" action="{{ url_for('oea.status_setzen', bid=b.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="aktion" value="freigabe_anfordern">
+            <input type="hidden" name="weiter" value="{{ url_for('oea.bearbeiten', bid=b.id) }}">
+            <button class="btn" style="width:100%">⏳ Freigabe beim Vorstand anfragen</button>
+        </form>
+        <p class="feld-hinweis" style="margin-bottom:0">Der Vorstand bekommt eine Push-Nachricht und E-Mail und gibt mit einem Klick frei.</p>
+        {% elif b.status == 'freigabe' %}
+        {% if ist_admin %}
+        <form method="post" action="{{ url_for('oea.status_setzen', bid=b.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="aktion" value="freigeben">
+            <input type="hidden" name="weiter" value="{{ url_for('oea.bearbeiten', bid=b.id) }}">
+            <button class="btn" style="width:100%">✅ Jetzt freigeben (Vorstand)</button>
+        </form>
+        {% else %}<p class="feld-hinweis" style="margin:0">⏳ Wartet auf die Freigabe des Vorstands.</p>{% endif %}
+        {% elif b.status == 'freigegeben' %}
+        <p style="margin:0 0 8px">✅ Freigegeben – jetzt veröffentlichen:</p>
+        {% if b.typ == 'presse' %}
+        <form method="post" action="{{ url_for('oea.presse_senden', bid=b.id) }}"
+              onsubmit="return confirm('Pressemitteilung jetzt mit PDF-Anhang an den gesamten Presseverteiler senden?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn" style="width:100%">📤 An den Presseverteiler senden</button>
+        </form>
+        {% else %}
+        {% if b.kanal == 'instagram' and design and design.modul_contenthub and design.hub_instagram %}
+        <p class="feld-hinweis" style="margin:0 0 8px">📸 Instagram läuft über den Content-Hub – oben „An den Hub geben“.</p>
+        {% elif b.kanal == 'instagram' and ig_bereit %}
+        <form method="post" action="{{ url_for('oea.instagram_posten', bid=b.id) }}" style="margin-bottom:8px"
+              onsubmit="return confirm('Jetzt wirklich auf Instagram veröffentlichen? Das ist sofort öffentlich sichtbar.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn" style="width:100%">📸 Auf Instagram veröffentlichen</button>
+        </form>
+        {% elif b.kanal == 'instagram' %}
+        <p class="feld-hinweis" style="margin:0 0 8px">📸 Für das Direkt-Posten fehlt noch die
+            <a href="{{ url_for('oea.instagram') }}">Instagram-Verbindung</a>.</p>
+        {% endif %}
+        <form method="post" action="{{ url_for('oea.status_setzen', bid=b.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="aktion" value="veroeffentlicht">
+            <input type="hidden" name="weiter" value="{{ url_for('oea.bearbeiten', bid=b.id) }}">
+            <button class="btn btn-sekundaer" style="width:100%">🎉 Als veröffentlicht markieren</button>
+        </form>
+        {% endif %}
+        {% else %}<p class="feld-hinweis" style="margin:0">🎉 Veröffentlicht{{ ' am ' + b.veroeffentlicht_am[:10] | datum_de if b.veroeffentlicht_am }}.</p>
+        {% if b.ig_stats_am %}
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px">
+            {% for wert, lbl in [(b.ig_reichweite, 'erreicht'), (b.ig_likes, 'Likes'),
+                                 (b.ig_kommentare_n, 'Kommentare'), (b.ig_gemerkt, 'gemerkt')] %}
+            <div style="background:var(--flaeche-2);border-radius:10px;padding:8px 10px">
+                <div style="font-size:19px;font-weight:800">{{ wert }}</div>
+                <div class="feld-hinweis">{{ lbl }}</div></div>
+            {% endfor %}
+        </div>
+        <div class="feld-hinweis" style="margin-top:6px">Stand {{ b.ig_stats_am[:10] | datum_de }} – wird täglich aktualisiert.</div>
+        {% endif %}{% endif %}
+        {% if b.status != 'entwurf' %}
+        <form method="post" action="{{ url_for('oea.status_setzen', bid=b.id) }}" style="margin-top:8px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="aktion" value="zurueck">
+            <input type="hidden" name="weiter" value="{{ url_for('oea.bearbeiten', bid=b.id) }}">
+            <button class="btn btn-sekundaer btn-klein">↩️ Zurück auf Entwurf</button>
+        </form>
+        {% endif %}
+    </div>
+    {% endif %}
+    <div class="karte">
+        <h2 style="margin-top:0;font-size:16px">📐 Format-Spickzettel</h2>
+        <div id="oea-struktur" class="feld-hinweis">Kanal wählen – dann erscheinen hier Zeichenlimit, Struktur und Tipps.</div>
+    </div>
+</div>
+</div>
+
+<script>
+var FORMATE = {{ formate | tojson }};
+var PRESSE_GERUEST = {{ presse_geruest | tojson }};
+function oeaGeruest() {
+    var t = document.getElementById('oea-text');
+    if (t.value.trim() && !confirm('Der vorhandene Text wird durch das Gerüst ersetzt. Fortfahren?')) return;
+    t.value = PRESSE_GERUEST;
+    oeaZaehler();
+    t.focus();
+}
+function oeaTyp() {
+    var typ = document.getElementById('oea-typ').value;
+    document.getElementById('oea-kanal-feld').style.display = typ === 'presse' ? 'none' : '';
+    document.getElementById('oea-geruest-zeile').style.display = typ === 'presse' ? '' : 'none';
+    document.getElementById('oea-bildmeta').style.display = typ === 'presse' ? 'grid' : 'none';
+    oeaZaehler();
+}
+function oeaZaehler() {
+    var typ = document.getElementById('oea-typ').value;
+    var kanal = typ === 'presse' ? 'presse' : document.getElementById('oea-kanal').value;
+    var f = FORMATE[kanal];
+    var len = document.getElementById('oea-text').value.length;
+    var z = document.getElementById('oea-zaehler');
+    if (!f) { z.textContent = len + ' Zeichen'; }
+    else {
+        var teil = f.max ? (len + ' / max. ' + f.max) : (len + ' Zeichen');
+        teil += ' · ideal ~' + f.ideal;
+        z.textContent = teil;
+        z.style.color = (f.max && len > f.max) ? 'var(--fehler-text)' : (len > f.ideal * 1.4 ? 'var(--warn-text)' : '');
+        z.style.fontWeight = (f.max && len > f.max) ? '700' : '';
+    }
+    var s = document.getElementById('oea-struktur');
+    if (f) {
+        var html = '<strong>' + f.symbol + ' ' + f.label + '</strong>';
+        html += f.max ? ' – harte Grenze ' + f.max + ' Zeichen, ideal ~' + f.ideal : ' – ideal ~' + f.ideal + ' Zeichen';
+        html += '<ol style="margin:8px 0 8px 4px;padding-left:16px">';
+        f.struktur.forEach(function (p) { html += '<li style="margin:3px 0">' + p + '</li>'; });
+        html += '</ol><div>💡 ' + f.hinweis + '</div>';
+        s.innerHTML = html;
+    }
+}
+oeaTyp();
+</script>
+{% endblock %}

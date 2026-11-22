@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Versand-Verlauf{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Versand-Verlauf</h1><div class="sub">Protokoll aller versendeten Rundmails</div></div>
+    <a href="{{ url_for('kommunikation.neu') }}" class="btn">✉️ Neue E-Mail</a>
+</div>
+
+{% if eintraege %}
+{% for e in eintraege %}
+<div class="karte">
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <h2 style="margin:0">{{ e.betreff }}</h2>
+        <span class="feld-hinweis">{{ e.gesendet_am }}</span>
+    </div>
+    <p style="margin:8px 0">
+        <span class="badge badge-bezahlt">{{ e.anzahl_erfolg }} versendet</span>
+        {% if e.anzahl_fehler %}<span class="badge badge-offen">{{ e.anzahl_fehler }} fehlgeschlagen</span>{% endif %}
+        <span class="feld-hinweis">von {{ e.anzahl_empfaenger }} Empfänger:innen</span>
+    </p>
+    <details>
+        <summary style="cursor:pointer;color:var(--blau)">Details anzeigen</summary>
+        <pre style="white-space:pre-wrap;background:var(--flaeche-2);color:var(--text);padding:12px;border-radius:8px;margin-top:8px;font-size:13px">{{ e.details }}</pre>
+    </details>
+</div>
+{% endfor %}
+{% else %}
+<div class="karte leer"><div class="icon">🕘</div><p>Noch keine E-Mails versendet.</p></div>
+{% endif %}
+{% endblock %}

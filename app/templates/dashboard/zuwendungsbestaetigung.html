@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Zuwendungsbestätigung {{ jahr }}</title>
+<style>
+    body { font-family: Georgia, 'Times New Roman', serif; color: #111; margin: 0; font-size: 13px; line-height: 1.5; }
+    .drucken { margin: 20px; font-family: -apple-system, Arial, sans-serif; }
+    .btn { background: #2563eb; color: #fff; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .blatt { width: 180mm; margin: 0 auto; padding: 20mm; box-sizing: border-box; }
+    .aussteller { font-size: 11px; color: #333; border-bottom: 1px solid #999; padding-bottom: 4px; margin-bottom: 24px; }
+    h1 { font-size: 16px; text-align: center; margin: 0 0 4px; }
+    .unter { text-align: center; font-size: 11px; color: #444; margin-bottom: 24px; }
+    table.betrag { width: 100%; border-collapse: collapse; margin: 16px 0; }
+    table.betrag td, table.betrag th { border: 1px solid #333; padding: 7px 9px; text-align: left; }
+    .feld { margin: 10px 0; }
+    .label { font-weight: bold; }
+    .hinweis { font-size: 10.5px; color: #333; margin-top: 6px; }
+    .unterschrift { margin-top: 40px; }
+    .linie { border-top: 1px solid #333; width: 70mm; padding-top: 4px; font-size: 11px; }
+    @media print { .drucken { display: none; } .blatt { margin: 0; } }
+</style>
+</head>
+<body>
+<div class="drucken"><button class="btn" onclick="window.print()">🖨️ Drucken / Als PDF sichern</button></div>
+<div class="blatt">
+    {% if einst.logo_dateiname %}<div style="text-align:right;margin-bottom:8px"><img src="{{ url_for('einstellungen.logo', verein_id=einst.id) }}" style="max-height:24mm;max-width:70mm;object-fit:contain"></div>{% endif %}
+    <div class="aussteller">
+        {{ einst.vereinsname }}{% if einst.strasse %}, {{ einst.strasse }}{% endif %}{% if einst.ort %}, {{ einst.plz }} {{ einst.ort }}{% endif %}
+        {% if einst.steuernummer %} · Steuernummer: {{ einst.steuernummer }}{% endif %}
+    </div>
+
+    <h1>Bestätigung über Geldzuwendungen / Mitgliedsbeitrag</h1>
+    <div class="unter">im Sinne des § 10b des Einkommensteuergesetzes an eine der in § 5 Abs. 1 Nr. 9
+        des Körperschaftsteuergesetzes bezeichneten Körperschaften, Personenvereinigungen oder Vermögensmassen</div>
+
+    <div class="feld"><span class="label">Name und Anschrift des Zuwendenden:</span><br>
+        {{ m.anrede }} {{ m.titel }} {{ m.vorname }} {{ m.nachname }}<br>
+        {{ m.strasse }}, {{ m.plz }} {{ m.ort }}
+    </div>
+
+    <table class="betrag">
+        <tr><th>Betrag der Zuwendung (in Ziffern)</th><th>in Buchstaben</th><th>Tag der Zuwendung</th></tr>
+        <tr>
+            <td>{{ summe | euro }}</td>
+            <td>—</td>
+            <td>{% if posten|length == 1 %}{{ posten[0].datum | datum_de }}{% else %}mehrere, siehe unten{% endif %}</td>
+        </tr>
+    </table>
+
+    {% if posten|length > 1 %}
+    <div class="feld"><span class="label">Einzelzuwendungen {{ jahr }}:</span>
+        <table class="betrag">
+            <tr><th>Datum</th><th>Betrag</th><th>Verwendungszweck</th></tr>
+            {% for p in posten %}<tr><td>{{ p.datum | datum_de }}</td><td>{{ p.betrag | euro }}</td><td>{{ p.beschreibung }}</td></tr>{% endfor %}
+        </table>
+    </div>
+    {% endif %}
+
+    <div class="feld">Es handelt sich um den Verzicht auf Erstattung von Aufwendungen: &nbsp; ☐ Ja &nbsp; ☒ Nein</div>
+
+    <div class="feld hinweis">
+        Wir sind wegen Förderung {{ '(steuerbegünstigter Zwecke)' }} nach dem Freistellungsbescheid bzw. nach der
+        Anlage zum Körperschaftsteuerbescheid des Finanzamts {{ einst.registergericht or '__________' }},
+        Steuernummer {{ einst.steuernummer or '__________' }}, nach § 5 Abs. 1 Nr. 9 KStG von der Körperschaftsteuer
+        und nach § 3 Nr. 6 GewStG von der Gewerbesteuer befreit.
+    </div>
+    <div class="feld hinweis">
+        Es wird bestätigt, dass die Zuwendung nur zur Förderung der satzungsmäßigen gemeinnützigen Zwecke
+        verwendet wird.
+    </div>
+
+    <div class="unterschrift">
+        {{ einst.ort }}, den {{ '' }}____________________
+        <div style="margin-top:40px" class="linie">Ort, Datum und Unterschrift des Zuwendungsempfängers</div>
+    </div>
+
+    <div class="feld hinweis" style="margin-top:24px">
+        <strong>Hinweis:</strong> Wer vorsätzlich oder grob fahrlässig eine unrichtige Zuwendungsbestätigung
+        erstellt oder veranlasst, dass Zuwendungen nicht zu den in der Bestätigung angegebenen steuerbegünstigten
+        Zwecken verwendet werden, haftet für die entgangene Steuer (§ 10b Abs. 4 EStG).
+        Diese Bestätigung wurde maschinell erstellt. Bitte vor Verwendung Angaben zu Freistellungsbescheid /
+        Finanzamt prüfen und anpassen.
+    </div>
+</div>
+</body>
+</html>

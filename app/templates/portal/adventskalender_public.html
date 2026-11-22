@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lebendiger Adventskalender {{ jahr }} – {{ einst.vereinsname }}</title>
+<meta name="description" content="Der Lebendige Adventskalender {{ jahr }}{% if einst.ort %} in {{ einst.ort }}{% endif %}: jeden Tag ein Türchen mit Musik, Kultur und Begegnung – mit Terminen, Preisen und Anmeldung.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ einst.vereinsname }}">
+<meta property="og:title" content="Lebendiger Adventskalender {{ jahr }}">
+<meta property="og:description" content="Jeden Tag ein Türchen: alle Termine, Preise und Restplätze.">
+<meta property="og:url" content="{{ url_for('portal.adventskalender', _external=True) }}">
+{% if einst.logo_dateiname %}<meta property="og:image" content="{{ url_for('einstellungen.logo', verein_id=einst.id, _external=True) }}">{% endif %}
+<link rel="canonical" href="{{ url_for('portal.adventskalender', _external=True) }}">
+<script type="application/ld+json">{{ ld | tojson }}</script>
+{% with akzent = (einst.farbe_primaer if einst else '') %}{% include "_oeffentlich_stil.html" %}{% endwith %}
+<style>
+    /* LAK-Palette – an der 2025er-Originalseite des Kalenders vermessen */
+    :root {
+        --lak-rot: #d80000; --lak-gruen: #169125; --lak-blau: #336fb5;
+        --lak-gold: #f0b429; --lak-gold-hell: #ffd766;
+        --lak-gruen-flaeche: #169125; --lak-rot-text: #d80000; --lak-kontur: #fff;
+        --lak-karte: #ffffff; --lak-auf-rot: #ffffff;
+        /* weiches Dunkelgrau statt Schwarz: wirkt auf Weiß weniger hart */
+        --lak-text: #414c5c;
+    }
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --lak-rot: #9e0b0b; --lak-gruen: #4ccf66; --lak-blau: #8db7ea;
+            --lak-gruen-flaeche: #147a2a; --lak-rot-text: #ff6b6b;
+            --lak-kontur: transparent;
+            --lak-karte: var(--flaeche, #1c2431);
+            --lak-text: var(--text, #e2e8f0);
+        }
+        /* dunkle Kontur nur auf roten Karten: dort braucht das Grün den Rand */
+        .tuer.rot { --lak-kontur: rgba(0, 0, 0, .45); }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden;
+               clip: rect(0 0 0 0); white-space: nowrap; }
+    body { font-family: -apple-system, "Segoe UI", "Source Sans Pro", Roboto, Arial, sans-serif;
+           margin: 0; background: var(--grund, #fff); color: var(--lak-text, #414c5c); line-height: 1.55; }
+    .kopf { display: flex; align-items: center; gap: 12px; padding: 14px 18px; }
+    .kopf img { height: 46px; width: 46px; object-fit: contain; background: var(--logo-teller, #fff);
+                border-radius: 50%; padding: 4px; }
+    .kopf strong { color: var(--lak-blau); font-size: 15px; letter-spacing: .4px; }
+    .kopf-link { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+    .wrap { margin: 0 auto; max-width: 1240px; padding: 8px clamp(16px, 4vw, 48px) 56px; }
+    .titelzeile { display: flex; align-items: center; justify-content: center;
+                  gap: 16px; margin: 16px 0 10px; }
+    h1 { color: var(--lak-blau); font-weight: 300; font-size: clamp(28px, 6vw, 44px);
+         line-height: 1.15; margin: 0; text-wrap: balance; }
+
+    /* ---------- Funkelstern: atmet, schimmert, glitzert (nur CSS) ---------- */
+    .stern-svg { display: block; width: 72px; height: auto; overflow: visible; flex: none; }
+    @media (max-width: 560px) { .stern-svg { width: 54px; } .titelzeile { gap: 10px; } }
+    .stern-kern { transform-box: fill-box; transform-origin: center;
+                  animation: lakAtmen 3.8s ease-in-out infinite;
+                  filter: drop-shadow(0 0 5px rgba(240, 180, 41, .5)); }
+    @keyframes lakAtmen {
+        0%, 100% { transform: scale(1);     filter: drop-shadow(0 0 4px rgba(240,180,41,.4)); }
+        50%      { transform: scale(1.05);  filter: drop-shadow(0 0 16px rgba(255,215,102,.95)); }
+    }
+    .glanz { animation: lakGlanz 5.6s ease-in-out infinite; }
+    @keyframes lakGlanz {
+        0%, 52% { transform: translateX(-45px) skewX(-18deg); }
+        78%     { transform: translateX(175px) skewX(-18deg); }
+        100%    { transform: translateX(175px) skewX(-18deg); }
+    }
+    .funkel { opacity: 0; transform-box: fill-box; transform-origin: center;
+              animation: lakFunkeln 3.4s ease-in-out infinite; }
+    .f1 { animation-delay: .2s; } .f2 { animation-delay: 1.15s; } .f3 { animation-delay: 1.9s; }
+    .f4 { animation-delay: 2.6s; } .f5 { animation-delay: .75s; }
+    @keyframes lakFunkeln {
+        0%, 24%, 100% { opacity: 0;   transform: scale(.25) rotate(0deg); }
+        8%            { opacity: 1;   transform: scale(1)   rotate(30deg); }
+        16%           { opacity: .15; transform: scale(.5)  rotate(55deg); }
+    }
+    /* ---------- Türchen: braune Holztür im Datumsblock ---------- */
+    .tuerchen { position: relative; width: 84px; height: 98px; margin: 0 auto;
+                border: 3px solid #6f4320; border-radius: 9px;
+                background: var(--lak-karte); perspective: 520px; }
+    .tuer.rot .tuerchen { background: var(--lak-karte); }
+    .tuerchen .zahl { position: absolute; inset: 0; display: grid; place-items: center;
+                      font-size: 46px; margin: 0; }
+    .fluegel { position: absolute; inset: -1px; border-radius: 7px;
+               background: repeating-linear-gradient(94deg, #8a5a2b 0 9px, #7c4e22 9px 18px),
+                           linear-gradient(180deg, rgba(255,255,255,.14), rgba(0,0,0,.18));
+               background-blend-mode: overlay; border: 1px solid #5d3a1c;
+               box-shadow: inset 0 0 0 5px rgba(61, 37, 15, .45);
+               transform-origin: left center; display: grid; place-items: center;
+               backface-visibility: hidden; z-index: 2; }
+    .fluegel::after { content: ""; position: absolute; right: 9px; top: 50%; width: 9px; height: 9px;
+                      margin-top: -5px; border-radius: 50%;
+                      background: radial-gradient(circle at 35% 35%, #ffe9a8, #c9962b 70%);
+                      box-shadow: 0 0 4px rgba(0,0,0,.4); }
+    .fluegel .aufdruck { color: #ffe9a8; font-size: 34px; font-weight: 800;
+                         text-shadow: 0 1px 2px rgba(0,0,0,.55); }
+    /* Vergangene: Tür steht offen (schräg aufgeschwungen) */
+    .tuerchen.auf .fluegel { transform: rotateY(-76deg); box-shadow: 6px 2px 10px rgba(0,0,0,.25); }
+    /* Aktuelles Türchen: die Tür öffnet sich, wenn die Maus darüberfährt –
+       auf Touch-Geräten (kein Hover) stattdessen automatisch beim Besuch. */
+    .tuerchen.anim .fluegel { transition: transform 1.1s ease-in-out, box-shadow 1.1s ease-in-out; }
+    .tuer.aktuell:hover .tuerchen.anim .fluegel,
+    .tuer.aktuell:focus-within .tuerchen.anim .fluegel {
+        transform: rotateY(-82deg); box-shadow: 6px 2px 12px rgba(0,0,0,.3); }
+    @media (hover: none) {
+        .tuerchen.anim .fluegel { animation: tuerAuf 1.6s ease-in-out .7s forwards; }
+    }
+    @keyframes tuerAuf {
+        0%   { transform: rotateY(0); }
+        18%  { transform: rotateY(6deg); }
+        100% { transform: rotateY(-82deg); box-shadow: 6px 2px 12px rgba(0,0,0,.3); }
+    }
+    .glitzer { position: absolute; color: var(--lak-gold-hell); text-shadow: 0 0 6px var(--lak-gold);
+               opacity: 0; z-index: 3; pointer-events: none; }
+    .tuer.aktuell:hover .glitzer, .tuer.aktuell:focus-within .glitzer {
+        animation: lakFunkeln 3.4s ease-in-out infinite; }
+    @media (hover: none) { .glitzer { animation: lakFunkeln 3.4s ease-in-out infinite; } }
+    .tuerchen.anim .g1 { top: -10px; left: -8px;  font-size: 15px; animation-delay: .1s; }
+    .tuerchen.anim .g2 { top: -12px; right: -6px; font-size: 11px; animation-delay: .6s; }
+    .tuerchen.anim .g3 { bottom: 16px; right: -14px; font-size: 14px; animation-delay: 1.1s; }
+    .tuerchen.anim .g4 { bottom: -8px; left: -10px; font-size: 10px; animation-delay: 2.0s; }
+    .tuerchen.anim .g5 { top: 34px; left: -16px; font-size: 12px; animation-delay: 2.3s; }
+    .tuerchen.anim .g6 { top: -14px; left: 32px; font-size: 13px; animation-delay: 1.3s; }
+    .tuerchen.anim .g7 { bottom: -10px; right: 18px; font-size: 12px; animation-delay: 1.7s; }
+    .tuerchen.anim .g8 { top: 52px; right: -16px; font-size: 10px; animation-delay: .9s; }
+    .tuer.aktuell:hover .tuerchen.anim .zahl,
+    .tuer.aktuell:focus-within .tuerchen.anim .zahl { animation: zahlSchein 2.4s ease-in-out infinite; }
+    @media (hover: none) { .tuerchen.anim .zahl { animation: zahlSchein 2.4s ease-in-out 2.1s infinite; } }
+    @keyframes zahlSchein {
+        0%, 100% { transform: scale(1); }
+        50%      { transform: scale(1.06); }
+    }
+    /* Das aktuelle Türchen: Zahl bekommt zusätzlich einen Goldschein */
+    .tuer.aktuell .zahl { text-shadow: -2px -2px 0 var(--lak-kontur), 2px -2px 0 var(--lak-kontur),
+                          -2px 2px 0 var(--lak-kontur), 2px 2px 0 var(--lak-kontur),
+                          0 -2px 0 var(--lak-kontur), 0 2px 0 var(--lak-kontur),
+                          -2px 0 0 var(--lak-kontur), 2px 0 0 var(--lak-kontur),
+                          0 0 16px var(--lak-gold-hell); }
+    @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        .stern-kern, .glanz, .funkel, .glitzer,
+        .tuerchen.anim .fluegel, .tuerchen.anim .zahl { animation: none !important; }
+        .glanz { display: none; }
+        .funkel, .glitzer { opacity: .75; }
+        .tuerchen.anim .fluegel { transform: rotateY(-76deg); transition: none !important; }
+    }
+
+    .einleitung { text-align: center; font-size: 18px; margin: 0 auto 20px; }
+    .sozial { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 0 0 8px; }
+    .sozial a { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px; border-radius: 999px;
+                text-decoration: none; font-weight: 600; font-size: 13px;
+                color: var(--text-hell, #475569); border: 1px solid var(--linie, #d7dee8);
+                background: transparent; }
+    .sozial a:hover { border-color: var(--text-hell, #94a3b8); }
+    .tage { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 10px;
+            justify-content: safe center; margin: 0 0 6px; }
+    .tage a, .tage .leer { flex: none; min-width: 30px; height: 30px; display: inline-grid;
+            place-items: center; border-radius: 999px; font-size: 13px; font-weight: 700;
+            text-decoration: none; padding: 0 4px; }
+    .tage a { color: var(--text-stark, #33404d); border: 1px solid var(--linie, #d7dee8); }
+    .tage a:focus-visible { outline: 2px solid var(--lak-gold); outline-offset: 2px; }
+    .tage a.vorbei { color: var(--neutral-text, #475569); border-style: dashed; }
+    .tage a.aktuell { border-color: var(--lak-gold); box-shadow: 0 0 6px var(--lak-gold-hell); }
+    .tage .leer { color: var(--neutral-text, #475569); opacity: .75; }
+    .jetzt { text-align: center; font-weight: 700; color: var(--lak-blau); margin: 4px 0 16px; }
+    .monat { display: block; color: var(--lak-gruen); font-weight: 700; font-size: 12px;
+             text-shadow: -1px -1px 0 var(--lak-kontur), 1px 1px 0 var(--lak-kontur); }
+    .durchgang { display: inline-block; margin-left: 8px; font-size: 12px; font-weight: 700;
+                 border: 1px solid currentColor; border-radius: 999px; padding: 1px 8px; opacity: .8; }
+    .tuer.rot .durchgang { opacity: 1; }
+    .mehr summary { cursor: pointer; font-size: 14px; font-weight: 700;
+                    color: var(--text-hell, #64748b); margin: 2px 0 6px; }
+    .foto-hinweis { font-size: 12.5px; color: var(--text-hell, #64748b); text-align: center;
+                    max-width: 680px; margin: 0 auto 24px; }
+
+    .raster { display: grid; grid-template-columns: 1fr; gap: 20px; }
+    .tuer { position: relative; scroll-margin-top: 14px;
+            border: 1px solid var(--lak-blau); border-radius: 6px;
+            padding: 22px 22px 24px; margin: 0; background: var(--lak-karte);
+            display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 4px 22px;
+            align-items: start; }
+    .tuer.rot { background: var(--lak-rot); color: var(--lak-auf-rot); }
+    .tuer.rot a { color: var(--lak-auf-rot); }
+    .tagblock { position: relative; grid-column: 1; text-align: center; margin: 0; }
+    .inhalt { grid-column: 2; min-width: 0; }
+    @media (min-width: 1150px) {
+        .inhalt { display: grid; grid-template-columns: 1.2fr 0.9fr 1.7fr 1fr;
+                  gap: 6px 28px; align-items: start; }
+        .inhalt > .sp { min-width: 0; grid-row: 1; }
+        .sp-titel { grid-column: 1; } .sp-wo { grid-column: 2; }
+        .sp-text { grid-column: 3; } .sp-anmeldung { grid-column: 4; }
+        .sp-titel h2 { margin-top: 0; }
+    }
+    .wtag { display: block; color: var(--lak-gruen); font-weight: 700; font-size: 17px;
+            margin-top: 2px; }
+    /* Weiße Kontur: hält die grüne Zahl auch auf den roten Karten lesbar */
+    .zahl { display: block; color: var(--lak-gruen); font-size: 64px; font-weight: 800; line-height: 1;
+            text-shadow: -2px -2px 0 var(--lak-kontur), 2px -2px 0 var(--lak-kontur),
+                         -2px 2px 0 var(--lak-kontur), 2px 2px 0 var(--lak-kontur),
+                         0 -2px 0 var(--lak-kontur), 0 2px 0 var(--lak-kontur),
+                         -2px 0 0 var(--lak-kontur), 2px 0 0 var(--lak-kontur); }
+    .wtag { text-shadow: -1px -1px 0 var(--lak-kontur), 1px -1px 0 var(--lak-kontur),
+            -1px 1px 0 var(--lak-kontur), 1px 1px 0 var(--lak-kontur); }
+    .tuer h2 { margin: 0 0 6px; font-size: 24px; line-height: 1.25; }
+    .tuer .ort { font-size: 16px; margin: 0 0 10px; }
+    .tuer .ort a { color: inherit; text-decoration: underline dotted; }
+    .tuer .text { font-size: 16.5px; white-space: pre-line; margin: 0 0 12px; }
+    .tuer img.bild { display: block; width: 100%; margin: 0 0 10px; height: 130px;
+                     object-fit: cover; border-radius: 8px; background: var(--flaeche-3, #eef1f5); }
+    .zeit { font-weight: 700; font-size: 16px; margin: 6px 0 0; }
+    .karte-knopf { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px;
+                   font-size: 14px; font-weight: 700; text-decoration: none; color: inherit;
+                   border: 1px solid currentColor; border-radius: 8px; padding: 5px 10px; opacity: .9; }
+    .eintritt { font-weight: 800; font-size: 17px; margin: 0 0 5px; }
+    .mitglieder { font-size: 14.5px; opacity: .85; margin: 0 0 6px; }
+    .plaetze { font-size: 14.5px; margin: 0 0 12px; }
+    @media (max-width: 1149px) {
+        .sp-anmeldung { margin-bottom: 8px; }
+    }
+    @media (max-width: 560px) {
+        .raster { grid-template-columns: 1fr; gap: 18px; }
+        .tuer { grid-template-columns: 68px minmax(0, 1fr); gap: 4px 16px; padding: 18px 16px 20px; }
+        .tuerchen { width: 62px; height: 74px; }
+        .tuerchen .zahl { font-size: 34px; }
+        .fluegel .aufdruck { font-size: 26px; }
+        .tuer h2 { font-size: 21px; }
+    }
+    .plaetze.knapp { font-weight: 800; }
+    .plaetze.voll { font-weight: 800; text-transform: uppercase; letter-spacing: .5px; }
+    .anmelden { display: inline-block; background: var(--lak-gruen-flaeche); color: #fff; padding: 12px 22px;
+                border-radius: 10px; text-decoration: none; font-weight: 800; font-size: 16.5px;
+                white-space: nowrap; }
+    .tuer.rot .anmelden { background: #fff; color: var(--lak-rot); }
+    .mailto, .vorbeikommen { font-size: 15.5px; }
+    .insta-bilder { display: inline-flex; align-items: center; gap: 5px; font-size: 14.5px;
+                    font-weight: 700; color: inherit; text-decoration: none;
+                    border: 1px solid currentColor; border-radius: 8px; padding: 6px 11px; }
+    .tuer.vorbei { filter: grayscale(.4); }
+    .tuer.vorbei h2, .tuer.vorbei .text, .tuer.vorbei .ort, .tuer.vorbei .zeit,
+    /* .85 statt .75: mit dem weicheren --lak-text fiele der Kontrast sonst unter 4.5:1 */
+    .tuer.vorbei .eintritt, .tuer.vorbei .karte-knopf, .tuer.vorbei .mehr { opacity: .85; }
+    .vorbei-chip { position: absolute; top: 10px; right: 12px; font-size: 12px; font-weight: 700;
+                   background: var(--flaeche-3, #e6e9ef); color: var(--text-hell, #556);
+                   border-radius: 999px; padding: 3px 10px; }
+    .tuer.rot .vorbei-chip { background: rgba(255,255,255,.25); color: #fff; }
+    .abgesagt-balken { background: var(--fehler-grund, #fde8e8); color: var(--fehler-text, #b42318);
+                       border-radius: 8px; padding: 8px 12px; font-weight: 800; margin: 0 0 12px; }
+    .zwischen { grid-column: 1 / -1; text-align: center; color: var(--text-hell, #64748b);
+                font-size: 15px; margin: 14px 0 0; }
+    /* Unterstützungs-Band: Logos/Namen laufen als Endlosschleife durch.
+       Fester weißer Grund (auch im Dunkelmodus) – Logos sind für Weiß gestaltet,
+       deshalb unten feste dunkle Textfarben statt var(--text). */
+    .band-bereich { margin: 34px 0 0; background: #fff; border-radius: 14px;
+                    padding: 14px 8px 16px; box-shadow: 0 1px 8px rgba(20, 40, 70, .06); }
+    .band-titel { text-align: center; font-size: 14px; color: #5b6572; margin: 0 0 10px; }
+    /* clip statt hidden: ein clip-Container ist kein Scroll-Container – der
+       Browser kann das Band beim Durch-Tabben nicht dauerhaft verschieben */
+    .band { overflow: clip; }
+    .band .lauf { display: flex; width: max-content;
+                  animation: bandlauf var(--band-dauer, 30s) linear infinite; }
+    .band .lauf:hover, .band .lauf:focus-within,
+    .band .lauf.pausiert { animation-play-state: paused; }
+    .band .satz { display: flex; align-items: center; gap: 26px; padding-right: 26px; }
+    @keyframes bandlauf { to { transform: translateX(-50%); } }
+    .band .chip { display: flex; align-items: center; justify-content: center;
+                  padding: 6px 12px; min-height: 52px; min-width: 80px; text-decoration: none;
+                  color: #414c5c; font-weight: 700; font-size: 14.5px; white-space: nowrap; }
+    .band .chip img { max-height: 44px; max-width: 150px; object-fit: contain; display: block; }
+    .band-halt { text-align: center; margin: 8px 0 0; }
+    .band-pause { background: none; border: 1px solid #d4dae2; border-radius: 999px;
+                  color: #5b6572; font-size: 12.5px; padding: 4px 12px; cursor: pointer; }
+    /* ohne Lauf (wenige Partner:innen) und bei reduced motion: ruhig zentrieren */
+    .band.statisch .lauf { animation: none; width: auto; flex-wrap: wrap; justify-content: center; }
+    .band.statisch .satz { flex-wrap: wrap; justify-content: center; padding-right: 0; }
+    .band.statisch .chip { white-space: normal; max-width: 100%; text-align: center; }
+    @media (prefers-reduced-motion: reduce) {
+        .band .lauf { animation: none; width: auto; flex-wrap: wrap; justify-content: center; }
+        .band .satz { flex-wrap: wrap; justify-content: center; padding-right: 0; }
+        .band .chip { white-space: normal; max-width: 100%; text-align: center; }
+        .band .satz.kopie, .band-halt { display: none; }
+    }
+    .stern-ruf { max-width: 620px; margin: 28px auto 0; padding: 16px 20px 18px;
+                 background: var(--lak-karte); border: 1px solid var(--lak-gold);
+                 border-radius: 10px; box-shadow: 0 1px 10px rgba(240, 180, 41, .28); }
+    .stern-ruf .st-titel { font-weight: 800; font-size: 19px; color: var(--lak-blau); margin: 0 0 6px; }
+    .stern-ruf p { margin: 0 0 12px; }
+    /* .fuss vorangestellt + font-size explizit: sonst gewinnt „.fuss a" (0-1-1) */
+    .fuss .stern-knopf { display: inline-block; background: var(--lak-gold); color: #3a2a00;
+                         font-weight: 800; font-size: 15.5px; padding: 9px 18px;
+                         border-radius: 8px; text-decoration: none; }
+    .fuss .stern-knopf:hover, .fuss .stern-knopf:focus-visible { filter: brightness(1.06); }
+    .fuss { text-align: center; margin-top: 34px; font-size: 15px; }
+    .fuss .gruss { color: var(--lak-rot-text); font-weight: 800;
+                   font-size: clamp(24px, 4vw, 34px); margin: 18px 0 10px; }
+    .fuss .sozial { margin: 0 0 4px; }
+    .fuss .hoch { display: inline-block; margin-top: 8px; font-size: 13px;
+                  color: var(--text-hell, #64748b); text-decoration: none; }
+    .fuss a { color: var(--text-hell, #64748b); font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="kopf" id="oben">
+    {% set web = einst.website and (einst.website if einst.website.startswith('http') else 'https://' ~ einst.website) %}
+    {% if web %}<a class="kopf-link" href="{{ web|sichere_url }}" target="_blank" rel="noopener"
+        title="Zur Website von {{ einst.vereinsname }}">{% endif %}
+    {% if einst.logo_dateiname %}<img src="{{ url_for('einstellungen.logo', verein_id=einst.id, klein=1) }}" alt="{{ einst.vereinsname }}">{% endif %}
+    <strong>{{ einst.vereinsname }}</strong>
+    {% if web %}</a>{% endif %}
+</div>
+<div class="wrap">
+    <div class="titelzeile">
+    <svg class="stern-svg" viewBox="0 0 140 124" xmlns="http://www.w3.org/2000/svg" role="img"
+         aria-label="Funkelnder Weihnachtsstern">
+        <defs>
+            <radialGradient id="lakGold" cx="50%" cy="42%" r="65%">
+                <stop offset="0%" stop-color="#fff3c4"/>
+                <stop offset="38%" stop-color="#ffd766"/>
+                <stop offset="78%" stop-color="#e03131"/>
+                <stop offset="100%" stop-color="#c40a0a"/>
+            </radialGradient>
+            <linearGradient id="lakGlanz" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#fff" stop-opacity="0"/>
+                <stop offset="50%" stop-color="#fff" stop-opacity=".8"/>
+                <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+            </linearGradient>
+            <clipPath id="lakClip">
+                <polygon points="70,8 83,49 126,49 92,74 105,116 70,90 35,116 48,74 14,49 57,49"/>
+            </clipPath>
+            <path id="lakFunkelForm" d="M0 -7 L1.7 -1.7 L7 0 L1.7 1.7 L0 7 L-1.7 1.7 L-7 0 L-1.7 -1.7 Z"/>
+        </defs>
+        <g class="stern-kern">
+            <polygon points="70,8 83,49 126,49 92,74 105,116 70,90 35,116 48,74 14,49 57,49"
+                     fill="url(#lakGold)" stroke="#c40a0a" stroke-width="1.5"/>
+            <g clip-path="url(#lakClip)">
+                <rect class="glanz" x="0" y="0" width="26" height="124" fill="url(#lakGlanz)"/>
+            </g>
+        </g>
+        <use class="funkel f1" href="#lakFunkelForm" x="22" y="22" fill="#ffd766"/>
+        <use class="funkel f2" href="#lakFunkelForm" x="118" y="18" fill="#ffd766"/>
+        <use class="funkel f3" href="#lakFunkelForm" x="128" y="92" fill="#ffe9a8"/>
+        <use class="funkel f4" href="#lakFunkelForm" x="12" y="96" fill="#ffe9a8"/>
+        <use class="funkel f5" href="#lakFunkelForm" x="70" y="2" fill="#fff3c4"/>
+    </svg>
+    <h1>Lebendiger Adventskalender {{ jahr }}</h1>
+    </div>
+
+
+
+    {% set zahlwort = {2: 'zweiten', 3: 'dritten', 4: 'vierten', 5: 'fünften', 6: 'sechsten',
+                       7: 'siebten', 8: 'achten', 9: 'neunten', 10: 'zehnten'} %}
+    {# Eigener Text aus der Adventskalender-Verwaltung ersetzt die eingebauten
+       Zweige; Jinja-Autoescape bleibt an (kein HTML aus der Datenbank). #}
+    {% if einleitung_eigen %}
+    <p class="einleitung"><span style="white-space:pre-line">{{ einleitung_eigen }}</span>
+        {% if einst.whatsapp_kanal or einst.instagram %}Folge uns:{% else %}Alle Türchen für deinen Kalender:{% endif %}</p>
+    {% else %}
+    <p class="einleitung">{% if auflage and auflage >= 2 %}Der Lebendige Adventskalender öffnet {{ jahr }} zum
+        {{ zahlwort.get(auflage) or (auflage ~ '.') }} Mal seine Türchen{% if einst.ort %} in {{ einst.ort }}{% endif %}.
+        Hinter jedem Türchen steckt ein Erlebnis, bei dem Menschen zusammenkommen.
+        Vielen Dank an die vielen Kooperationspartner:innen und das Team
+        des {{ (einst.vereinsname or 'Vereins') | replace(' e. V.', '') | replace(' e.V.', '') }},
+        die Licht und Wärme in die Vorweihnachtszeit bringen.{% else %}Der Lebendige Adventskalender
+        öffnet {{ jahr }} seine Türchen{% if einst.ort %} in {{ einst.ort }}{% endif %}.
+        Hinter jedem Türchen steckt ein Erlebnis, bei dem Menschen zusammenkommen.{% endif %}
+        {% if einst.whatsapp_kanal or einst.instagram %}Folge uns:{% else %}Alle Türchen für deinen Kalender:{% endif %}</p>
+    {% endif %}
+
+    {% macro kanalchips() %}
+    <div class="sozial">
+        {% if einst.whatsapp_kanal %}<a class="wa" href="{{ einst.whatsapp_kanal|sichere_url }}" target="_blank" rel="noopener">💬 WhatsApp-Kanal</a>{% endif %}
+        {% if einst.instagram %}<a class="ig" href="https://www.instagram.com/{{ einst.instagram }}/" target="_blank" rel="noopener">📸 Instagram</a>{% endif %}
+        <a class="ics" href="{{ url_for('portal.adventskalender_ics') }}" title="Alle Türchen in deinen Kalender übernehmen">📆 Kalender-Export</a>
+    </div>
+    {% endmacro %}
+    {{ kanalchips() }}
+
+    <div class="foto-hinweis">📷 Bei unseren Veranstaltungen entstehen Bild- und Videoaufnahmen,
+        die wir veröffentlichen{% if einst.instagram or einst.whatsapp_kanal %} (u. a.
+        {% if einst.instagram %}Instagram{% endif %}{% if einst.instagram and einst.whatsapp_kanal %} und {% endif %}{% if einst.whatsapp_kanal %}WhatsApp{% endif %}){% endif %}.
+        Ob wir dich dabei zeigen dürfen, entscheidest du bei der Anmeldung.</div>
+
+    <nav class="tage" aria-label="Zu einem Tag springen">
+        {% for tg in alle_tage %}{% if tg.hat %}<a href="#t-{{ tg.datum }}" class="{{ 'vorbei' if tg.vorbei }}{{ ' aktuell' if tg.aktuell }}">{{ tg.tag }}</a>{% else %}<span class="leer" title="an diesem Tag kein Türchen">{{ tg.tag }}</span>{% endif %}{% endfor %}
+    </nav>
+    <script>
+    (function () {
+        /* Nur die Tagesleiste waagerecht auf den aktuellen Tag rollen – die
+           SEITE bleibt unberührt. Früher: scrollIntoView + scrollTo(0, 0),
+           und das riss in In-App-Browsern (Instagram), die die Sprungmarke
+           erst nach diesem Skript auswerten, die Seite zurück an den Anfang
+           (Axel 09.11.2026). */
+        var akt = document.querySelector(".tage a.aktuell");
+        var nav = akt && akt.parentNode;
+        if (nav && akt.getBoundingClientRect) {
+            nav.scrollLeft += akt.getBoundingClientRect().left - nav.getBoundingClientRect().left
+                              - (nav.clientWidth - akt.offsetWidth) / 2;
+        }
+    })();
+    </script>
+    {% if tage_bis is not none %}
+    <p class="jetzt">{% if tage_bis == 0 %}✨ Heute geöffnet:{% elif tage_bis == 1 %}✨ Morgen öffnet sich das nächste Türchen:{% else %}✨ Noch {{ tage_bis }} Tage bis zum nächsten Türchen ({{ aktuell_datum[8:10] }}.{{ aktuell_datum[5:7] }}.):{% endif %}</p>
+    {% endif %}
+    <div class="raster">
+    {% set bild_ns = namespace(erstes=true) %}
+    {% for t in kommende + vergangene %}
+    {% if t.vorbei and loop.index0 == kommende | length %}<div class="zwischen">✨ Diese Türchen sind schon geöffnet:</div>{% endif %}
+    {% set aktuell = (t.datum == aktuell_datum) and not t.vorbei and not t.abgesagt %}
+    <article{% if loop.first or loop.previtem.datum != t.datum %} id="t-{{ t.datum }}"{% endif %} class="tuer {{ 'rot' if loop.index % 2 == 0 }}{{ ' aktuell' if aktuell }}{{ ' vorbei' if t.vorbei }}">
+        {% if t.vorbei %}<span class="vorbei-chip">vorbei</span>{% endif %}
+        {% set monate = {'11': 'November', '12': 'Dezember', '01': 'Januar'} %}
+        <div class="tagblock">
+            <div class="tuerchen {{ 'anim' if aktuell else ('auf' if t.vorbei else 'zu') }}">
+                <span class="zahl" aria-hidden="true">{{ t.datum[8:10] | int }}</span>
+                {% if not t.vorbei %}<span class="fluegel" aria-hidden="true"><span class="aufdruck">{{ t.datum[8:10] | int }}</span></span>{% endif %}
+                {% if aktuell %}<span aria-hidden="true" style="display: contents"><span class="glitzer g1">✦</span><span class="glitzer g2">✦</span><span class="glitzer g3">✦</span><span class="glitzer g4">✦</span><span class="glitzer g5">✦</span><span class="glitzer g6">✦</span><span class="glitzer g7">✦</span><span class="glitzer g8">✦</span></span>{% endif %}
+            </div>
+            <span class="wtag" aria-hidden="true">{{ t.wtag }}</span>
+            {% if t.datum[5:7] != '12' %}<span class="monat" aria-hidden="true">{{ ((monate.get(t.datum[5:7]) or t.datum[5:7])[:3]) ~ '.' }}</span>{% endif %}
+            <time class="sr-only" datetime="{{ t.datum }}">{{ t.wtag }}, {{ t.datum[8:10] | int }}. {{ monate.get(t.datum[5:7]) or t.datum[5:7] }} {{ t.datum[:4] }}</time>
+        </div>
+        <div class="inhalt">
+        <div class="sp sp-titel">
+        {% if t.bild and not t.vorbei %}<img class="bild" src="{{ url_for('termine.bild', tid=t.id, v=t.bild) }}" alt=""
+             loading="{{ 'eager' if bild_ns.erstes else 'lazy' }}" decoding="async">{% set bild_ns.erstes = false %}{% endif %}
+        {% if t.abgesagt %}<div class="abgesagt-balken">⛔ Dieses Türchen fällt leider aus.</div>{% endif %}
+        <h2>{{ t.titel }}</h2>
+        {% if t.uhrzeit or t.durchgang %}<p class="zeit">{% if t.uhrzeit %}🕒 {{ t.uhrzeit }}{% if t.uhrzeit_bis %} – {{ t.uhrzeit_bis }}{% endif %} Uhr{% endif %}{% if t.durchgang %}<span class="durchgang">{{ t.durchgang }}. Durchgang</span>{% endif %}</p>{% endif %}
+        </div>
+        <div class="sp sp-wo">
+        {% if t.ort %}<p class="ort">📍 {{ t.ort }}</p>
+        <a class="karte-knopf" href="https://www.google.com/maps/search/?api=1&query={{ t.ort | urlencode }}"
+           target="_blank" rel="noopener" title="Ort in der Karten-App öffnen"
+           aria-label="Karte: {{ t.ort }}">🗺️ Karte</a>{% endif %}
+        </div>
+        <div class="sp sp-anmeldung">
+        {% if t.extern_url %}
+        <a class="anmelden" href="{{ t.extern_url|sichere_url }}" target="_blank" rel="noopener">{{ t.extern_text or 'Mehr erfahren' }}</a>
+        {% else %}
+        <p class="eintritt">{% if t.preis %}{{ t.preis | euro }} pro Person{% else %}Eintritt frei{% endif %}</p>
+        {% if t.preis and t.preis_mitglied is not none %}<p class="mitglieder">Mitglieder zahlen {{ t.preis_mitglied | euro }}.</p>{% endif %}
+        {% if t.vorbei and einst.instagram %}
+        <a class="insta-bilder" href="https://www.instagram.com/{{ einst.instagram }}/" target="_blank"
+           rel="noopener">📸 Bilder vom Türchen auf Instagram</a>
+        {% endif %}
+        {% if not t.vorbei and not t.abgesagt %}
+            {% if t.frei is not none %}
+                {% if t.frei <= 0 %}
+                <p class="plaetze voll">Ausgebucht – {% if t.anmeldung_token %}über die Anmeldung kommst du auf die Warteliste{% else %}frag gern nach der Warteliste{% endif %}.</p>
+                {% elif t.frei <= 5 %}
+                <p class="plaetze knapp">🔥 Nur noch {{ t.frei }} {{ 'Platz' if t.frei == 1 else 'Plätze' }} – {% if t.anmeldung_token %}jetzt anmelden!{% else %}schnell anmelden!{% endif %}</p>
+                {% else %}
+                <p class="plaetze">Noch {{ t.frei }} Plätze frei.</p>
+                {% endif %}
+            {% endif %}
+            {% if modul_an and t.anmeldung_aktiv and t.anmeldung_token %}
+            <a class="anmelden" href="{{ url_for('veranstaltungen.oeffentlich', token=t.anmeldung_token) }}"
+               aria-label="Zur Anmeldung: {{ t.titel }}">📝 Zur Anmeldung</a>
+            {# Mail-Anmeldung NUR, wenn die Anmeldung ausdrücklich eingeschaltet
+               ist – eine bloße Platzgrenze oder ein Eintritt erzwingt keine
+               Anmeldung mehr: solche Türchen (z. B. Lippenpflege, Kino) laden
+               zum Vorbeikommen ein, bezahlt wird vor Ort (06.11.). #}
+            {% elif t.anmeldung_aktiv and einst.email %}
+            <p class="mailto">✉️ Anmeldung per E-Mail an
+                <a href="mailto:{{ einst.email }}?subject={{ ('Anmeldung: ' ~ t.titel ~ ' am ' ~ t.datum[8:10] ~ '.' ~ t.datum[5:7] ~ '.') | urlencode }}">{{ einst.email }}</a></p>
+            {% elif t.anmeldung_aktiv %}
+            <p class="mailto">✉️ Begrenzte Plätze – bitte direkt beim Verein anmelden.</p>
+            {% else %}
+            <p class="vorbeikommen">🚪 Einfach vorbeikommen – ohne Anmeldung.</p>
+            {% endif %}
+        {% endif %}
+        {% endif %}
+        </div>
+        <div class="sp sp-text">
+        {% if t.kurz %}<p class="text">{{ t.kurz }}{% if t.rest %} …{% endif %}</p>{% endif %}
+        {% if t.rest %}<details class="mehr"><summary>mehr lesen</summary><p class="text">{{ t.rest }}</p></details>{% endif %}
+        </div>
+        </div>
+    </article>
+    {% endfor %}
+    </div>
+
+    {% if sponsoren %}
+    {% macro sponsorchip(s, kopie=false) -%}
+        {% if s.url %}<a class="chip" href="{{ s.url|sichere_url }}" target="_blank" rel="noopener"{{ ' tabindex=-1' if kopie }}>
+        {%- else %}<span class="chip">{% endif -%}
+        {% if s.logo_tid -%}
+            {# bewusst NICHT lazy: nachwachsende Satzbreiten ließen das Band springen #}
+            <img src="{{ url_for('termine.sponsor_logo', tid=s.logo_tid, token=s.token) if s.token
+                         else url_for('termine.sponsor_logo', tid=s.logo_tid) }}"
+                 alt="{{ s.name or 'Kooperationspartner:in' }}" decoding="async">
+        {%- else %}{{ s.name }}{% endif -%}
+        {% if s.url %}</a>{% else %}</span>{% endif %}
+    {%- endmacro %}
+    {% set laeuft = sponsoren | length >= 3 %}
+    {# Genug Wiederholungen, dass eine Bandhälfte sicher breiter ist als der
+       Bildschirm – sonst lückt und springt translateX(-50%). #}
+    {% set wdh = 1 if sponsoren | length >= 8 else (8 // sponsoren | length) + 1 %}
+    <div class="band-bereich">
+        <p class="band-titel" id="band-titel">Gemeinsam getragen von unseren Kooperationspartner:innen und Sponsor:innen:</p>
+        <div class="band{{ '' if laeuft else ' statisch' }}" role="group" aria-labelledby="band-titel"
+             style="--band-dauer: {{ sponsoren | length * 6 * (wdh if laeuft else 1) }}s">
+            <div class="lauf">
+                <div class="satz">{% for s in sponsoren %}{{ sponsorchip(s) }}{% endfor %}</div>
+                {% if laeuft %}{% for _ in range(wdh * 2 - 1) %}<div class="satz kopie" aria-hidden="true">{%
+                    for s in sponsoren %}{{ sponsorchip(s, true) }}{% endfor %}</div>{% endfor %}{% endif %}
+            </div>
+        </div>
+        {% if laeuft %}
+        <p class="band-halt"><button class="band-pause" type="button" aria-pressed="false">⏸️ Band anhalten</button></p>
+        <script>
+        document.querySelector(".band-pause").addEventListener("click", function () {
+            var lauf = document.querySelector(".band .lauf");
+            var steht = lauf.classList.toggle("pausiert");
+            this.setAttribute("aria-pressed", steht ? "true" : "false");
+            this.textContent = steht ? "▶️ Band weiterlaufen lassen" : "⏸️ Band anhalten";
+        });
+        </script>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="fuss">
+        <p class="klein" style="margin: 0 0 6px">Täglich Bilder und Erinnerungen:</p>
+        {{ kanalchips() }}
+        {% set spenden_url = einst.signage_spenden_url if einst.signage_spenden_url and einst.signage_spenden_url.startswith(('https://', 'http://')) else '' %}
+        <div class="stern-ruf">
+            {% if spenden_url %}{# eigene Spendenaktion des Vereins (Signage → Hausfolien anpassen) #}
+            {% set st_titel = einst.signage_spenden_titel or 'Unterstütze uns!' %}
+            <p class="st-titel">⭐ {{ st_titel }}</p>
+            <p>Der Adventskalender bringt Licht in den Dezember – du kannst es das ganze Jahr
+                leuchten lassen{% if einst.signage_spenden_text %}: {{ einst.signage_spenden_text }}{% else %}.{% endif %}</p>
+            {# Keine Freikarten versprechen (19.11.2026): Gegenleistung gefährdet den Spendenabzug #}
+            <a class="stern-knopf" href="{{ spenden_url }}" target="_blank"
+               rel="noopener">✨ {% if st_titel.startswith('Werde ') %}Jetzt {{ st_titel[6:].rstrip('!') }} werden{% else %}Jetzt unterstützen{% endif %}</a>
+            {% else %}
+            <p class="st-titel">⭐ Unterstütze uns dauerhaft!</p>
+            <p>Als Fördermitglied unterstützt du die Aktivitäten des Vereins dauerhaft –
+                weit über die Adventszeit hinaus.</p>
+            <a class="stern-knopf" href="{{ url_for('mitglieder.antrag_public') }}">Jetzt Fördermitglied werden</a>
+            {% endif %}
+        </div>
+        <p class="gruss">Frohe Weihnachten! 🎄</p>
+        <p><a href="{{ url_for('einstellungen.rechtliches') }}">Impressum &amp; Datenschutz</a>
+           · <a class="hoch" href="#oben">↑ nach oben</a></p>
+    </div>
+</div>
+<script>
+(function () {
+    /* Sprungmarken für Story-Links (Instagram & Co.), Axel 09.11.2026.
+       Ziel kommt aus #t-JJJJ-MM-TT ODER – robuster, weil manche In-App-Browser
+       das #-Anhängsel verschlucken – aus ?tuer=N (Tag im Dezember) bzw.
+       ?tag=JJJJ-MM-TT. Angesprungen wird, wenn alles da ist, und nach dem
+       Laden der Bilder bzw. einer Scroll-Wiederherstellung des Browsers noch
+       zweimal nachkorrigiert – aber nie mehr, sobald die Person selbst scrollt. */
+    var JAHR = "{{ jahr }}";
+    function zielId() {
+        var h = decodeURIComponent((location.hash || "").replace(/^#/, ""));
+        if (/^t-\d{4}-\d{2}-\d{2}$/.test(h)) return h;
+        var p = new URLSearchParams(location.search);
+        var tag = p.get("tag"), tuer = p.get("tuer");
+        if (tag && /^\d{4}-\d{2}-\d{2}$/.test(tag)) return "t-" + tag;
+        if (tuer && /^\d{1,2}$/.test(tuer)) return "t-" + JAHR + "-12-" + ("0" + tuer).slice(-2);
+        return null;
+    }
+    var id = zielId();
+    if (!id) return;
+    function ziel() {
+        var el = document.getElementById(id);
+        if (el) return el;
+        // Tag ohne eigenes Türchen: das nächste folgende Türchen nehmen
+        var datum = id.slice(2), beste = null;
+        document.querySelectorAll('article[id^="t-"]').forEach(function (a) {
+            var d = a.id.slice(2);
+            if (d >= datum && (!beste || d < beste.id.slice(2))) beste = a;
+        });
+        return beste;
+    }
+    if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+    var selbst = false;
+    ["wheel", "touchstart", "keydown", "mousedown"].forEach(function (art) {
+        window.addEventListener(art, function () { selbst = true; }, { passive: true, once: true });
+    });
+    function springe() {
+        if (selbst) return;
+        var el = ziel();
+        if (!el) return;
+        var html = document.documentElement, alt = html.style.scrollBehavior;
+        html.style.scrollBehavior = "auto";       // sofort, nicht weich animiert
+        el.scrollIntoView({ block: "start" });
+        html.style.scrollBehavior = alt;
+    }
+    springe();
+    window.addEventListener("load", function () {
+        springe();
+        setTimeout(springe, 400);
+        setTimeout(springe, 1200);
+    });
+    window.addEventListener("pageshow", function (e) { if (e.persisted) springe(); });
+})();
+</script>
+</body>
+</html>

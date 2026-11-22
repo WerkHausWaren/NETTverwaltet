@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Kassenbericht{% endblock %}
+{% block content %}
+<div class="page-header no-print">
+    <div><h1>📗 Kassenbericht {{ wj_label }}</h1>
+        <div class="sub">Für die Mitgliederversammlung &amp; Kassenprüfung</div></div>
+    <div class="aktionen">
+        <form method="get" style="display:inline">
+            <select name="jahr" onchange="this.form.submit()">
+                {% for j in jahre %}<option value="{{ j.j }}" {{ 'selected' if j.j == jahr }}>{{ j.label }}</option>{% endfor %}
+            </select>
+        </form>
+        <a href="{{ url_for('finanzen.kontoauszuege') }}" class="btn btn-sekundaer">📄 Kontoauszüge</a>
+        <a href="{{ url_for('finanzen.liste', jahr=jahr) }}" class="btn btn-sekundaer">← Kassenbuch</a>
+        <button class="btn" onclick="window.print()">🖨️ Drucken / Als PDF</button>
+    </div>
+</div>
+
+<div class="karte">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid var(--text);padding-bottom:8px;margin-bottom:14px">
+        <div><strong style="font-size:18px">{{ einst.vereinsname }}</strong>
+            <div class="feld-hinweis">{{ einst.strasse }}{% if einst.ort %}, {{ einst.plz }} {{ einst.ort }}{% endif %}</div></div>
+        <div style="text-align:right"><strong>Kassenbericht {{ wj_label }}</strong>
+            <div class="feld-hinweis">{{ wj_start | datum_de }} – {{ wj_ende | datum_de }}</div></div>
+    </div>
+
+    <h2 style="margin-top:0">Bestände je Geldkonto</h2>
+    <table>
+        <thead><tr><th>Geldkonto</th><th class="rechts">Anfangsbestand</th><th class="rechts">Einnahmen</th><th class="rechts">Ausgaben</th><th class="rechts">Endbestand</th></tr></thead>
+        <tbody>
+        {% for z in konten_zeilen %}
+        <tr>
+            <td>{{ z.icon }} {{ z.name }}</td>
+            <td class="rechts">{{ z.anfang | euro }}</td>
+            <td class="rechts" style="color:var(--gruen)">{{ z.ein | euro }}</td>
+            <td class="rechts" style="color:var(--rot)">{{ z.aus | euro }}</td>
+            <td class="rechts" style="font-weight:700">{{ z.ende | euro }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr style="font-weight:700;border-top:2px solid var(--text)">
+                <td>Summe</td>
+                <td class="rechts">{{ ab_summe | euro }}</td>
+                <td class="rechts">{{ ein_summe | euro }}</td>
+                <td class="rechts">{{ aus_summe | euro }}</td>
+                <td class="rechts">{{ eb_summe | euro }}</td>
+            </tr>
+        </tfoot>
+    </table>
+    <div class="feld-hinweis" style="margin-top:8px">
+        Rechenprobe: Anfangsbestand {{ ab_summe | euro }} + Einnahmen {{ ein_summe | euro }} − Ausgaben {{ aus_summe | euro }}
+        = <strong>Endbestand {{ eb_summe | euro }}</strong>.
+        {% if ohne %}<br>⚠️ {{ ohne }} Buchung(en) sind keinem Geldkonto zugeordnet und fehlen daher in den Beständen –
+        bitte im Kassenbuch nachtragen.{% endif %}
+        <span class="no-print"><br>💡 Die Anfangsbestände lassen sich mit den abgelegten
+        <a href="{{ url_for('finanzen.kontoauszuege') }}">Kontoauszügen</a> des Geschäftsjahres belegen.</span>
+    </div>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Einnahmen nach Kategorie</h2>
+    <table style="box-shadow:none">
+        <tbody>
+        {% for r in kat_ein %}
+        <tr><td>{{ r.label }}</td><td class="rechts" style="color:var(--gruen)">{{ r.summe | euro }}</td></tr>
+        {% else %}<tr><td class="feld-hinweis">Keine Einnahmen.</td><td></td></tr>{% endfor %}
+        </tbody>
+    </table>
+    <h2>Ausgaben nach Kategorie</h2>
+    <table style="box-shadow:none">
+        <tbody>
+        {% for r in kat_aus %}
+        <tr><td>{{ r.label }}</td><td class="rechts" style="color:var(--rot)">{{ r.summe | euro }}</td></tr>
+        {% else %}<tr><td class="feld-hinweis">Keine Ausgaben.</td><td></td></tr>{% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Bericht der Kassenprüfung</h2>
+    <p style="line-height:1.7">Die Kassenprüfer/innen haben die Kassenführung des Geschäftsjahres {{ jahr }} geprüft.
+        Die Belege wurden stichprobenartig bzw. vollständig kontrolliert, die Kassenbestände wurden mit den
+        Aufzeichnungen abgeglichen. Die Kassenführung war <strong>rechnerisch richtig</strong> und
+        <strong>ordnungsgemäß belegt</strong>; es gab keine Beanstandungen.</p>
+    <p>Der Versammlung wird die <strong>Entlastung des Kassenwarts / der Kassenwartin</strong> empfohlen.</p>
+
+    <div style="display:flex;flex-wrap:wrap;gap:40px;margin-top:40px">
+        <div style="flex:1 1 200px;border-top:1px solid var(--text);padding-top:6px">Ort, Datum</div>
+        <div style="flex:1 1 200px;border-top:1px solid var(--text);padding-top:6px">Kassenwart/in</div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:40px;margin-top:40px">
+        <div style="flex:1 1 200px;border-top:1px solid var(--text);padding-top:6px">Kassenprüfer/in 1</div>
+        <div style="flex:1 1 200px;border-top:1px solid var(--text);padding-top:6px">Kassenprüfer/in 2</div>
+    </div>
+</div>
+{% endblock %}

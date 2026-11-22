@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Rollen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Rollen</h1><div class="sub">Einsatzrollen mit Aufgaben-Beschreibung und Unterlagen</div></div>
+    <a href="{{ url_for('schichten.index') }}" class="btn btn-sekundaer">← Zum Schichtplan</a>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Neue Rolle</h2>
+    <form method="post" action="{{ url_for('schichten.rollen') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld-reihe" style="align-items:end">
+            <div class="feld" style="margin-bottom:0"><label>Name</label><input type="text" name="name" placeholder="z.B. Garderobe" required></div>
+            <div class="feld" style="margin-bottom:0"><label>Farbe</label><input type="color" name="farbe" value="#2563eb" style="height:42px"></div>
+        </div>
+        <div class="feld" style="margin-top:12px"><label>Beschreibung (optional)</label>
+            <textarea name="beschreibung" placeholder="Was ist in dieser Rolle zu tun?"></textarea></div>
+        <button type="submit" class="btn">＋ Rolle anlegen</button>
+    </form>
+</div>
+
+<table>
+    <thead><tr><th>Rolle</th><th>Beschreibung</th><th class="rechts">Positionen</th><th class="rechts">Unterlagen</th><th></th></tr></thead>
+    <tbody>
+    {% for r in rollen %}
+    <tr onclick="window.location='{{ url_for('schichten.rolle_detail', rid=r.id) }}'" style="cursor:pointer">
+        <td><span class="badge" style="background:{{ r.farbe|hexfarbe }};color:{{ r.farbe|kontrast }}">{{ r.name }}</span></td>
+        <td>{{ (r.beschreibung or '')[:80] }}{{ '…' if r.beschreibung and r.beschreibung|length > 80 }}</td>
+        <td class="rechts">{{ r.verwendet }}{% if r.kommend %} <span class="feld-hinweis">({{ r.kommend }} kommend)</span>{% endif %}</td>
+        <td class="rechts">{{ r.medien }}</td>
+        <td class="rechts" onclick="event.stopPropagation()">
+            <div class="aktionen" style="justify-content:flex-end">
+                <a href="{{ url_for('schichten.rolle_detail', rid=r.id) }}" class="btn btn-sekundaer btn-klein">Bearbeiten</a>
+                {% if r.kommend %}
+                <button class="btn btn-sekundaer btn-klein" disabled
+                        title="Steckt noch in {{ r.kommend }} kommenden Schichten – erst Schichten anpassen oder Rolle umbenennen (Schichten wandern automatisch mit).">🔒</button>
+                {% else %}
+                <form method="post" action="{{ url_for('schichten.rolle_loeschen', rid=r.id) }}" style="display:inline"
+                      onsubmit="return confirm('Rolle löschen?{% if r.verwendet %} Sie steckt in {{ r.verwendet }} vergangenen Schichten – dort wird sie dann ohne Bezeichnung geführt.{% endif %}')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sekundaer btn-klein">✕</button>
+                </form>
+                {% endif %}
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

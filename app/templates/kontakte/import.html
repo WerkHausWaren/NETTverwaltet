@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}Kontakte importieren{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>⬆️ Kontakte importieren</h1>
+        <div class="sub">{% if schritt == 2 %}Schritt 2 von 2: Spalten prüfen und übernehmen
+            {% else %}Aus Excel, Outlook, Google Kontakte, Nextcloud oder vom Handy{% endif %}</div></div>
+    <a href="{{ url_for('kontakte.index') }}" class="btn btn-sekundaer">← Zurück zu den Kontakten</a>
+</div>
+
+{% if schritt == 2 %}
+<div class="karte" style="border-left:4px solid var(--gruen)">
+    <h2 style="margin-top:0">✅ Datei gelesen: {{ dateiname }}</h2>
+    <p style="margin:0">Erkannt als <strong>{{ art }}</strong> mit <strong>{{ anzahl }}</strong>
+        Datenzeile{{ 'n' if anzahl != 1 }} und {{ kopf | length }} Spalten.
+        Es wurde noch <em>nichts</em> gespeichert.</p>
+</div>
+
+<form method="post" action="{{ url_for('kontakte.import_ausfuehren') }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+{% if not vorschlag | select | list %}
+<div class="karte" style="border-left:4px solid var(--gelb);background:var(--warn-grund);color:var(--warn-text)">
+    <h2 style="margin-top:0;font-size:16px">⚠️ Keine Spalte automatisch erkannt</h2>
+    <p style="margin:0">Wahrscheinlich stehen in der ersten Zeile deiner Datei keine
+        Überschriften – oder darüber steht noch eine Titelzeile wie „Mitgliederliste Stand 2026".
+        Schau unten in der Vorschau nach: Steht dort statt „Name, Ort, E-Mail" schon der erste
+        echte Kontakt, dann lösche die Titelzeile in Excel und lade die Datei erneut hoch.</p>
+    <p class="feld-hinweis" style="margin:8px 0 0">Du kannst die Spalten aber auch einfach von
+        Hand zuordnen – die Beispielwerte rechts zeigen dir, was in welcher Spalte steht.</p>
+</div>
+{% endif %}
+
+<div class="karte">
+    <h2 style="margin-top:0">Welche Spalte ist was?</h2>
+    <p class="feld-hinweis" style="margin-top:0">Die Zuordnung unten wurde automatisch geraten –
+        bitte kurz prüfen. Spalten auf „<em>– nicht übernehmen –</em>" werden ignoriert.
+        <strong>Name / Firma</strong> muss zugeordnet sein, alles andere ist freiwillig.</p>
+
+    <div style="overflow-x:auto">
+    <table class="tabelle no-sort">
+        <thead>
+            <tr>
+                <th style="min-width:170px">Spalte in deiner Datei</th>
+                <th style="min-width:190px">wird übernommen als</th>
+                <th>Beispiele aus der Datei</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for spalte in kopf %}
+        {% set idx = loop.index0 %}
+        {% set erkannt = vorschlag[idx] %}
+        <tr>
+            <td><strong>{{ spalte or '(ohne Überschrift)' }}</strong></td>
+            <td>
+                <select name="spalte_{{ idx }}">
+                    <option value="" {{ 'selected' if not erkannt }}>– nicht übernehmen –</option>
+                    {% for f in zielfelder %}
+                    <option value="{{ f }}" {{ 'selected' if f == erkannt }}>{{ zielfeld_namen[f] }}</option>
+                    {% endfor %}
+                </select>
+                {% if erkannt %}<div class="feld-hinweis">automatisch erkannt</div>{% endif %}
+            </td>
+            <td class="feld-hinweis">
+                {%- set beispiele = [] -%}
+                {%- for z in zeilen -%}
+                    {%- if idx < z | length and (z[idx] or '') | trim -%}
+                        {%- if beispiele.append((z[idx] or '') | trim) -%}{%- endif -%}
+                    {%- endif -%}
+                {%- endfor -%}
+                {{ beispiele[:3] | join(' · ') or '—' }}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Wie soll importiert werden?</h2>
+    <label style="display:block;margin-bottom:10px;font-weight:400">
+        <input type="checkbox" name="ergaenzen" value="1">
+        Bereits vorhandene Kontakte <strong>ergänzen</strong> (füllt nur leere Felder auf –
+        bestehende Angaben werden nie überschrieben)
+    </label>
+    <p class="feld-hinweis" style="margin:0 0 14px">Ohne Häkchen bleiben vorhandene Kontakte
+        unangetastet und werden übersprungen. Erkannt werden sie an Name + PLZ.</p>
+    <div class="feld" style="max-width:280px">
+        <label for="standard_kategorie">Kategorie für alle neuen Kontakte</label>
+        <input id="standard_kategorie" name="standard_kategorie"
+               placeholder="z. B. Presse – freiwillig">
+        <div class="feld-hinweis">Greift nur, wenn die Datei selbst keine Kategorie mitbringt.</div>
+    </div>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Vorschau der ersten Zeilen</h2>
+    <div style="overflow-x:auto">
+    <table class="tabelle no-sort">
+        <thead><tr>{% for spalte in kopf %}<th>{{ spalte or '—' }}</th>{% endfor %}</tr></thead>
+        <tbody>
+        {% for z in zeilen %}
+        <tr>{% for wert in z %}<td>{{ wert }}</td>{% endfor %}</tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% if anzahl > zeilen | length %}
+    <p class="feld-hinweis">… und {{ anzahl - (zeilen | length) }} weitere Zeile{{ 'n' if (anzahl - (zeilen | length)) != 1 }}.</p>
+    {% endif %}
+</div>
+
+<div class="karte">
+    <button class="btn">✅ {{ anzahl }} Zeile{{ 'n' if anzahl != 1 }} jetzt importieren</button>
+    <a href="{{ url_for('kontakte.import_start') }}" class="btn btn-sekundaer">Abbrechen</a>
+    <p class="feld-hinweis" style="margin:10px 0 0">Keine Sorge: Direkt nach dem Import kannst du ihn
+        mit einem Klick wieder rückgängig machen.</p>
+</div>
+</form>
+
+{% else %}
+<div class="hilfe-box">
+    <strong>Diese Dateien versteht die App:</strong>
+    <table class="tabelle no-sort" style="margin:10px 0 0;background:transparent">
+        <tbody>
+        <tr><td style="width:110px"><strong>Excel</strong> <code>.xlsx</code></td>
+            <td>Direkt aus Excel, Numbers oder LibreOffice – die erste Zeile muss die
+                Spaltenüberschriften enthalten.</td></tr>
+        <tr><td><strong>CSV</strong> <code>.csv</code></td>
+            <td>Der übliche Export aus Outlook, Google Kontakte und fast jedem anderen Programm.
+                Semikolon oder Komma, Umlaute und Windows-Dateien werden automatisch erkannt.</td></tr>
+        <tr><td><strong>vCard</strong> <code>.vcf</code></td>
+            <td>Was Handy, Apple Kontakte und Nextcloud ausgeben. Auch mehrere Kontakte in
+                einer Datei.</td></tr>
+        </tbody>
+    </table>
+    <p style="margin:12px 0 0">Die Spaltennamen musst du nicht anpassen – im nächsten Schritt
+        zeigt die App, was sie erkannt hat, und du kannst es korrigieren.</p>
+</div>
+
+<div class="karte">
+    <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld">
+            <label for="datei">Datei auswählen</label>
+            <input id="datei" type="file" name="datei" required
+                   accept=".csv,.xlsx,.vcf,.vcard,.txt,text/csv,text/vcard">
+        </div>
+        <button class="btn">Weiter zur Vorschau →</button>
+    </form>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Sicher ist sicher</h2>
+    <p style="margin:0">Nach dem Hochladen siehst du erst eine <strong>Vorschau</strong> – gespeichert
+        wird nichts, bevor du bestätigst. Und selbst danach lässt sich der ganze Import mit einem
+        Klick wieder zurücknehmen.</p>
+    <p class="feld-hinweis" style="margin:8px 0 0">Tipp: Wenn du unsicher bist, wie eine Datei
+        aussehen muss – lade dir über
+        <a href="{{ url_for('kontakte.export_csv') }}">⬇️ CSV</a> deine jetzigen Kontakte herunter.
+        Genau dieses Format kannst du befüllt wieder hochladen.</p>
+</div>
+{% endif %}
+{% endblock %}

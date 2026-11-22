@@ -1,0 +1,77 @@
+{% extends "auth/_layout.html" %}
+{% block title %}{{ t('brett') }}{% endblock %}
+{% block inhalt %}
+{% if sprachen_an %}
+<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
+    <a href="javascript:history.back()" class="feld-hinweis" style="text-decoration:none">{{ t('zurueck') }}</a>
+    <select aria-label="{{ t('sprache') }}" onchange="window.location='/sprache/'+this.value"
+            style="border:1px solid var(--linie);border-radius:999px;padding:5px 8px;font-size:13px;background:var(--flaeche);color:var(--text)">
+        {% for code, name in sprachen_liste() %}
+        <option value="{{ code }}" {{ 'selected' if code == sprache_aktuell() }}>{{ name }}</option>
+        {% endfor %}
+    </select>
+</div>
+{% else %}
+<div style="margin-bottom:6px">
+    <a href="javascript:history.back()" class="feld-hinweis" style="text-decoration:none">{{ t('zurueck') }}</a>
+</div>
+{% endif %}
+{% if gesendet %}
+<div class="auth-logo">💙</div>
+<h1 class="auth-titel">{{ t('danke') }}</h1>
+<p style="text-align:center">{{ t('danke_text') }}</p>
+{% if bearbeiten_link %}
+<div style="background:var(--info-grund);border:1px solid var(--linie);border-radius:10px;padding:12px;margin:12px 0">
+    <div class="feld-hinweis" style="margin-bottom:6px">{{ t('link_hinweis') }}</div>
+    <input type="text" readonly value="{{ bearbeiten_link }}" onclick="this.select()"
+           style="width:100%;box-sizing:border-box;font-size:13px">
+</div>
+{% endif %}
+<a class="btn" href="{{ url_for('portal.brett_gast') }}">{{ t('weiterer_eintrag') }}</a>
+{% else %}
+<div class="auth-logo">📌</div>
+<h1 class="auth-titel">{{ t('brett') }}</h1>
+<p class="feld-hinweis" style="text-align:center;margin-top:-8px">{{ t('gast_untertitel') }}</p>
+{% with meldungen = get_flashed_messages(with_categories=true) %}
+    {% for kat, text in meldungen %}<div class="flash flash-{{ kat }}">{{ text }}</div>{% endfor %}
+{% endwith %}
+<form method="post" action="{{ url_for('portal.brett_gast_absenden') }}" dir="{{ sprache_richtung() }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="text" name="website" value="" style="display:none" tabindex="-1" autocomplete="off">
+    <div class="feld"><label>{{ t('ich_moechte') }}</label>
+        <select name="typ">
+            <option value="gesuch" {{ 'selected' if form and form.typ == 'gesuch' }}>{{ t('gast_suchen') }}</option>
+            <option value="angebot" {{ 'selected' if form and form.typ == 'angebot' }}>{{ t('gast_bieten') }}</option>
+        </select></div>
+    {% if kategorien %}
+    <div class="feld"><label>{{ t('thema') }}</label>
+        <select name="kategorie">
+            <option value="">{{ t('bitte_waehlen') }}</option>
+            {% for k in kategorien %}<option value="{{ k }}" {{ 'selected' if form and form.kategorie == k }}>{{ tk(k) }}</option>{% endfor %}
+        </select></div>
+    {% endif %}
+    <div class="feld"><label>{{ t('worum') }} *</label>
+        <input type="text" name="titel" required value="{{ form.titel if form else '' }}" placeholder="{{ t('worum_beispiel') }}"></div>
+    <div class="feld"><label>{{ t('text_label') }}</label>
+        <textarea name="text" rows="3" placeholder="{{ t('details_frage') }}">{{ form.text if form else '' }}</textarea></div>
+    <div class="feld"><label>{{ t('dein_name') }} *</label>
+        <input type="text" name="name" required value="{{ form.name if form else '' }}"></div>
+    <div class="feld"><label>{{ t('kontakt_label') }} *</label>
+        <input type="text" name="kontakt" required value="{{ form.kontakt if form else '' }}" placeholder="+49 … / name@beispiel.de"></div>
+    <div class="feld"><label>{{ t('welche_sprachen') }} *</label>
+        <div style="display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:4px">
+        {% for s in sprachen_auswahl %}
+            <label style="display:inline-flex;align-items:center;gap:5px;font-weight:400">
+                <input type="checkbox" name="sprachen" value="{{ s }}"
+                       {{ 'checked' if form and s in form.getlist('sprachen') }}> {{ s }}</label>
+        {% endfor %}
+        </div>
+        <input type="text" name="sprachen_sonst" value="{{ form.sprachen_sonst if form else '' }}"
+               placeholder="{{ t('weitere_sprache') }}" style="margin-top:8px"></div>
+    <button type="submit" class="btn">{{ t('absenden') }}</button>
+</form>
+<hr>
+<a class="feld-hinweis" style="display:block;text-align:center;text-decoration:none"
+   href="{{ url_for('auth.login') }}">{{ t('anmelden') }}</a>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+{% block title %}Konten{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>💳 Konten</h1><div class="sub">Alle Geldkonten im Blick – Bank, PayPal &amp; Barkasse</div></div>
+    <a href="{{ url_for('finanzen.geldkonten_verwaltung') }}" class="btn btn-sekundaer">⚙️ Geldkonten verwalten</a>
+</div>
+
+{# ---------- Übersicht aller Geldkonten mit direktem Zugang ---------- #}
+<div class="karten-reihe" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr));margin-bottom:16px">
+    {% for g in staende %}
+    <div class="karte">
+        <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:22px">{{ konto_icons.get(g.typ, '💳') }}</span>
+            <strong>{{ g.name }}</strong>
+        </div>
+        <div style="font-size:24px;font-weight:800;margin:6px 0 8px;color:{{ 'var(--gruen)' if g.stand >= 0 else 'var(--rot)' }}">{{ g.stand | euro }}</div>
+        {% if g.typ == 'bank' %}
+        {% if mein_zugang %}<a href="#fints" class="feld-hinweis">🔄 Umsätze abrufen (unten)</a> ·
+        {% else %}<a href="{{ url_for('einstellungen.bankzugang') }}" class="feld-hinweis">💳 Bankzugang einrichten</a> ·
+        {% endif %}
+        <a href="{{ url_for('finanzen.sparkasse_import') }}" class="feld-hinweis">CSV-Import</a> ·
+        <a href="{{ url_for('finanzen.kontoauszug_pdf') }}" class="feld-hinweis">PDF-Auszug</a>
+        {% elif g.typ == 'paypal' %}
+        <form method="post" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="aktion" value="paypal_abruf">
+            <button class="btn btn-klein">🔄 Abrufen</button>
+        </form>
+        <a href="{{ url_for('finanzen.paypal') }}" class="feld-hinweis">Optionen / CSV</a>
+        {% elif g.typ == 'bar' %}
+        <a href="{{ url_for('finanzen.liste') }}" class="btn btn-klein">📒 Kassenbuch / Buchung erfassen</a>
+        {% else %}
+        <a href="{{ url_for('finanzen.liste') }}" class="feld-hinweis">Zu den Buchungen</a>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<div class="page-header" id="fints" style="margin-top:10px">
+    <div><h2 style="margin:0">🏦 Bank: Umsätze direkt abrufen (FinTS)</h2></div>
+    {% if not challenge and not freigabe and mein_zugang and not fehlt %}
+    <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="aktion" value="start">
+        <select name="zeitraum" style="padding:9px;border-radius:9px;border:1px solid var(--grau-linie)">
+            <option value="60">letzte 60 Tage</option>
+            <option value="wj">seit Wirtschaftsjahresbeginn</option>
+            <option value="365">letzte 12 Monate</option>
+        </select>
+        <button class="btn" {{ 'disabled' if not lib_da }}>🔄 Umsätze abrufen</button>
+    </form>
+    {% endif %}
+</div>
+
+{% if not mein_zugang %}
+<div class="karte" style="border-left:4px solid var(--warn-rand)">
+    <h3 style="margin:0 0 8px">🔑 Dafür brauchst du deinen eigenen Bankzugang</h3>
+    <p style="margin:0 0 10px">Die Umsätze des Vereinskontos holt jede Person mit ihren
+        <strong>eigenen Online-Banking-Zugangsdaten</strong> – so wie in der Banking-App der Bank.
+        Einen gemeinsamen Zugang für den ganzen Vorstand gibt es bewusst nicht.</p>
+    {% if angemeldet %}
+    <a class="btn" href="{{ url_for('einstellungen.bankzugang') }}">💳 Meinen Bankzugang einrichten</a>
+    <div class="feld-hinweis" style="margin-top:8px">Du brauchst dafür deinen Anmeldenamen und die
+        PIN fürs Online-Banking. Hat dein Zugang noch keine Freigabe für Finanzsoftware
+        („FinTS/HBCI"), schaltet die Bank sie auf Nachfrage frei.</div>
+    {% else %}
+    <div class="feld-hinweis">In der Lokalen Verwaltung ohne Anmeldung steht der Direktabruf nicht
+        zur Verfügung. Nutze hier den Umsatz-Import per CSV-Datei.</div>
+    {% endif %}
+</div>
+{% elif fehlt %}
+<div class="karte" style="border-left:4px solid var(--warn-rand)">
+    <h3 style="margin:0 0 8px">🔑 Dein Bankzugang ist noch nicht vollständig</h3>
+    <p style="margin:0 0 10px">Es fehlt: <strong>{{ fehlt | join(', ') }}</strong></p>
+    <a class="btn" href="{{ url_for('einstellungen.bankzugang') }}">💳 Zugang vervollständigen</a>
+</div>
+{% endif %}
+
+{% if not lib_da %}
+<div class="flash flash-info">Die Bank-Bibliothek (FinTS) wird beim nächsten Start der App automatisch installiert. Bitte die App einmal neu starten.</div>
+{% endif %}
+
+{% if mein_zugang and not fehlt and lib_da and not challenge and not umsaetze %}
+<div class="feld-hinweis" style="margin:-4px 0 12px">📲 Nach dem Klick auf „Umsätze abrufen" die Anfrage in deiner <strong>TAN-App freigeben</strong> – du hast dafür jetzt <strong>bis zu 5 Minuten</strong> Zeit, der Abruf wartet geduldig im Hintergrund.
+{% if mein_zugang.fints_client_data %}<br>🔗 Deine Anmeldung ist der Bank bekannt – oft geht der Abruf jetzt ganz ohne TAN durch.{% endif %}</div>
+{% endif %}
+
+{% if mein_zugang and not fehlt %}
+<div class="karte" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <div style="flex:1;min-width:240px">
+        <div style="font-weight:600">🌙 Nächtlicher Abruf
+            {% if auto_an %}<span class="badge badge-gut">an</span>{% else %}<span class="badge badge-neutral">aus</span>{% endif %}
+        </div>
+        <div class="feld-hinweis" style="margin-top:4px">
+            {% if auto_an %}
+                Jede Nacht um 5:30 Uhr holt die Verwaltung die Umsätze der letzten sieben Tage
+                und ordnet Zahlungen zu – gebucht wird nichts.
+                {% if auto_ich %}Er läuft mit <strong>deinem</strong> Bankzugang.
+                {% else %}Er läuft mit dem Bankzugang von <strong>{{ auto_person or 'einer anderen Person' }}</strong>.{% endif %}
+            {% elif auto_moeglich %}
+                Wenn du magst, holt die Verwaltung die Umsätze jede Nacht von allein – mit deinem
+                Bankzugang und nur solange die Freigabe deiner Bank gilt (etwa 90 Tage).
+                Läuft sie ab, bekommst du eine Nachricht.
+            {% else %}
+                Dafür muss deine Anmeldung der Bank erst als Gerät bekannt sein: einmal hier von
+                Hand abrufen und die Freigabe erteilen – danach lässt sich der nächtliche Abruf
+                einschalten.
+            {% endif %}
+        </div>
+    </div>
+    {% if auto_moeglich or auto_an %}
+    <form method="post" style="margin:0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="aktion" value="auto_umschalten">
+        <button class="btn {{ 'btn-sekundaer' if auto_an else '' }}">
+            {{ 'Ausschalten' if auto_an else 'Einschalten' }}</button>
+    </form>
+    {% endif %}
+</div>
+{% endif %}
+
+{# Konto des Vereins: Bankleitzahl und FinTS-Adresse ergeben sich aus der IBAN.
+   Die persönliche Anmeldung steht unter „Mein Bankzugang". #}
+<details class="karte">
+    <summary style="cursor:pointer;font-weight:600">🏦 Konto des Vereins <span class="feld-hinweis">(Bankdaten für den Direktabruf)</span></summary>
+    <div style="margin-top:12px">
+        {% if bank_erkannt %}
+        <div class="flash flash-erfolg" style="margin-bottom:12px">
+            🏦 Automatisch erkannt: <strong>{{ bank_erkannt.name }}</strong>{% if bank_erkannt.ort %}, {{ bank_erkannt.ort }}{% endif %}
+            (BLZ {{ bank_erkannt.blz }}){% if bank_erkannt.fints_url %} · FinTS-Adresse hinterlegt ✓{% else %} · <span style="color:var(--rot)">keine FinTS-Adresse gefunden</span>{% endif %}
+        </div>
+        {% else %}
+        <div class="flash flash-info" style="margin-bottom:12px">Bank konnte nicht automatisch erkannt werden – bitte zuerst die <a href="{{ url_for('einstellungen.index') }}#bank">IBAN in den Einstellungen</a> hinterlegen.</div>
+        {% endif %}
+        <p class="feld-hinweis">Bankleitzahl und FinTS-Adresse holt die App automatisch aus der IBAN des
+            Vereins – das gilt für alle im Vorstand gemeinsam. <strong>Angemeldet wird sich persönlich:</strong>
+            Deine eigenen Zugangsdaten stehen unter
+            <a href="{{ url_for('einstellungen.bankzugang') }}">💳 Mein Bankzugang</a>.</p>
+        <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="aktion" value="bankdaten">
+            <button class="btn btn-sekundaer">🔄 Bankdaten aus der IBAN auffrischen</button>
+        </form>
+    </div>
+</details>
+
+{# Der nächtliche Abruf ist stillgelegt: Er lief ohne angemeldete Person und
+   bräuchte seit der Umstellung auf persönliche Zugänge einen festen Zugang. #}
+<div class="feld-hinweis" style="margin:10px 0">🌙 Der nächtliche Auto-Abruf ist derzeit stillgelegt.
+    Seit jede Person ihren eigenen Bankzugang nutzt, müsste festgelegt werden, mit wessen Zugang
+    er nachts läuft – das ist offen. Umsätze holst du solange hier auf Knopfdruck.</div>
+<div class="hilfe-box" style="margin-top:16px">
+    💡 <strong>Sicherer Weg ohne Sperr-Risiko:</strong> Solange der Direktabruf (FinTS) noch nicht freigeschaltet ist,
+    kannst du deine Sparkassen-Umsätze als <strong>CSV-Datei</strong> exportieren und genauso bequem per Klick verbuchen.
+    → <a href="{{ url_for('finanzen.sparkasse_import') }}"><strong>🏦 Umsätze als Datei importieren</strong></a>
+</div>
+
+{% if warten %}
+<div class="karte" style="border:2px solid var(--blau)" id="warte-karte">
+    <h2 style="margin-top:0">{% if warten == 'freigabe' %}📲 Jetzt in der TAN-App freigeben{% else %}⏳ Verbinde mit der Bank …{% endif %}</h2>
+    {% if warten == 'freigabe' %}
+    <p>Öffne in Ruhe deine TAN-App (z. B. S-pushTAN) und <strong>gib die Anfrage frei</strong>.
+        Wir warten <strong>bis zu 5 Minuten</strong> – kein Stress.</p>
+    {% else %}
+    <p>Der Abruf läuft. Falls deine Bank eine Freigabe verlangt, erscheint hier gleich der Hinweis.</p>
+    {% endif %}
+    <p class="feld-hinweis"><span class="spinner" style="display:inline-block;width:14px;height:14px;border:2.5px solid var(--blau);border-top-color:transparent;border-radius:50%;animation:bankdreh .8s linear infinite;vertical-align:-2px"></span>
+        Diese Seite aktualisiert sich automatisch, sobald es weitergeht – bitte offen lassen.</p>
+    <style>@keyframes bankdreh { to { transform: rotate(360deg); } }</style>
+</div>
+<script>
+(function(){
+    var job = {{ job_id | tojson }};
+    var timer = setInterval(function(){
+        fetch('{{ url_for("bank.job_status", job_id="JOBID") }}'.replace('JOBID', job))
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (d.status === 'fertig' || d.status === 'weg') {
+                    clearInterval(timer);
+                    location.href = '{{ url_for("bank.index") }}?job=' + job;
+                } else if (d.status === 'freigabe' && !document.querySelector('#warte-karte h2').textContent.includes('freigeben')) {
+                    location.reload();
+                }
+            }).catch(function(){});
+    }, 3000);
+})();
+</script>
+{% endif %}
+
+{% if challenge %}
+<div class="karte" style="border:2px solid var(--blau)">
+    <h2 style="margin-top:0">🔐 TAN erforderlich</h2>
+    <p>{{ challenge }}</p>
+    <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="aktion" value="tan">
+        <div class="feld" style="max-width:260px"><label>TAN eingeben</label>
+            <input type="text" name="tan" autofocus autocomplete="off" inputmode="numeric"></div>
+        <button class="btn">Bestätigen</button>
+    </form>
+    <div class="feld-hinweis" style="margin-top:8px">Bei pushTAN genügt oft die Freigabe in der App – gib dann die dort angezeigte TAN ein bzw. bestätige.</div>
+</div>
+{% endif %}
+
+{% if freigabe %}
+<div class="karte" style="border:2px solid var(--blau)">
+    <h2 style="margin-top:0">📲 Freigabe in der TAN-App</h2>
+    <p>{{ freigabe }}</p>
+    <p class="feld-hinweis">Öffne deine TAN-App (z. B. S-pushTAN) und <strong>gib die Anmeldung/Anfrage dort frei</strong>. Danach geht es automatisch weiter – oder klicke „Freigabe prüfen".</p>
+    <form method="post" id="freigabe-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="aktion" value="freigabe_pruefen">
+        <button class="btn">🔄 Freigabe prüfen</button>
+        <span class="feld-hinweis" style="margin-left:10px">⏳ Warte auf Freigabe … <span id="freigabe-sek"></span></span>
+    </form>
+</div>
+<script>
+(function(){
+  var sek = 5, el = document.getElementById('freigabe-sek'), f = document.getElementById('freigabe-form');
+  var t = setInterval(function(){
+    sek--; if (el) el.textContent = '(neuer Versuch in ' + sek + 's)';
+    if (sek <= 0) { clearInterval(t); if (f) f.submit(); }
+  }, 1000);
+})();
+</script>
+{% endif %}
+
+<div class="hilfe-box">
+    <strong>Lastschriften einreichen:</strong> Der zuverlässige Weg ist die fertige
+    <a href="{{ url_for('beitraege.liste') }}">SEPA-XML-Datei</a>, die du im Online-Banking hochlädst.
+    Die direkte FinTS-Einreichung ist bankabhängig – richten wir bei Bedarf gemeinsam ein.
+</div>
+
+{% if zugeordnet or vorschlaege %}
+<div class="karte" style="border:2px solid var(--gruen)">
+    <h2 style="margin-top:0">🎟️ Zahlungsabgleich Anmeldungen</h2>
+    {% if zugeordnet %}
+    <p style="margin:0 0 6px"><strong>✅ Automatisch als bezahlt verbucht ({{ zugeordnet|length }}):</strong></p>
+    {% for z in zugeordnet %}
+    <div style="padding:6px 0;{{ '' if loop.last and not vorschlaege else 'border-bottom:1px solid var(--grau-linie)' }}">
+        {{ z.name }} – {{ z.titel }} · {{ '%.2f'|format(z.erhalten)|replace('.', ',') }} €
+        <span class="feld-hinweis">(Zahlcode {{ z.zahlcode }})</span>
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% if vorschlaege %}
+    <p style="margin:10px 0 6px"><strong>⚠️ Zahlcode erkannt, Betrag weicht ab – bitte prüfen:</strong></p>
+    {% for z in vorschlaege %}
+    <div style="padding:6px 0">
+        {{ z.name }} – {{ z.titel }}: erhalten {{ '%.2f'|format(z.erhalten)|replace('.', ',') }} €,
+        erwartet {{ '%.2f'|format(z.erwartet)|replace('.', ',') }} €
+        <a href="{{ url_for('veranstaltungen.index') }}" class="feld-hinweis">→ Anmeldungen öffnen</a>
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+{% endif %}
+
+{% if abgerufen and fehler %}
+<div class="flash flash-fehler">{{ fehler }}</div>
+{% endif %}
+
+{% if pp_umsaetze %}
+<div class="karte">
+    <h2 style="margin-top:0">🅿️ PayPal-Umsätze ({{ pp_umsaetze|length }})</h2>
+    {% if not pp_konto %}<div class="flash flash-info">Kein PayPal-Geldkonto angelegt – bitte unter „⚙️ Geldkonten verwalten" ergänzen.</div>{% endif %}
+    {# with-Block statt set: sonst überschreibt umsaetze=pp_umsaetze die
+       Bank-Umsätze im Block darunter (Jinja-set wirkt bis zum Template-Ende) #}
+    {% with umsaetze = pp_umsaetze, ziel_konto = pp_konto %}
+    {% set tf_ziel = '#pp-umsaetze' %}{% set tabelle_id = 'pp-umsaetze' %}
+    {% set tf_chips = [{'label': '＋ Einnahmen', 'wert': 'einnahme'}, {'label': '－ Ausgaben', 'wert': 'ausgabe'}, {'label': '🏷️ ohne Kategorie', 'wert': 'ohnekat'}] %}
+    {% set tf_seiten = [10, 20, 50] %}
+    {% include '_tabellen_filter.html' %}
+    {% set zurueck = url_for('bank.index') %}
+    {% include "finanzen/_umsatz_tabelle.html" %}
+    {% endwith %}
+</div>
+{% endif %}
+
+{% if umsaetze %}
+<div class="karte">
+    <h2 style="margin-top:0">Umsätze (letzte 60 Tage) verbuchen</h2>
+    <p class="feld-hinweis">Wähle je Zeile eine Kategorie (ein Vorschlag ist schon gesetzt) und klicke „Verbuchen". So landen die Sparkassen-Umsätze im Kassenbuch – und der Kassenstand stimmt.</p>
+    {% set ziel_konto = bank_konto %}
+    {% set tf_ziel = '#bank-umsaetze' %}{% set tabelle_id = 'bank-umsaetze' %}
+    {% set tf_chips = [{'label': '＋ Einnahmen', 'wert': 'einnahme'}, {'label': '－ Ausgaben', 'wert': 'ausgabe'}, {'label': '🏷️ ohne Kategorie', 'wert': 'ohnekat'}] %}
+    {% set tf_seiten = [10, 20, 50] %}
+    {% include '_tabellen_filter.html' %}
+    {% set zurueck = url_for('bank.index') %}
+    {% include "finanzen/_umsatz_tabelle.html" %}
+</div>
+{% elif abgerufen and not fehler and not challenge and not freigabe %}
+<div class="karte leer"><div class="icon">🏦</div><p>Keine Umsätze im Zeitraum gefunden.</p></div>
+{% endif %}
+{% endblock %}

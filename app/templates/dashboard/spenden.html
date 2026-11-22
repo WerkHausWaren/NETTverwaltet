@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Spenden{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>Spenden &amp; Bescheinigungen</h1><div class="sub">Zuwendungsbestätigungen für Spender:in erstellen</div></div>
+    <form method="get">
+        <select name="jahr" onchange="this.form.submit()">
+            {% for j in jahre %}<option value="{{ j }}" {{ 'selected' if j|string==jahr|string }}>{{ j }}</option>{% endfor %}
+        </select>
+    </form>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Spende erfassen</h2>
+    <form method="post" action="{{ url_for('dashboard.spende_erfassen') }}" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld-reihe">
+            <div class="feld"><label>Datum</label><input type="date" name="datum" value="{{ jahr }}-01-01" required></div>
+            <div class="feld"><label>Spender:in (Mitglied)</label>
+                <select name="mitglied_id" required>
+                    <option value="">— bitte wählen —</option>
+                    {% for m in mitglieder %}<option value="{{ m.id }}">{{ m.nachname }}, {{ m.vorname }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="feld"><label>Betrag (€)</label><input type="text" name="betrag" placeholder="0,00" required></div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Beschreibung (optional)</label><input type="text" name="beschreibung" placeholder="z.B. Geldspende Sommerfest"></div>
+            <div class="feld"><label>Beleg / Quittung (optional)</label><input type="file" name="beleg" accept="image/*,application/pdf"></div>
+        </div>
+        <button type="submit" class="btn">＋ Spende buchen</button>
+    </form>
+    <div class="feld-hinweis" style="margin-top:10px">Spenden erscheinen zugleich im Kassenbuch (Kategorie „Spende") und hier für die Bescheinigung.</div>
+</div>
+
+{% if not mitglieder %}
+<div class="hilfe-box">Lege zuerst Mitglieder an, um Spenden zuordnen zu können.</div>
+{% endif %}
+
+{% if zeilen %}
+<table>
+    <thead><tr><th>Spender:in</th><th class="rechts">Anzahl</th><th class="rechts">Summe {{ jahr }}</th><th></th></tr></thead>
+    <tbody>
+    {% for z in zeilen %}
+    <tr>
+        <td>{{ z.vorname }} {{ z.nachname }}</td>
+        <td class="rechts">{{ z.anzahl }}</td>
+        <td class="rechts">{{ z.summe | euro }}</td>
+        <td class="rechts">
+            <a href="{{ url_for('dashboard.zuwendungsbestaetigung', mid=z.id, jahr=jahr) }}" target="_blank" class="btn btn-klein">🧾 Bescheinigung</a>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="karte leer"><div class="icon">🧾</div><p>Keine zugeordneten Spenden für {{ jahr }}.</p></div>
+{% endif %}
+{% endblock %}

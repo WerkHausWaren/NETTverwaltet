@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Fotoarchiv{% endblock %}
+{% block content %}
+{% if t %}
+<div class="page-header">
+    <div><h1>📸 {{ t.titel }}</h1><div class="sub">{{ t.datum | datum_de }} · {{ bilder | length }} Foto{{ 's' if bilder | length != 1 }}</div></div>
+    <div class="aktionen"><a href="{{ url_for('oea.fotos') }}" class="btn btn-sekundaer">‹ Alle Alben</a></div>
+</div>
+<div class="hilfe-box" style="margin-bottom:14px">💡 Beim Hochladen bestätigen die Mitglieder, dass die Fotos für die
+    <strong>Öffentlichkeitsarbeit verwendet werden dürfen</strong> (eigenes Foto + Einverständnis der Abgebildeten).
+    Fotos auswählen und als ZIP herunterladen – oder ohne Auswahl das ganze Album.
+    {% if ist_admin %}<br>🚫 <strong>Widerspricht jemand später</strong> der Veröffentlichung, hier das Foto sperren –
+    es wird dann nicht mehr zum Download angeboten.{% else %}<br>🚫 Gesperrte Fotos dürfen <strong>nicht</strong>
+    veröffentlicht werden und lassen sich nicht herunterladen. Freigeben kann nur der Vorstand.{% endif %}</div>
+{% if bilder %}
+{# Eigenes Formular für die Freigabe-Knöpfe – die Knöpfe im Raster verweisen per form/formaction
+   hierher, damit keine (ungültigen) verschachtelten Formulare entstehen. #}
+<form id="fgform" method="post" style="display:none">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="album" value="{{ t.id }}">
+</form>
+{% if hub_an %}
+<form id="socialform" method="post" style="display:none"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+{% if lage %}
+<div class="karte" style="margin-bottom:12px;font-size:14px">📱 <strong>Social Media (Content-Hub)</strong> – Einwilligungen bei dieser Veranstaltung:
+    {{ lage.ja }} Ja{% if lage.ja_alt %} (davon {{ lage.ja_alt }} vor dem 04.11.2026 – gilt nicht für den WhatsApp-Kanal){% endif %} · {{ lage.nein }} Nein · {{ lage.offen }} offen.
+    {% if lage.nein %}<br><span style="color:var(--fehler-text)">Nur Fotos freigeben, auf denen niemand mit „Nein“ zu erkennen ist.</span>{% endif %}
+    <span class="feld-hinweis">Ein späteres Nein nimmt das Häkchen automatisch zurück.</span></div>
+{% endif %}
+{% endif %}
+<form method="post" action="{{ url_for('oea.fotos_zip') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="album" value="{{ t.id }}">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+        <button class="btn">⬇️ Auswahl / Album als ZIP</button>
+        <button type="button" class="btn btn-sekundaer btn-klein" onclick="document.querySelectorAll('.foto-check').forEach(c=>c.checked=true)">Alle wählen</button>
+        <button type="button" class="btn btn-sekundaer btn-klein" onclick="document.querySelectorAll('.foto-check').forEach(c=>c.checked=false)">Keine</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px">
+        {% for f in bilder %}
+        <div class="karte" style="padding:8px{{ ';border:1.5px solid var(--fehler-rand);background:var(--fehler-grund)' if not f.freigabe_ok }}">
+            <label style="cursor:pointer;display:block">
+                <img src="{{ url_for('portal.galerie_foto', fid=f.id) }}" alt="{{ f.beschreibung or 'Foto' }}"
+                     style="width:100%;height:130px;object-fit:cover;border-radius:8px{{ ';opacity:.45' if not f.freigabe_ok }}" loading="lazy">
+                <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
+                    {% if f.freigabe_ok %}<input type="checkbox" name="foto" value="{{ f.id }}" class="foto-check" style="width:auto">{% endif %}
+                    <span class="feld-hinweis" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                        {{ f.beschreibung or ((f.vorname or '') + ' ' + (f.nachname or '')) | trim or 'Foto ' + f.id | string }}</span>
+                </div>
+            </label>
+            {% if not f.freigabe_ok %}<div style="color:var(--fehler-text);font-weight:700;font-size:12.5px;margin-top:4px">🚫 Nicht veröffentlichen</div>{% endif %}
+            {% if ist_admin %}
+            <button type="submit" form="fgform" formaction="{{ url_for('oea.foto_freigabe', fid=f.id) }}"
+                    class="btn btn-sekundaer btn-klein" style="width:100%;margin-top:6px"
+                    onclick="return {{ 'confirm(\'Foto sperren? Es wird dann nicht mehr zum Download angeboten – richtig, wenn jemand der Veröffentlichung widerspricht.\')' if f.freigabe_ok else 'true' }}">
+                {{ '🚫 Sperren' if f.freigabe_ok else '✅ Freigeben' }}</button>
+            <button type="submit" form="fgform" formaction="{{ url_for('oea.foto_loeschen', fid=f.id) }}"
+                    class="btn btn-sekundaer btn-klein" style="width:100%;margin-top:4px;color:var(--fehler-text)"
+                    onclick="return confirm('Dieses Foto endgültig löschen? Das lässt sich nicht rückgängig machen.')">🗑 Löschen</button>
+            {% endif %}
+            {% if hub_an %}
+            <div style="font-size:12.5px;margin-top:4px">{% if f.social_ok %}📱 <strong>Social Media frei</strong>{% if f.social_ok_von %} · {{ f.social_ok_von }}{% endif %}{% elif f.social_ok_von == 'Widerruf' %}<span style="color:var(--fehler-text)">📱 zurückgenommen (Widerruf)</span>{% else %}<span class="feld-hinweis">📱 nicht für Social Media</span>{% endif %}</div>
+            {% if ist_admin and f.freigabe_ok %}
+            <button type="submit" form="socialform" formaction="{{ url_for('oea.foto_social', fid=f.id) }}"
+                    {% if pruefen == f.id %}name="trotzdem" value="1"{% endif %}
+                    class="btn btn-sekundaer btn-klein" style="width:100%;margin-top:4px"
+                    onclick="return {{ 'true' if f.social_ok else 'confirm(\'Für Instagram, Facebook, WhatsApp-Kanal und Signal-Gruppen freigeben? Nur, wenn alle erkennbaren Personen Social Media zugestimmt haben.\')' }}">
+                {{ '📱 Social zurücknehmen' if f.social_ok else ('⚠️ Trotzdem freigeben' if pruefen == f.id else '📱 Für Social Media') }}</button>
+            {% endif %}
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</form>
+{% else %}
+<div class="karte leer"><div class="icon">📸</div><p>In diesem Album liegen noch keine Fotos.</p></div>
+{% endif %}
+
+{% else %}
+<div class="page-header">
+    <div><h1>📸 Fotoarchiv</h1><div class="sub">Alle Veranstaltungs-Alben aus der Mitglieder-Galerie – für Posts und Presse</div></div>
+</div>
+{% if alben %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px">
+    {% for a in alben %}
+    <a href="{{ url_for('oea.fotos', album=a.id) }}" class="karte" style="padding:10px;text-decoration:none;color:inherit">
+        <img src="{{ url_for('portal.galerie_foto', fid=a.cover) }}" alt=""
+             style="width:100%;height:130px;object-fit:cover;border-radius:8px" loading="lazy">
+        <div style="font-weight:700;margin-top:8px">{{ a.titel }}</div>
+        <div class="feld-hinweis">{{ a.datum | datum_de }} · {{ a.anzahl }} Foto{{ 's' if a.anzahl != 1 }}
+            {% if a.gesperrt %}<br><span style="color:var(--fehler-text);font-weight:700">🚫 {{ a.gesperrt }} gesperrt</span>{% endif %}</div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="karte leer"><div class="icon">📸</div><p>Noch keine Fotos in der Galerie. Mitglieder laden Fotos in der
+    Mitglieder-App bei der jeweiligen Veranstaltung hoch – hier erscheinen sie dann als Alben.</p></div>
+{% endif %}
+{% endif %}
+{% endblock %}

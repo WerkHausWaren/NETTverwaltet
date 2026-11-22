@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="de" data-modus="{{ 'dunkel' if m.dunkel else 'hell' }}">
+<head>
+{% include "signage/_kopf.html" %}
+<meta name="apple-mobile-web-app-title" content="Check-in">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<title>Check-in</title>
+<style>
+{% include "signage/_stil.html" %}
+.seite{height:100%;box-sizing:border-box;padding:4vmin 5vmin 3vmin}
+.kopf{padding-bottom:2vmin}
+.uhr{font-size:5vmin;font-weight:300;color:{{ m.f.leise }};margin-left:3vmin}
+.haupt{-webkit-box-align:center;-webkit-align-items:center;align-items:center;padding-top:1vmin}
+.scan{position:relative;width:58vmin;height:58vmin;border-radius:3vmin;overflow:hidden;background:#111;-webkit-flex-shrink:0;flex-shrink:0;
+  box-shadow:0 1vmin 4vmin rgba(0,0,0,.18)}
+.scan video{width:100%;height:100%;object-fit:cover;display:block}
+.scan.vorne video{-webkit-transform:scaleX(-1);transform:scaleX(-1)}
+.rahmen{position:absolute;left:14%;top:14%;width:72%;height:72%;border-radius:2vmin;box-shadow:0 0 0 100vmax rgba(0,0,0,.28)}
+.rahmen i{position:absolute;width:9vmin;height:9vmin;border:1vmin solid #fff}
+.rahmen i:nth-child(1){left:-.5vmin;top:-.5vmin;border-right:0;border-bottom:0;border-top-left-radius:2vmin}
+.rahmen i:nth-child(2){right:-.5vmin;top:-.5vmin;border-left:0;border-bottom:0;border-top-right-radius:2vmin}
+.rahmen i:nth-child(3){left:-.5vmin;bottom:-.5vmin;border-right:0;border-top:0;border-bottom-left-radius:2vmin}
+.rahmen i:nth-child(4){right:-.5vmin;bottom:-.5vmin;border-left:0;border-top:0;border-bottom-right-radius:2vmin}
+.linie{position:absolute;left:16%;right:16%;top:20%;height:.5vmin;background:{{ m.f.akzent }};opacity:.85;border-radius:.3vmin;
+  -webkit-animation:fahren 2.4s ease-in-out infinite alternate;animation:fahren 2.4s ease-in-out infinite alternate}
+@-webkit-keyframes fahren{to{top:80%}}@keyframes fahren{to{top:80%}}
+.kamera-hinweis{position:absolute;left:0;right:0;top:0;bottom:0;display:none;color:#fff;font-size:3vmin;text-align:center;padding:6vmin;
+  -webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;line-height:1.4}
+.text{padding-left:6vmin}
+.text h1{font-size:7.6vmin;line-height:1.05;margin:1.4vmin 0 1.6vmin;letter-spacing:-.01em}
+.text .termin{font-size:3.6vmin;font-weight:600;line-height:1.25}
+.text .zeit{font-size:3vmin;color:{{ m.f.leise }};margin-top:.6vmin}
+.text .anleitung{font-size:3.2vmin;line-height:1.45;margin-top:4vmin}
+.text .anleitung b{color:{{ m.f.akzent_schrift }}}
+.text .klein{font-size:2.4vmin;color:{{ m.f.leise }};margin-top:2vmin;line-height:1.4}
+.zaehler{margin-top:3vmin;font-size:2.6vmin;color:{{ m.f.leise }}}
+.ruhe{text-align:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}
+.ruhe h1{font-size:7vmin;margin:2vmin 0}
+.ruhe p{font-size:3.4vmin;line-height:1.4;color:{{ m.f.leise }};margin:0}
+.ergebnis{position:fixed;left:0;top:0;right:0;bottom:0;z-index:30;display:none;color:#fff;text-align:center;padding:8vmin;box-sizing:border-box;
+  -webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}
+.ergebnis.zeigen{display:-webkit-box;display:-webkit-flex;display:flex}
+.ergebnis.gruen{background:#1b7a3d}.ergebnis.gelb{background:#b86e00}.ergebnis.rot{background:#b3261e}
+.ergebnis .zeichen{font-size:24vmin;line-height:1;margin-bottom:3vmin}
+.ergebnis h2{font-size:8vmin;line-height:1.1;margin:0 0 2.4vmin}
+.ergebnis p{font-size:4vmin;line-height:1.35;margin:0 auto;max-width:90%}
+.ergebnis.gruen .zeichen{-webkit-animation:hupf .5s ease-out;animation:hupf .5s ease-out}
+@-webkit-keyframes hupf{0%{-webkit-transform:scale(.3)}70%{-webkit-transform:scale(1.15)}100%{-webkit-transform:scale(1)}}
+@keyframes hupf{0%{transform:scale(.3)}70%{transform:scale(1.15)}100%{transform:scale(1)}}
+@media (orientation: portrait){
+  .haupt{-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}
+  .scan{width:70vmin;height:70vmin}
+  .text{padding:4vmin 0 0;text-align:center}
+}
+@media (prefers-reduced-motion: reduce){.linie,.ergebnis .zeichen{-webkit-animation:none;animation:none}}
+.fuss{border-top:1px solid {{ m.f.linie }};padding-top:1.6vmin;font-size:2.3vmin;color:{{ m.f.leise }}}
+</style>
+</head>
+<body>
+{% if vorschau %}<div class="vorschau">Vorschau – es wird nichts eingecheckt</div>{% endif %}
+<div class="seite flex spalte">
+  <div class="kopf flex mitte-v">
+    <div class="wachsen" style="height:12vmin">{% with hoehe="12vmin" %}{% include "signage/_logo.html" %}{% endwith %}</div>
+    <div class="uhr zahl" id="uhr">{{ jetzt.strftime('%H:%M') }}</div>
+  </div>
+  <div class="haupt wachsen flex" id="aktiv" style="display:none">
+    <div class="scan{{ ' vorne' if einst.kamera != 'environment' }}" id="scan">
+      <video id="video" playsinline muted autoplay></video>
+      <div class="rahmen"><i></i><i></i><i></i><i></i></div>
+      <div class="linie"></div>
+      <div class="kamera-hinweis" id="kamera-hinweis"></div>
+    </div>
+    <div class="text wachsen">
+      <div class="ueberzeile akzent">Check-in</div>
+      <h1>Willkommen!</h1>
+      <div class="termin" id="t-titel"></div>
+      <div class="zeit zahl" id="t-zeit"></div>
+      <div class="anleitung">Halte den <b>QR-Code deines Tickets</b> in den Rahmen – fertig.</div>
+      <div class="klein">Du findest ihn in deiner Anmeldebestätigung (E-Mail) oder in der Wallet.
+        Kein Ticket dabei? Bitte am Einlass melden.</div>
+      <div class="zaehler zahl" id="zaehler"></div>
+    </div>
+  </div>
+  <div class="haupt wachsen flex spalte ruhe" id="ruhe">
+    <div class="ueberzeile akzent">Check-in</div>
+    <h1 id="ruhe-titel">Gleich geht’s los</h1>
+    <p id="ruhe-text">Einen Moment bitte …</p>
+  </div>
+  <div class="fuss flex mitte-v"><div class="wachsen">{{ m.name }}</div><div>{{ m.website }}</div></div>
+</div>
+<div class="ergebnis" id="ergebnis" role="status" aria-live="assertive">
+  <div class="zeichen" id="e-zeichen"></div><h2 id="e-titel"></h2><p id="e-text"></p>
+</div>
+<script src="{{ url_for('static', filename='jsqr.min.js') }}"></script>
+<script>
+(function () {
+  var URL_STAND = {{ stand_url|tojson }}, URL_PRUEFEN = {{ pruefen_url|tojson }};
+  var KAMERA = {{ (einst.kamera or 'user')|tojson }};
+  var csrf = document.querySelector('meta[name=csrf-token]').getAttribute('content');
+  var video = document.getElementById('video'), hinweis = document.getElementById('kamera-hinweis');
+  var strom = null, leinwand = document.createElement('canvas'), ctx = leinwand.getContext('2d');
+  var zuletzt = '', zuletztZeit = 0, beschaeftigt = false, termin = null;
+  function $(id) { return document.getElementById(id); }
+  function z(n) { return n < 10 ? '0' + n : '' + n; }
+  setInterval(function () { var d = new Date(); $('uhr').innerHTML = z(d.getHours()) + ':' + z(d.getMinutes()); }, 10000);
+
+  function json(methode, url, daten, fertig) {
+    var x = new XMLHttpRequest();
+    x.open(methode, url, true);
+    x.setRequestHeader('Content-Type', 'application/json');
+    x.setRequestHeader('X-CSRFToken', csrf);
+    x.onreadystatechange = function () {
+      if (x.readyState !== 4) return;
+      var j = null;
+      try { j = JSON.parse(x.responseText); } catch (e) {}
+      fertig(x.status, j);
+    };
+    x.send(daten ? JSON.stringify(daten) : null);
+  }
+  function kameraHinweis(text) { hinweis.style.display = text ? '-webkit-flex' : 'none'; hinweis.style.display = text ? 'flex' : 'none'; hinweis.innerHTML = text || ''; }
+  function kameraAn() {
+    if (strom) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { kameraHinweis('Dieses Gerät kann die Kamera im Browser nicht nutzen. Bitte am Einlass melden.'); return; }
+    navigator.mediaDevices.getUserMedia({video: {facingMode: KAMERA, width: {ideal: 1280}, height: {ideal: 720}}, audio: false}).then(function (s) {
+      strom = s; video.srcObject = s; var p = video.play(); if (p && p.catch) p.catch(function () {});
+      kameraHinweis(''); setTimeout(scannen, 300);
+    }).catch(function () {
+      kameraHinweis('Die Kamera ist nicht freigegeben.<br>Bitte in den iPad-Einstellungen für diese Seite erlauben und neu laden.');
+    });
+  }
+  function kameraAus() {
+    if (!strom) return;
+    strom.getTracks().forEach(function (t) { t.stop(); }); strom = null; video.srcObject = null;
+  }
+  function scannen() {
+    if (!strom) return;
+    if (!beschaeftigt && video.readyState >= 2 && video.videoWidth) {
+      var b = 640, h = Math.round(video.videoHeight * b / video.videoWidth);
+      leinwand.width = b; leinwand.height = h;
+      ctx.drawImage(video, 0, 0, b, h);
+      var code = null;
+      try { code = window.jsQR(ctx.getImageData(0, 0, b, h).data, b, h, {inversionAttempts: 'dontInvert'}); } catch (e) {}
+      if (code && code.data) {
+        var jetzt = Date.now();
+        if (code.data !== zuletzt || jetzt - zuletztZeit > 8000) { zuletzt = code.data; zuletztZeit = jetzt; pruefen(code.data); }
+      }
+    }
+    setTimeout(scannen, 220);
+  }
+  function zeigen(e) {
+    var box = $('ergebnis');
+    $('e-zeichen').innerHTML = e.status === 'gruen' ? '✓' : (e.status === 'gelb' ? '!' : '✕');
+    $('e-titel').textContent = e.titel || ''; $('e-text').textContent = e.text || '';
+    box.className = 'ergebnis zeigen ' + (e.status || 'rot');
+    setTimeout(function () { box.className = 'ergebnis'; beschaeftigt = false; stand(); }, e.status === 'gruen' ? 3500 : 6000);
+  }
+  function pruefen(code) {
+    beschaeftigt = true;
+    json('POST', URL_PRUEFEN, {code: code}, function (status, j) {
+      if (!j || status >= 400) j = {status: 'rot', titel: status === 429 ? 'Kurz durchatmen …' : 'Das hat nicht geklappt',
+                                    text: 'Bitte noch einmal versuchen oder am Einlass melden.'};
+      zeigen(j);
+    });
+  }
+  function stand() {
+    json('GET', URL_STAND, null, function (status, j) {
+      if (!j) return;
+      if (j.neu_laden) { location.reload(); return; }
+      if (j.csrf) csrf = j.csrf;
+      termin = j.termin;
+      if (termin) {
+        $('aktiv').style.display = ''; $('ruhe').style.display = 'none';
+        $('t-titel').textContent = termin.titel; $('t-zeit').textContent = [termin.zeit, termin.ort].filter(Boolean).join(' · ');
+        $('zaehler').textContent = j.gesamt ? (j.da + ' von ' + j.gesamt + ' Gästen sind schon da') : '';
+        kameraAn();
+      } else {
+        kameraAus();
+        $('aktiv').style.display = 'none'; $('ruhe').style.display = '';
+        var n = j.naechster;
+        $('ruhe-titel').textContent = n ? n.titel : 'Heute kein Check-in';
+        $('ruhe-text').textContent = n ? ('Check-in ab ' + (n.ab || 'Beginn') + ' Uhr' + (n.ort ? ' · ' + n.ort : '')) :
+          'Hier checkst du bei Veranstaltungen mit Anmeldung selbst ein.';
+      }
+    });
+  }
+  stand();
+  setInterval(function () { if (!beschaeftigt) stand(); }, 30000);
+})();
+</script>
+</body>
+</html>

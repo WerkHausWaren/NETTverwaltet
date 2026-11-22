@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Abzeichen{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🏅 Abzeichen</h1><div class="sub">Auszeichnungen für Engagement – Mitglieder sehen sie in der App (Schichten &amp; „Ich")</div></div>
+    <a href="{{ url_for('einstellungen.index') }}" class="btn btn-sekundaer">← Einstellungen</a>
+</div>
+
+<div class="karte">
+    <p style="margin:0" class="feld-hinweis">
+        Ein Abzeichen wird automatisch verliehen, sobald ein Mitglied die Schwelle des Kriteriums erreicht
+        (inkl. Push-Glückwunsch). {% if not eigene %}Aktuell gelten die <strong>Standard-Abzeichen</strong> –
+        sobald du etwas änderst, werden sie als eigene Liste dieses Vereins übernommen.{% else %}
+        Dieser Verein nutzt <strong>eigene Abzeichen</strong>.{% endif %}
+        Das Abzeichen mit Kriterium „Stunden im laufenden Jahr" ab 200 zeigt Mitgliedern zusätzlich den
+        Hinweis zur <a href="https://www.ehrenamtskarte-mv.de/" target="_blank" rel="noopener">Ehrenamtskarte MV</a>.
+    </p>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">Bestehende Abzeichen</h2>
+    <div style="display:flex;flex-direction:column;gap:8px">
+        {% for d in defs %}
+        <form method="post" action="{{ url_for('einstellungen.abzeichen_speichern') }}"
+              style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 0;{{ '' if loop.last else 'border-bottom:1px solid var(--linie)' }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="id" value="{{ d.id or '' }}">
+            <input type="text" name="symbol" value="{{ d.symbol }}" style="width:52px;text-align:center;font-size:18px" title="Symbol">
+            <input type="text" name="titel" value="{{ d.titel }}" required style="flex:1;min-width:160px" title="Titel">
+            <select name="kriterium" title="Kriterium">
+                {% for k, txt in kriterien %}<option value="{{ k }}" {{ 'selected' if d.kriterium == k }}>{{ txt }}</option>{% endfor %}
+            </select>
+            <input type="text" name="schwelle" inputmode="decimal" value="{{ ('%g'|format(d.schwelle))|replace('.',',') }}" style="width:70px" title="Schwelle">
+            <span style="white-space:nowrap">
+                <button class="btn btn-sekundaer btn-klein" name="aktion" value="speichern" title="Speichern">💾</button>
+                <button class="btn btn-sekundaer btn-klein" name="aktion" value="loeschen" title="Löschen"
+                        onclick="return confirm('Abzeichen „{{ d.titel }}“ löschen?')">🗑</button>
+            </span>
+        </form>
+        {% endfor %}
+    </div>
+    {% if eigene %}
+    <form method="post" action="{{ url_for('einstellungen.abzeichen_speichern') }}" style="margin-top:12px"
+          onsubmit="return confirm('Alle eigenen Abzeichen verwerfen und zum Standard zurückkehren?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-sekundaer" name="aktion" value="reset">↩️ Auf Standard zurücksetzen</button>
+    </form>
+    {% endif %}
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">➕ Neues Abzeichen</h2>
+    <form method="post" action="{{ url_for('einstellungen.abzeichen_speichern') }}" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld" style="max-width:90px"><label>Symbol</label><input type="text" name="symbol" value="🏅" style="text-align:center;font-size:18px"></div>
+        <div class="feld" style="flex:1;min-width:200px"><label>Titel</label><input type="text" name="titel" required placeholder="z. B. Sommerfest-Held/in"></div>
+        <div class="feld"><label>Kriterium</label>
+            <select name="kriterium">{% for k, txt in kriterien %}<option value="{{ k }}">{{ txt }}</option>{% endfor %}</select></div>
+        <div class="feld" style="max-width:110px"><label>Schwelle</label><input type="text" name="schwelle" inputmode="decimal" value="1"></div>
+        <button class="btn" name="aktion" value="neu">＋ Anlegen</button>
+    </form>
+    <p class="feld-hinweis" style="margin:8px 0 0">Als Symbol eignet sich jedes Emoji. Die Schwelle bezieht sich auf das gewählte Kriterium
+        (z. B. Kriterium „Stunden gesamt", Schwelle 25 = ab 25 Ehrenamts-Stunden).</p>
+</div>
+{% endblock %}

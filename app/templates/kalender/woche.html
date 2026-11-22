@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Kalender – Woche{% endblock %}
+{% block content %}
+{% include "kalender/_switcher.html" %}
+
+<div class="kal-woche">
+{% for d in days %}
+    <div class="kal-wtag" style="{{ 'outline:2px solid var(--blau)' if d.heute }}">
+        <div class="kal-wtag-kopf">{{ d.name }} {{ d.datum.strftime('%d.%m.') }}</div>
+        {% for e in d.events %}{% include "kalender/_chip.html" %}{% endfor %}
+        <a href="{{ url_for('kalender.index', ansicht='liste', neu_datum=d.datum.isoformat(), _anchor='neu') }}"
+           class="feld-hinweis" style="display:block;margin-top:8px">＋ Termin</a>
+    </div>
+{% endfor %}
+</div>
+{% endblock %}

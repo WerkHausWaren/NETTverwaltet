@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{{ eintrag.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>{{ eintrag.symbol }} {{ eintrag.name }}</h1>
+        <div class="sub">Lese-Ansicht – das PDF daneben eignet sich zum Teilen und Ausdrucken</div></div>
+    <div class="aktionen">
+        <a href="{{ url_for('dashboard.hilfe') }}" class="btn btn-sekundaer">‹ Zurück</a>
+        <a href="{{ url_for('dashboard.hilfe_unterlage', dateiname=eintrag.datei, laden=1) }}" class="btn btn-sekundaer">📄 PDF</a>
+        {% if naechste %}
+        <a href="{{ url_for('dashboard.hilfe_lesen', schluessel=naechste.schluessel) }}" class="btn">{{ naechste.symbol }} Nächste ›</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="karte" style="padding:0;overflow:hidden">
+    <iframe src="{{ url_for('dashboard.hilfe_unterlage', dateiname=eintrag.web) }}"
+            style="width:100%;border:none;display:block;min-height:75vh"
+            onload="try{this.style.height=(this.contentDocument.body.scrollHeight+40)+'px'}catch(e){}"></iframe>
+</div>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "portal/_layout.html" %}
+{% block title %}Verteilaktionen{% endblock %}
+{% block inhalt %}
+<div class="mp-schmal">
+<div class="mp-karte">
+    <a href="{{ url_for('portal.home') }}" style="font-size:14px;color:var(--blau-text);text-decoration:none">‹ Startseite</a>
+    <h1 style="font-size:22px;margin:8px 0 4px">🚶 Verteilaktionen</h1>
+    <p class="feld-hinweis" style="margin:0">Flyer verteilen und Plakate aufhängen: Übernimm eine Straße, lass dir eine Route vorschlagen oder setze ein Plakat.</p>
+</div>
+{% for va in aktionen %}
+{% include 'portal/_verteil_karte.html' %}
+{% else %}
+<div class="mp-karte" style="text-align:center;color:var(--text-hell)">Gerade läuft keine Verteilaktion. Danke, dass du vorbeischaust!</div>
+{% endfor %}
+</div>
+{% endblock %}

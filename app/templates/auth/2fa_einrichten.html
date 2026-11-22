@@ -1,0 +1,18 @@
+{% extends "auth/_layout.html" %}
+{% block title %}Zwei-Faktor einrichten{% endblock %}
+{% block inhalt %}
+<div class="auth-logo">🔐</div>
+<h2 class="auth-titel">Zwei-Faktor-Sicherung einrichten</h2>
+<p class="feld-hinweis">Scanne den Code mit einer Authenticator-App (z. B. Google Authenticator, Aegis, 1Password).</p>
+<div style="text-align:center;margin:14px 0">{{ qr_svg|safe }}</div>
+<p class="feld-hinweis" style="text-align:center">Nicht scannbar? Schlüssel: <code>{{ secret }}</code></p>
+<form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="feld"><label>Zur Bestätigung: aktueller 6-stelliger Code</label>
+        <input type="text" name="code" inputmode="numeric" autofocus></div>
+    <button type="submit" class="btn">Aktivieren</button>
+</form>
+<p style="text-align:center;margin-top:12px">
+    <a class="feld-hinweis" href="{{ url_for('dashboard.index') }}">Später einrichten</a>
+</p>
+{% endblock %}

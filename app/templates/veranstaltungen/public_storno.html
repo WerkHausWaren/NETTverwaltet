@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="{{ sprache_aktiv }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ ue('Reservierung stornieren') }} – {{ a.titel }}</title>
+{% with akzent = (einst.farbe_primaer if einst else '') %}{% include "_oeffentlich_stil.html" %}{% endwith %}
+<style>
+    body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; color: var(--text, #1e293b); margin: 0; background: var(--grund, #eef1f5); }
+    .kopf { background: var(--akz); color: var(--auf-primaer, #fff); padding: 18px 20px; display: flex; align-items: center; gap: 12px; }
+    .kopf img { height: 40px; background: var(--logo-teller, #fff); border-radius: 6px; padding: 3px; }
+    .kopf .vn { font-weight: 800; font-size: 17px; }
+    .wrap { max-width: 560px; margin: 0 auto; padding: 30px 16px; }
+    .karte { background: var(--flaeche, #fff); color: var(--text, #1e293b); border-radius: 14px; padding: 26px; text-align: center; box-shadow: 0 3px 14px rgba(0,0,0,.05); }
+    .ico { font-size: 46px; }
+    h1 { font-size: 22px; margin: 8px 0; }
+    .info { background: var(--flaeche-2, #f4f6fb); color: var(--text, #1e293b); border-radius: 10px; padding: 12px; margin: 14px 0; text-align: left; font-size: 14.5px; }
+    .btn { display: inline-block; background: var(--rot, #c0392b); color: var(--auf-primaer, #fff); text-decoration: none; border: none;
+           border-radius: 11px; padding: 12px 22px; font-weight: 700; margin-top: 10px; font-size: 15px; cursor: pointer; }
+    p { color: var(--text, #475569); }
+    .hinweis { font-size: 13px; color: var(--text-hell, #64748b); margin-top: 14px; }
+</style>
+</head>
+<body>
+<div class="kopf">
+    <a href="{{ url_for('portal.home') }}" title="Zur Startseite" style="display:contents;color:inherit;text-decoration:none">
+        {% if einst and einst.logo_dateiname %}<img src="{{ url_for('einstellungen.logo', verein_id=einst.id) }}" alt="">{% endif %}
+        <span class="vn">{{ einst.vereinsname if einst else '' }}</span>
+    </a>
+</div>
+<div class="wrap">
+    <div class="karte">
+        {% if a.storniert %}
+        <div class="ico">✅</div>
+        <h1>{{ ue('Reservierung storniert') }}</h1>
+        <p>{{ ue('storniert_text') if sprache_aktiv != 'de' else 'Deine Reservierung für' }} <strong>„{{ a.titel }}"</strong> ({{ a.datum|datum_de }}) {{ ue('storniert_text2') if sprache_aktiv != 'de' else 'wurde storniert. Schade, dass es nicht klappt – vielleicht beim nächsten Mal!' }}</p>
+        {% elif vergangen %}
+        <div class="ico">🕰️</div>
+        <h1>{{ ue('Zu spät') }}</h1>
+        <p><strong>„{{ a.titel }}"</strong> – {{ ue('zu_spaet_text') if sprache_aktiv != 'de' else 'die Veranstaltung hat bereits stattgefunden, eine Stornierung ist nicht mehr möglich.' }}</p>
+        {% elif frist_vorbei %}
+        <div class="ico">⏳</div>
+        <h1>{{ ue('Storno-Frist abgelaufen') }}</h1>
+        <p><strong>„{{ a.titel }}"</strong> – {{ ue('eine Online-Stornierung war bis') }} {{ frist_bis }} {{ ue('möglich. Bitte melde dich direkt beim Verein') }}{% if einst and einst.email %} (<a href="mailto:{{ einst.email }}">{{ einst.email }}</a>){% endif %}.</p>
+        {% else %}
+        <div class="ico">🎟️</div>
+        <h1>{{ ue('Reservierung stornieren?') }}</h1>
+        <div class="info">
+            <strong>{{ a.titel }}</strong><br>
+            📅 {{ a.datum|datum_de }}{% if a.uhrzeit %} · 🕒 {{ a.uhrzeit }} Uhr{% endif %}{% if a.veranstaltungsort %} · 📍 {{ a.veranstaltungsort }}{% endif %}<br>
+            👤 {{ a.anmelder_name }}{% if teilnehmer %} · {{ teilnehmer|length }} {{ ue('Teilnehmende') }}{% endif %}
+        </div>
+        <p>{{ ue('storno_frage') if sprache_aktiv != 'de' else 'Möchtest du diese Reservierung wirklich stornieren? Das kann nicht rückgängig gemacht werden – bei Bedarf kannst du dich aber jederzeit neu anmelden.' }}</p>
+        <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn">{{ ue('✖ Ja, Reservierung stornieren') }}</button>
+        </form>
+        {% endif %}
+        <p class="hinweis">{{ ue('Fragen? Melde dich einfach bei uns') }}{% if einst and einst.email %}:
+            <a href="mailto:{{ einst.email }}">{{ einst.email }}</a>{% endif %}.</p>
+        <p style="margin-top:14px"><a href="{{ url_for('portal.termine') }}"
+            style="color:var(--akz-text, var(--akz));text-decoration:none;font-weight:600">{{ ue('📅 Weitere Termine ansehen') }}</a></p>
+    </div>
+</div>
+</body>
+</html>

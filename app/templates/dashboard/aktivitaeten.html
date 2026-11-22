@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Letzte Aktivitäten{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>📰 Letzte Aktivitäten</h1>
+        <div class="sub">Was zuletzt im Verein passiert ist – aus allen Bereichen, neueste zuerst</div></div>
+    <a href="{{ url_for('dashboard.index') }}" class="btn btn-sekundaer">← Zum Dashboard</a>
+</div>
+
+<div class="karte">
+    {% if eintraege %}
+    {% set ns = namespace(tag='') %}
+    {% for icon, text, zeit, ziel, wer in eintraege %}
+    {% set tag = (zeit or '')[:10] %}
+    {% if tag and tag != ns.tag %}
+    {% set ns.tag = tag %}
+    <div style="font-weight:800;margin:{{ '2px' if loop.first else '18px' }} 0 6px;color:var(--text-hell)">
+        📆 {{ tag[8:10] }}.{{ tag[5:7] }}.{{ tag[0:4] }}</div>
+    {% endif %}
+    {% if ziel %}<a href="{{ ziel }}"{% else %}<div{% endif %}
+        style="display:flex;gap:10px;align-items:flex-start;padding:7px 0;text-decoration:none;color:inherit;border-bottom:1px solid var(--grau-linie)">
+        <span style="flex:none">{{ icon }}</span>
+        <div style="flex:1;min-width:0">{{ text }}
+            {% if wer %}<div class="feld-hinweis">👤 {{ wer }}</div>{% endif %}</div>
+        <span class="feld-hinweis" style="flex:none">{{ (zeit or '')[11:16] }}</span>
+        {% if ziel %}<span style="flex:none;color:var(--text-schwach)">›</span>{% endif %}
+    {% if ziel %}</a>{% else %}</div>{% endif %}
+    {% endfor %}
+    <div style="display:flex;justify-content:center;align-items:center;gap:12px;margin-top:16px">
+        {% if seite > 1 %}
+        <a href="{{ url_for('dashboard.aktivitaeten', seite=seite - 1 if seite > 2 else None) }}"
+           class="btn btn-sekundaer">‹ Neuere</a>
+        {% endif %}
+        <span class="feld-hinweis">Seite {{ seite }}</span>
+        {% if weiter %}
+        <a href="{{ url_for('dashboard.aktivitaeten', seite=seite + 1) }}" class="btn btn-sekundaer">Ältere ›</a>
+        {% else %}
+        <span class="feld-hinweis">– weiter zurück reichen die Aufzeichnungen nicht</span>
+        {% endif %}
+    </div>
+    {% else %}
+    <p class="feld-hinweis">Noch keine Aktivitäten aufgezeichnet.</p>
+    {% endif %}
+</div>
+{% endblock %}

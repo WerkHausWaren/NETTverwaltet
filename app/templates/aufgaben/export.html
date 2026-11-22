@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Aufgaben exportieren{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>✅ Aufgaben exportieren & abonnieren</h1><div class="sub">In Aufgaben-/Kalender-Apps einbinden</div></div>
+    <a href="{{ url_for('aufgaben.index') }}" class="btn btn-sekundaer">← Zurück</a>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">🔗 Aufgaben abonnieren (empfohlen)</h2>
+    <p class="feld-hinweis">Hält die offenen Aufgaben (als To-dos mit Fälligkeit) automatisch aktuell. In der App unter „Kalender/Aufgaben per URL abonnieren" einfügen:</p>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0">
+        <input id="feed" type="text" readonly value="{{ feed }}" style="flex:1;min-width:280px;font-family:monospace;font-size:13px">
+        <button type="button" class="btn" onclick="navigator.clipboard.writeText(document.getElementById('feed').value);this.textContent='✓ Kopiert';">📋 Kopieren</button>
+        <a href="{{ webcal }}" class="btn btn-sekundaer">Öffnen ↗</a>
+    </div>
+    <p class="feld-hinweis">Apple Erinnerungen/Kalender und viele To-do-Apps unterstützen VTODO-Abos. Google/Outlook zeigen sie im Kalender an. Die Adresse ist geheim – nur an vertrauenswürdige Personen weitergeben.</p>
+</div>
+
+<div class="karte">
+    <h2 style="margin-top:0">⬇️ Einmalig als Datei (.ics)</h2>
+    <a href="{{ url_for('aufgaben.download_ics') }}" class="btn btn-sekundaer">aufgaben.ics herunterladen</a>
+</div>
+{% endblock %}

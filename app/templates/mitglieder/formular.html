@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Mitglied bearbeiten' if m else 'Neues Mitglied' }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>{{ 'Mitglied bearbeiten' if m else 'Neues Mitglied' }}</h1></div>
+    <a href="{{ url_for('mitglieder.liste') }}" class="btn btn-sekundaer">← Zurück</a>
+</div>
+
+<form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <fieldset>
+        <legend>Person</legend>
+        <div class="feld-reihe">
+            <div class="feld"><label>Mitgliedsnummer</label>
+                <input type="text" name="mitgliedsnummer" value="{{ m.mitgliedsnummer if m else '' }}" placeholder="automatisch">
+            </div>
+            <div class="feld"><label>Anrede</label>
+                <select name="anrede">
+                    {% for a in ['', 'Frau', 'Herr', 'Divers'] %}
+                    <option value="{{ a }}" {{ 'selected' if m and m.anrede == a }}>{{ a or '—' }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="feld"><label>Titel</label>
+                <input type="text" name="titel" value="{{ m.titel if m else '' }}" placeholder="Dr.">
+            </div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Vorname</label>
+                <input type="text" name="vorname" value="{{ m.vorname if m else '' }}"></div>
+            <div class="feld"><label>Nachname</label>
+                <input type="text" name="nachname" value="{{ m.nachname if m else '' }}"></div>
+        </div>
+        <div class="feld"><label>Firma / Organisation (bei juristischen Mitgliedern)</label>
+            <input type="text" name="firma" value="{{ m.firma if m else '' }}"></div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Kontakt & Adresse</legend>
+        <div class="feld"><label>Straße & Hausnummer</label>
+            <input type="text" name="strasse" value="{{ m.strasse if m else '' }}"></div>
+        <div class="feld-reihe">
+            <div class="feld"><label>PLZ</label>
+                <input type="text" name="plz" value="{{ m.plz if m else '' }}"></div>
+            <div class="feld"><label>Ort</label>
+                <input type="text" name="ort" value="{{ m.ort if m else '' }}"></div>
+            <div class="feld"><label>Land</label>
+                <input type="text" name="land" value="{{ m.land if m else 'Deutschland' }}"></div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>E-Mail</label>
+                <input type="email" name="email" id="email-haupt" value="{{ m.email if m else '' }}"
+                       oninput="emailZusatzPruefen()"></div>
+            <div class="feld"><label>Telefon</label>
+                <input type="text" name="telefon" value="{{ m.telefon if m else '' }}"></div>
+            <div class="feld"><label>Mobil</label>
+                <input type="text" name="mobil" value="{{ m.mobil if m else '' }}"></div>
+        </div>
+
+        {% set weitere = (m.email_weitere.split('\n') if m and m.email_weitere else []) %}
+        <div class="feld" id="email-zusatz-block" style="{{ '' if (weitere or (m and m.email)) else 'display:none' }}">
+            <label>Weitere E-Mail-Adressen</label>
+            <div id="email-zusatz-liste">
+                {% for e in weitere %}
+                <div class="email-zusatz-zeile" style="display:flex;gap:8px;margin-bottom:6px">
+                    <input type="email" name="email_weitere" value="{{ e }}" placeholder="weitere@example.de" style="flex:1">
+                    <button type="button" class="btn btn-sekundaer btn-klein" onclick="this.parentNode.remove()">✕</button>
+                </div>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn btn-sekundaer btn-klein" onclick="emailZusatzHinzufuegen()">+ weitere E-Mail</button>
+        </div>
+    </fieldset>
+
+    <script>
+        function emailZusatzHinzufuegen(wert){
+            var liste = document.getElementById("email-zusatz-liste");
+            var zeile = document.createElement("div");
+            zeile.className = "email-zusatz-zeile";
+            zeile.style = "display:flex;gap:8px;margin-bottom:6px";
+            zeile.innerHTML = '<input type="email" name="email_weitere" placeholder="weitere@example.de" style="flex:1">'
+                + '<button type="button" class="btn btn-sekundaer btn-klein" onclick="this.parentNode.remove()">✕</button>';
+            liste.appendChild(zeile);
+            if (wert) zeile.querySelector("input").value = wert;
+        }
+        // Sobald eine Haupt-E-Mail vorhanden ist, den „+ weitere E-Mail"-Bereich zeigen
+        function emailZusatzPruefen(){
+            var haupt = document.getElementById("email-haupt").value.trim();
+            var block = document.getElementById("email-zusatz-block");
+            if (haupt) block.style.display = "";
+        }
+    </script>
+
+    <fieldset>
+        <legend>Mitgliedschaft</legend>
+        <div class="feld-reihe">
+            <div class="feld"><label>Geburtsdatum</label>
+                <input type="date" name="geburtsdatum" value="{{ m.geburtsdatum if m else '' }}"></div>
+            <div class="feld"><label>Eintrittsdatum</label>
+                <input type="date" name="eintrittsdatum" value="{{ m.eintrittsdatum if m else '' }}"></div>
+            <div class="feld"><label>Austrittsdatum</label>
+                <input type="date" name="austrittsdatum" value="{{ m.austrittsdatum if m else '' }}"></div>
+        </div>
+        <div class="feld-reihe">
+            <div class="feld"><label>Status</label>
+                <select name="status">
+                    {% for s in status_optionen %}
+                    <option value="{{ s }}" {{ 'selected' if m and m.status == s }}>{{ s }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="feld"><label>Beitragsgruppe</label>
+                <input type="text" name="beitragsgruppe" value="{{ m.beitragsgruppe if m else '' }}"
+                       list="beitragsgruppen" placeholder="z.B. Vollmitglied">
+                <datalist id="beitragsgruppen">
+                    <option>Vollmitglied</option><option>Ermäßigt</option>
+                    <option>Familie</option><option>Fördermitglied</option><option>Jugend</option>
+                </datalist>
+            </div>
+        </div>
+        {% if gruppen %}
+        <div class="feld"><label>Gruppen / Verteiler</label>
+            <div class="tag-auswahl">
+            {% for g in gruppen %}
+                <label><input type="checkbox" name="gruppen" value="{{ g.id }}"
+                       {{ 'checked' if g.id in mitglied_gruppen }}> {{ g.name }}</label>
+            {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </fieldset>
+
+    <fieldset>
+        <legend>Beitrag & Zahlung</legend>
+        <div class="feld-reihe">
+            <div class="feld"><label>Beitrag (€)</label>
+                <input type="text" name="beitrag" value="{{ '%.2f'|format(m.beitrag) if m else '' }}" placeholder="0,00"></div>
+            <div class="feld"><label>Zahlungsweise</label>
+                <select name="zahlungsweise">
+                    {% for z in zahlungsweisen %}
+                    <option value="{{ z }}" {{ 'selected' if m and m.zahlungsweise == z }}>{{ z }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="feld"><label>Zahlungsart</label>
+                <select name="zahlungsart" id="zahlungsart" onchange="sepaAnzeigen()">
+                    {% for z in zahlungsarten %}
+                    <option value="{{ z }}" {{ 'selected' if m and m.zahlungsart == z }}>{{ z }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div id="sepa-felder">
+            <div class="feld-reihe">
+                <div class="feld"><label>Kontoinhaber</label>
+                    <input type="text" name="kontoinhaber" value="{{ m.kontoinhaber if m else '' }}"></div>
+                <div class="feld"><label>IBAN</label>
+                    <input type="text" name="iban" value="{{ m.iban if m else '' }}" placeholder="DE.."></div>
+                <div class="feld"><label>BIC</label>
+                    <input type="text" name="bic" value="{{ m.bic if m else '' }}"></div>
+            </div>
+            <div class="feld-reihe">
+                <div class="feld"><label>Mandatsreferenz</label>
+                    <input type="text" name="mandatsreferenz" value="{{ m.mandatsreferenz if m else '' }}"></div>
+                <div class="feld"><label>Mandatsdatum</label>
+                    <input type="date" name="mandatsdatum" value="{{ m.mandatsdatum if m else '' }}"></div>
+            </div>
+            <div class="feld" style="background:var(--flaeche-2);border:1px solid var(--grau-linie);border-radius:8px;padding:12px">
+                <label style="font-weight:600"><input type="checkbox" name="mandat_vorhanden" style="width:auto" {{ 'checked' if m and m.mandat_vorhanden }}> ✅ SEPA-Lastschriftmandat liegt unterschrieben vor</label>
+                <div class="feld-hinweis" style="margin:6px 0 10px">Nur mit vorliegendem Mandat darf eine Lastschrift eingezogen werden.</div>
+                {% if m and m.mandat_dateiname %}
+                <div style="margin-bottom:8px">📎 Nachweis vorhanden:
+                    <a href="{{ url_for('mitglieder.mandat', mid=m.id) }}" target="_blank">Mandat öffnen</a></div>
+                {% endif %}
+                <label>Mandat als Nachweis hochladen (PDF/Foto){% if m and m.mandat_dateiname %} – ersetzt bisheriges{% endif %}</label>
+                <input type="file" name="mandat_datei" accept="image/*,application/pdf">
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Kommunikationswege</legend>
+        {% set genutzt = (m.komm_genutzt if m and m.komm_genutzt else '').split(',') %}
+        {% set erlaubt = (m.komm_erlaubt if m and m.komm_erlaubt else '').split(',') %}
+        <div class="feld-hinweis" style="margin-bottom:10px">„Genutzt" = worüber das Mitglied erreichbar ist. „Erlaubt" = worüber es kontaktiert werden <em>darf</em> (Einwilligung).</div>
+        <table style="box-shadow:none">
+            <thead><tr><th>Weg</th>
+                <th style="text-align:center">genutzt<br><label class="feld-hinweis" style="font-weight:400;cursor:pointer" title="Wählt alle Wege, für die passende Kontaktdaten hinterlegt sind"><input type="checkbox" onclick="kommAlle('komm_genutzt', this.checked)" style="width:auto"> vorhandene</label></th>
+                <th style="text-align:center">erlaubt<br><label class="feld-hinweis" style="font-weight:400;cursor:pointer" title="Wählt alle Wege, für die passende Kontaktdaten hinterlegt sind"><input type="checkbox" onclick="kommAlle('komm_erlaubt', this.checked)" style="width:auto"> vorhandene</label></th>
+            </tr></thead>
+            <tbody>
+            {% for w in komm_wege %}
+            <tr>
+                <td>{{ w }}</td>
+                <td style="text-align:center"><input type="checkbox" name="komm_genutzt" value="{{ w }}" style="width:auto" {{ 'checked' if w in genutzt }}></td>
+                <td style="text-align:center"><input type="checkbox" name="komm_erlaubt" value="{{ w }}" style="width:auto" {{ 'checked' if w in erlaubt }}></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </fieldset>
+    <script>
+    // Feldbewusstes „auf einmal auswählen": wählt nur Wege, für die passende Daten hinterlegt sind.
+    function _kf(n){ var el = document.querySelector('[name="'+n+'"]'); return el ? (el.value||'').trim() : ''; }
+    function kommMoeglich(weg){
+        var email=_kf('email'), tel=_kf('telefon'), mob=_kf('mobil'), str=_kf('strasse'), ort=_kf('ort');
+        switch(weg){
+            case 'E-Mail': case 'Nextcloud': return !!email;
+            case 'Telefon': return !!(tel || mob);
+            case 'WhatsApp': case 'Signal': return !!(mob || tel);
+            case 'Post': return !!(str && ort);
+            default: return false;   // Sonstiges o. Ä.: nur manuell
+        }
+    }
+    function kommAlle(name, on){
+        document.querySelectorAll('input[name="'+name+'"]').forEach(function(c){
+            c.checked = on ? kommMoeglich(c.value) : false;
+        });
+    }
+    </script>
+
+    <fieldset>
+        <legend>Abwesenheit</legend>
+        <label style="font-weight:600;display:block;margin-bottom:8px"><input type="checkbox" name="abwesend" style="width:auto" {{ 'checked' if m and m.abwesend }}> 🌴 Mitglied ist abwesend</label>
+        <div class="feld-reihe">
+            <div class="feld"><label>Abwesend von (optional)</label><input type="date" name="abwesend_von" value="{{ (m.abwesend_von or '') if m else '' }}"></div>
+            <div class="feld"><label>bis (optional)</label><input type="date" name="abwesend_bis" value="{{ (m.abwesend_bis or '') if m else '' }}"></div>
+            <div class="feld"><label>Notiz (optional)</label><input type="text" name="abwesend_notiz" placeholder="z. B. Urlaub, krank" value="{{ (m.abwesend_notiz or '') if m else '' }}"></div>
+        </div>
+        <div class="feld-hinweis">Ohne „bis"-Datum gilt die Abwesenheit unbefristet; mit Datum endet sie automatisch danach.</div>
+    </fieldset>
+
+    {% if felder %}
+    <fieldset>
+        <legend>Weitere Angaben</legend>
+        {% for f in felder %}
+        {% set val = feldwerte.get(f.id, '') %}
+        <div class="feld"><label>{{ f.name }}</label>
+            {% if f.typ == 'mehrzeilig' %}
+                <textarea name="feld_{{ f.id }}" rows="3">{{ val }}</textarea>
+            {% elif f.typ == 'datum' %}
+                <input type="date" name="feld_{{ f.id }}" value="{{ val }}">
+            {% elif f.typ == 'zahl' %}
+                <input type="number" step="any" name="feld_{{ f.id }}" value="{{ val }}">
+            {% elif f.typ == 'ja_nein' %}
+                <label style="font-weight:400"><input type="checkbox" name="feld_{{ f.id }}" value="1" style="width:auto" {{ 'checked' if val == '1' }}> Ja</label>
+            {% elif f.typ == 'auswahl' %}
+                <select name="feld_{{ f.id }}">
+                    <option value="">– bitte wählen –</option>
+                    {% for opt in f.optionen.splitlines() if opt.strip() %}
+                    <option value="{{ opt.strip() }}" {{ 'selected' if val == opt.strip() }}>{{ opt.strip() }}</option>
+                    {% endfor %}
+                </select>
+            {% else %}
+                <input type="text" name="feld_{{ f.id }}" value="{{ val }}">
+            {% endif %}
+        </div>
+        {% endfor %}
+    </fieldset>
+    {% endif %}
+
+    <fieldset>
+        <legend>🌐 Gesprochene Sprachen</legend>
+        {% set m_sprachen = (m.sprachen if m and m.sprachen else '').split(',') %}
+        <div style="display:flex;flex-wrap:wrap;gap:8px 16px">
+        {% for s in sprachen_auswahl %}
+            <label style="display:inline-flex;align-items:center;gap:6px;font-weight:400">
+                <input type="checkbox" name="sprachen" value="{{ s }}" style="width:auto"
+                       {{ 'checked' if s in m_sprachen }}> {{ s }}</label>
+        {% endfor %}
+        </div>
+        {% set weitere = m_sprachen | reject('in', sprachen_auswahl) | select | join(', ') %}
+        <div class="feld" style="margin-top:10px"><label>Weitere Sprachen (kommagetrennt)</label>
+            <input type="text" name="sprachen" value="{{ weitere }}" placeholder="z.B. Polnisch, Farsi">
+        </div>
+        {% if not design.sprachen_labels %}
+        <div class="feld-hinweis">Als Kürzel-Label in Liste und Detailansicht sichtbar, sobald in den
+            Einstellungen unter „Mehrsprachigkeit" die Label-Anzeige eingeschaltet ist.</div>
+        {% endif %}
+    </fieldset>
+    <fieldset>
+        <legend>Notizen</legend>
+        <div class="feld"><textarea name="notizen" placeholder="Interne Notizen …">{{ m.notizen if m else '' }}</textarea></div>
+    </fieldset>
+
+    <div class="aktionen">
+        <button type="submit" class="btn">💾 Speichern</button>
+        <a href="{{ url_for('mitglieder.liste') if not m else url_for('mitglieder.detail', mid=m.id) }}" class="btn btn-sekundaer">Abbrechen</a>
+    </div>
+</form>
+
+<script>
+function sepaAnzeigen() {
+    var art = document.getElementById('zahlungsart').value;
+    document.getElementById('sepa-felder').style.display = (art === 'SEPA-Lastschrift') ? 'block' : 'none';
+}
+sepaAnzeigen();
+</script>
+{% endblock %}

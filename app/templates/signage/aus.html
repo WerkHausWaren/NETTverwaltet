@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="de" data-modus="dunkel">
+<head>
+{% include "signage/_kopf.html" %}
+<meta http-equiv="refresh" content="300">
+<title>Signage</title>
+<style>
+{% include "signage/_stil.html" %}
+html,body{background:#000;color:#6c757d}
+.rahmen{min-height:100%;box-sizing:border-box;padding:6vmin;text-align:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}
+.rahmen div{font-size:2.6vmin;line-height:1.5;max-width:80vmin}
+</style>
+</head>
+<body>
+<div class="rahmen flex spalte mitte-v">
+{% if grund == "zu_viele" %}
+  <div>Zu viele Kopplungsversuche von diesem Netz. Bitte in einer Stunde erneut versuchen.<br>
+  Erscheint das immer wieder, speichert dieser Browser keine Cookies – dann einen anderen Browser nehmen.</div>
+{% else %}
+  <div><strong>{{ m.name }}</strong><br>Die Anzeige ist gerade ausgeschaltet (Modul „Signage“).
+  Diese Seite prüft alle 5 Minuten, ob sie wieder an ist.</div>
+{% endif %}
+</div>
+</body>
+</html>

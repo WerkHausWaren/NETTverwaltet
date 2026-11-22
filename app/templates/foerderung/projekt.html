@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}{{ p.titel }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <div><h1>🎯 {{ p.titel }}</h1>
+        <div class="sub">{{ p.geber_name or 'ohne Fördergeber' }}{% if p.aktenzeichen %} · Az. {{ p.aktenzeichen }}{% endif %}</div></div>
+    <div class="aktionen">
+        <a href="{{ url_for('foerderung.index') }}" class="btn btn-sekundaer">← Übersicht</a>
+        <a href="{{ url_for('foerderung.projekt_bearbeiten', pid=p.id) }}" class="btn btn-sekundaer">✏️ Bearbeiten</a>
+        <a href="{{ url_for('foerderung.nachweis', pid=p.id) }}" class="btn" target="_blank">🧾 Verwendungsnachweis</a>
+    </div>
+</div>
+
+{% if frist_was and ampel in ('rot', 'gelb') %}
+<div class="karte" style="border-left:4px solid {{ 'var(--rot)' if ampel == 'rot' else 'var(--gelb)' }};
+     background:{{ 'var(--fehler-grund)' if ampel == 'rot' else 'var(--warn-grund)' }};padding:14px">
+    {% if frist_tage < 0 %}<strong style="color:var(--fehler-text)">⚠️ {{ frist_was }} seit {{ -frist_tage }} Tagen überfällig!</strong>
+    {% elif frist_tage == 0 %}<strong style="color:var(--fehler-text)">⚠️ {{ frist_was }} – heute!</strong>
+    {% else %}<strong>⏰ {{ frist_was }} in {{ frist_tage }} Tagen</strong>{% endif %}
+</div>
+{% endif %}
+
+{% if vmb_warnung %}
+<div class="karte" style="border-left:4px solid var(--rot);background:var(--fehler-grund)">
+    <h2 style="margin-top:0;font-size:16px;color:var(--fehler-text)">⚠️ Ausgaben vor der Bewilligung</h2>
+    <p style="margin:0 0 8px">{{ vmb_warnung.anzahl }} zugeordnete Buchung{{ 'en' if vmb_warnung.anzahl != 1 }}
+        liegt vor dem Bescheid vom {{ p.bescheid_am | datum_de }} – die früheste am
+        <strong>{{ vmb_warnung.erste | datum_de }}</strong>.</p>
+    <p class="feld-hinweis" style="margin:0">Kosten, die vor der Bewilligung entstehen, sind normalerweise
+        <strong>nicht förderfähig</strong> – das ist der häufigste Grund, eine Förderung ganz zu verlieren.
+        Maßgeblich ist der Tag des Vertragsabschlusses, nicht der Zahlung. Habt ihr eine schriftliche
+        Zustimmung zum vorzeitigen Maßnahmenbeginn? Dann trag ihr Datum unter
+        <a href="{{ url_for('foerderung.projekt_bearbeiten', pid=p.id) }}">Bearbeiten</a> ein, dann
+        verschwindet dieser Hinweis.</p>
+</div>
+{% endif %}
+
+<div class="karte">
+    <h2 style="margin-top:0">Wo steht das Projekt?</h2>
+    <form method="post" action="{{ url_for('foerderung.status_setzen', pid=p.id) }}"
+          style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% for key, name, hilfe in status_liste %}
+        <button name="status" value="{{ key }}" title="{{ hilfe }}"
+                class="btn {{ '' if p.status == key else 'btn-sekundaer' }} btn-klein"
+                {{ 'disabled' if p.status == key }}>{{ name }}</button>
+        {% endfor %}
+    </form>
+    <p class="feld-hinweis" style="margin-bottom:0">Ein Klick genügt – das passende Datum
+        (eingereicht / Bescheid / Nachweis) wird automatisch mitgeschrieben.</p>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:14px">
+    <div class="karte" style="margin:0">
+        <h2 style="margin-top:0">💶 Geld</h2>
+        <table class="tabelle no-sort" style="margin:0">
+            <tbody>
+            <tr><td>Gesamtkosten</td><td class="rechts">{{ p.gesamtkosten | euro if p.gesamtkosten else '–' }}</td></tr>
+            <tr><td>Beantragt</td><td class="rechts">{{ p.antragssumme | euro if p.antragssumme else '–' }}</td></tr>
+            <tr><td><strong>Bewilligt</strong></td>
+                <td class="rechts"><strong style="color:{{ 'var(--gruen)' if p.bewilligt else 'inherit' }}">
+                    {{ p.bewilligt | euro if p.bewilligt else '–' }}</strong></td></tr>
+            <tr><td>Eigenanteil</td><td class="rechts">{{ p.eigenanteil | euro if p.eigenanteil else '–' }}</td></tr>
+            {% if finanz_name %}<tr><td>Finanzierungsart</td><td class="rechts">{{ finanz_name }}</td></tr>{% endif %}
+            <tr style="border-top:2px solid var(--linie)"><td>Bisher ausgegeben</td>
+                <td class="rechts">{{ ausgaben | euro }}</td></tr>
+            {% if einnahmen %}<tr><td>Einnahmen im Projekt</td><td class="rechts">{{ einnahmen | euro }}</td></tr>{% endif %}
+            {% if p.bewilligt %}
+            {% set rest = p.bewilligt - ausgaben %}
+            <tr><td><strong>{{ 'Noch verfügbar' if rest >= 0 else 'Überschritten um' }}</strong></td>
+                <td class="rechts"><strong style="color:{{ 'var(--rot)' if rest < 0 else 'var(--gruen)' }}">
+                    {{ (rest if rest >= 0 else -rest) | euro }}</strong></td></tr>
+            {% endif %}
+            </tbody>
+        </table>
+        {% if p.bewilligt %}
+        {% set quote = ((ausgaben / p.bewilligt * 100) | round | int) if p.bewilligt else 0 %}
+        <div style="background:var(--flaeche-3);border-radius:6px;height:10px;overflow:hidden;margin-top:12px">
+            <div style="height:100%;width:{{ [quote, 100] | min }}%;
+                 background:{{ 'var(--rot)' if quote > 100 else ('var(--gelb)' if quote > 85 else 'var(--gruen)') }}"></div>
+        </div>
+        <div class="feld-hinweis">{{ quote }} % der Fördersumme verbraucht</div>
+        {% endif %}
+    </div>
+
+    <div class="karte" style="margin:0">
+        <h2 style="margin-top:0">📅 Termine</h2>
+        <table class="tabelle no-sort" style="margin:0">
+            <tbody>
+            {% for label, wert in [('Antragsfrist', p.antragsfrist), ('Eingereicht am', p.eingereicht_am),
+                                   ('Bescheid vom', p.bescheid_am),
+                                   ('Vorzeitiger Beginn genehmigt', p.vmb_am), ('Projekt von', p.projekt_von),
+                                   ('Projekt bis', p.projekt_bis), ('Nachweis bis', p.nachweis_bis),
+                                   ('Nachweis abgegeben', p.nachweis_am)] %}
+            <tr><td>{{ label }}</td><td class="rechts">
+                {% if wert %}{{ wert | datum_de }}{% else %}<span class="feld-hinweis">–</span>{% endif %}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% if geber and geber.url %}
+        <p style="margin:12px 0 0"><a href="{{ geber.url|sichere_url }}" target="_blank" rel="noopener">🔗 Zum Förderprogramm ↗</a></p>
+        {% endif %}
+        {% if p.ansprechpartner %}<p class="feld-hinweis" style="margin:6px 0 0">👤 {{ p.ansprechpartner }}</p>{% endif %}
+    </div>
+</div>
+
+{% if p.beschreibung or p.notiz %}
+<div class="karte">
+    {% if p.beschreibung %}<h2 style="margin-top:0">Das Vorhaben</h2>
+    <p style="white-space:pre-wrap;margin:0">{{ p.beschreibung }}</p>{% endif %}
+    {% if p.notiz %}<h2 style="{{ 'margin-top:16px' if p.beschreibung else 'margin-top:0' }}">Notizen</h2>
+    <p style="white-space:pre-wrap;margin:0" class="feld-hinweis">{{ p.notiz }}</p>{% endif %}
+</div>
+{% endif %}
+
+<div class="karte" id="abrechnung">
+    <h2 style="margin-top:0">🧾 Abrechnung – zugeordnete Buchungen</h2>
+    <p class="feld-hinweis" style="margin-top:0">Alles, was hier steht, landet später automatisch im
+        Verwendungsnachweis. Die Buchungen bleiben ganz normal im Kassenbuch.</p>
+
+    {% if buchungen %}
+    <table class="tabelle no-sort">
+        <thead><tr><th>Datum</th><th>Beschreibung</th><th>Kategorie</th><th class="rechts">Betrag</th><th></th></tr></thead>
+        <tbody>
+        {% for b in buchungen %}
+        <tr>
+            <td style="white-space:nowrap">{{ b.datum | datum_de }}</td>
+            <td>{{ b.beschreibung }}</td>
+            <td>{{ b.konto_name or b.kategorie or '–' }}</td>
+            <td class="rechts" style="font-variant-numeric:tabular-nums;color:{{ 'var(--gruen)' if b.typ == 'einnahme' else 'inherit' }}">
+                {{ '+' if b.typ == 'einnahme' else '−' }} {{ b.betrag | euro }}</td>
+            <td class="rechts">
+                <form method="post" action="{{ url_for('foerderung.buchung_zuordnen', pid=p.id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="aktion" value="entfernen">
+                    <input type="hidden" name="buchung_id" value="{{ b.id }}">
+                    <button class="btn btn-sekundaer btn-klein" title="Aus diesem Projekt entfernen">✕</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot><tr style="font-weight:700;border-top:2px solid var(--linie)">
+            <td colspan="3">Ausgaben gesamt</td><td class="rechts">{{ ausgaben | euro }}</td><td></td>
+        </tr></tfoot>
+    </table>
+    {% else %}
+    <p style="margin:0">Noch keine Buchung zugeordnet.</p>
+    {% endif %}
+
+    <details style="margin-top:14px" {{ 'open' if not buchungen and frei }}>
+        <summary style="cursor:pointer;font-weight:600">+ Buchungen aus dem Kassenbuch zuordnen
+            ({{ frei | length }} zur Auswahl)</summary>
+        {% if frei %}
+        <form method="post" action="{{ url_for('foerderung.buchung_zuordnen', pid=p.id) }}" style="margin-top:10px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <p class="feld-hinweis" style="margin-top:0">
+                {% if p.projekt_von or p.projekt_bis %}Gezeigt werden Buchungen im Projektzeitraum, die noch
+                    keinem Förderprojekt zugeordnet sind.
+                {% else %}Trag oben einen Projektzeitraum ein, dann wird diese Liste kürzer und passgenauer.{% endif %}</p>
+            <table class="tabelle no-sort">
+                <thead><tr><th style="width:34px"></th><th>Datum</th><th>Beschreibung</th><th>Kategorie</th>
+                    <th class="rechts">Betrag</th></tr></thead>
+                <tbody>
+                {% for b in frei %}
+                <tr>
+                    <td><input type="checkbox" name="buchung" value="{{ b.id }}" id="b{{ b.id }}"></td>
+                    <td style="white-space:nowrap"><label for="b{{ b.id }}" style="font-weight:400">{{ b.datum | datum_de }}</label></td>
+                    <td><label for="b{{ b.id }}" style="font-weight:400">{{ b.beschreibung }}</label></td>
+                    <td>{{ b.konto_name or b.kategorie or '–' }}</td>
+                    <td class="rechts" style="font-variant-numeric:tabular-nums;color:{{ 'var(--gruen)' if b.typ == 'einnahme' else 'inherit' }}">
+                        {{ '+' if b.typ == 'einnahme' else '−' }} {{ b.betrag | euro }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <button class="btn">Ausgewählte zuordnen</button>
+        </form>
+        {% else %}
+        <p class="feld-hinweis" style="margin-top:10px">Im Projektzeitraum gibt es keine freien Buchungen mehr.
+            Neue Ausgaben trägst du wie gewohnt im <a href="{{ url_for('finanzen.liste') }}">Kassenbuch</a> ein –
+            danach tauchen sie hier auf.</p>
+        {% endif %}
+    </details>
+</div>
+
+<div class="karte" id="nachweis">
+    <h2 style="margin-top:0">📝 Sachbericht</h2>
+    <p class="feld-hinweis" style="margin-top:0">Fast jeder Geldgeber will neben den Zahlen einen kurzen Text:
+        Was wurde gemacht, wurde das Ziel erreicht, wie viele Menschen wurden erreicht, was war schwierig?
+        Schreib ihn hier – er kommt automatisch auf den Verwendungsnachweis.</p>
+    <form method="post" action="{{ url_for('foerderung.sachbericht', pid=p.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="feld"><textarea name="sachbericht" rows="10"
+            placeholder="1. Was war geplant?&#10;2. Was wurde tatsächlich umgesetzt (Termine, Zahlen, Beteiligte)?&#10;3. Wurden die Ziele erreicht?&#10;4. Was hat gut funktioniert, was nicht?&#10;5. Wie geht es weiter?">{{ p.sachbericht or '' }}</textarea></div>
+        <button class="btn">Sachbericht speichern</button>
+        <a href="{{ url_for('foerderung.nachweis', pid=p.id) }}" class="btn btn-sekundaer" target="_blank">
+            🧾 Verwendungsnachweis ansehen &amp; drucken</a>
+    </form>
+</div>
+{% endblock %}

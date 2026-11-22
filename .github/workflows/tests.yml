@@ -1,0 +1,24 @@
+name: Tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Bibliotheken installieren
+        run: pip install -r requirements.txt
+      - name: Alle Tests
+        run: |
+          fehler=0
+          for t in tests/test_*.py; do
+            python "$t" > /tmp/ausgabe.txt 2>&1 || { echo "::error::$t"; tail -20 /tmp/ausgabe.txt; fehler=1; }
+          done
+          exit $fehler

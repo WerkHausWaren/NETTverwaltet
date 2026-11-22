@@ -1,0 +1,22 @@
+{% extends "auth/_layout.html" %}
+{% block title %}Passwort vergessen{% endblock %}
+{% block inhalt %}
+<div class="auth-logo">🔑</div>
+<h2 class="auth-titel">Passwort vergessen</h2>
+
+{% if nc_konfiguriert %}
+<p><strong>Nextcloud-Konto:</strong> Dein Passwort verwaltest du direkt in Nextcloud.</p>
+<p><a class="btn btn-sekundaer" href="{{ nc_url }}/index.php/lostpassword/" target="_blank" rel="noopener">Zur Nextcloud-Passwortrücksetzung →</a></p>
+
+<hr>
+{% endif %}
+
+<p><strong>Notfall-Admin-Konto:</strong> Trage deine E-Mail ein – falls ein Notfall-Konto existiert,
+   senden wir dir einen Link zum Zurücksetzen.</p>
+<form method="post" action="{{ url_for('auth.passwort_reset_anfordern') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="feld"><label>E-Mail</label><input type="email" name="email" required></div>
+    <button type="submit" class="btn btn-sekundaer">Link senden</button>
+</form>
+<p style="text-align:center;margin-top:12px"><a class="feld-hinweis" href="{{ url_for('auth.login') }}">← Zurück zur Anmeldung</a></p>
+{% endblock %}
