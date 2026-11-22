@@ -1,5 +1,5 @@
 Flask>=3.0
-fints>=5.0
+fints>=5.0.1
 
 # Produktionsbetrieb / Sicherheit (Server)
 gunicorn>=21.0
