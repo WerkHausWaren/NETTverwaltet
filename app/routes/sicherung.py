@@ -26,7 +26,7 @@ def index():
     return render_template("sicherung/index.html", aktiv="sicherung",
                            letztes=b.letztes_backup(),
                            ordner=b.backup_ordner(),
-                           in_onedrive=b.onedrive_basis() is not None,
+                           in_onedrive=b.in_onedrive(),
                            backups=b.liste_backups())
 
 

@@ -21,9 +21,16 @@ Rundmails verschicken.
 
 ## 3. Mitglieder übernehmen
 
-Habt ihr eine Excel- oder CSV-Liste? **Mitglieder → ⬆️ Import** erkennt die Spalten weitgehend selbst
-(Name, Anschrift, E-Mail, Telefon, Geburtsdatum, Eintritt, Bankverbindung …). Danach könnt ihr unter
-**🏷️ Gruppen** Mitglieder einteilen, etwa in Vorstand, Aktive oder Förderer.
+Habt ihr schon eine Mitgliederliste? **Mitglieder → ⬆️ Import** liest **CSV-Dateien** ein:
+
+1. Die erste Zeile der Liste muss die **Spaltennamen** enthalten, genau so geschrieben wie auf der Import-Seite
+   angegeben – z. B. `vorname`, `nachname`, `strasse`, `plz`, `ort`, `email`, `geburtsdatum`, `eintrittsdatum`,
+   `iban`. Am einfachsten: die Beispielliste aus dem Ordner `beispieldaten` als Vorlage nehmen.
+2. **Excel-Liste?** In Excel **Datei → Speichern unter → „CSV UTF-8 (durch Trennzeichen getrennt)“** wählen
+   (bei LibreOffice: „Text CSV“, Zeichensatz UTF-8).
+3. Datei auf der Import-Seite auswählen und **Importieren** klicken. Datumsangaben am besten als `2015-03-01`.
+
+Danach könnt ihr unter **🏷️ Gruppen** Mitglieder einteilen, etwa in Vorstand, Aktive oder Förderer.
 
 > Tipp: Probiert den Import zuerst mit wenigen Zeilen oder mit der Beispielliste aus `beispieldaten/`.
 

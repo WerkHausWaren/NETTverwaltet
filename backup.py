@@ -2,7 +2,14 @@
 Datensicherung der Vereinsverwaltung.
 
 Erstellt eine konsistente Kopie der Datenbank (data/verein.db).
-Ziel: OneDrive-Ordner (automatische Cloud-Sicherung), sonst lokal in data/backups.
+Ziel: lokal in data/backups (Standard).
+
+OneDrive nur auf ausdrücklichen Wunsch: Liegt im Datenordner die Datei
+„sicherung-in-onedrive“ (oder ist VV_SICHERUNG_ONEDRIVE=1 gesetzt), landen die
+Sicherungen im OneDrive-Ordner. Früher war OneDrive der Standard – dadurch schrieb
+jeder Testlauf mit frischem Datenordner leere Sicherungen dorthin und verdrängte
+per Aufbewahrungsregel die echten (Vorfall 22.11.2026). Für fremde Installationen
+hätte es zudem unverschlüsselte Mitgliederdaten ungefragt in eine Cloud kopiert.
 
 Dieses Skript nutzt NUR die Python-Standardbibliothek und ist unabhängig von Flask.
 Dadurch kann es auch über einen wöchentlichen macOS-Zeitplan (launchd) laufen,
@@ -55,9 +62,22 @@ def onedrive_basis():
     return treffer[0] if treffer else None
 
 
+ONEDRIVE_SCHALTER = os.path.join(DATA_DIR, "sicherung-in-onedrive")
+
+
+def onedrive_gewuenscht():
+    """OneDrive nur, wenn ausdrücklich eingeschaltet (Schalter-Datei oder Umgebungsvariable)."""
+    return os.path.exists(ONEDRIVE_SCHALTER) or os.environ.get("VV_SICHERUNG_ONEDRIVE") == "1"
+
+
+def in_onedrive():
+    """Landen Sicherungen gerade in OneDrive?"""
+    return onedrive_gewuenscht() and onedrive_basis() is not None
+
+
 def backup_ordner():
-    """Zielordner für Sicherungen (OneDrive bevorzugt, sonst lokal)."""
-    basis = onedrive_basis()
+    """Zielordner für Sicherungen: lokal, OneDrive nur auf ausdrücklichen Wunsch."""
+    basis = onedrive_basis() if onedrive_gewuenscht() else None
     if basis:
         ordner = os.path.join(basis, ONEDRIVE_UNTERORDNER, "Sicherungen")
     else:
@@ -86,7 +106,7 @@ def erstelle_backup():
     _alte_entfernen(ordner)
     with open(MARKER, "w") as f:
         f.write(time.strftime("%Y-%m-%d %H:%M:%S"))
-    return ziel, onedrive_basis() is not None
+    return ziel, in_onedrive()
 
 
 def _alte_entfernen(ordner):
@@ -146,8 +166,8 @@ def liste_backups():
 
 
 if __name__ == "__main__":
-    ziel, in_onedrive = erstelle_backup()
+    ziel, wolke = erstelle_backup()
     if ziel:
-        print(f"Sicherung erstellt: {ziel}" + (" (OneDrive)" if in_onedrive else " (lokal)"))
+        print(f"Sicherung erstellt: {ziel}" + (" (OneDrive)" if wolke else " (lokal)"))
     else:
         print("Keine Datenbank gefunden – nichts gesichert.")

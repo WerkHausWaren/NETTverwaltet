@@ -1,0 +1,112 @@
+# Prüft, ob NETTverwaltet so startet, wie es die Anleitungen versprechen:
+# per Doppelklick-Datei auf Windows, Mac und Linux (docs/01) und als Server mit
+# Docker + Caddy über einrichten.sh (docs/02). Echte Rechner von GitHub, keine Attrappen.
+name: Starter
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Vereinsverwaltung starten (Windows).bat"
+      - "Vereinsverwaltung starten (Mac).command"
+      - "vereinsverwaltung-starten-linux.sh"
+      - "run.py"
+      - "requirements.txt"
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - "einrichten.sh"
+      - "Caddyfile.vorlage"
+      - ".github/workflows/starter.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    name: Windows (Doppelklick auf die .bat)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Starter ausführen und auf die App warten
+        shell: pwsh
+        run: |
+          # cmd entfernt das äußere Anführungszeichen-Paar – so bleibt der Dateiname mit Leerzeichen heil.
+          $p = Start-Process cmd.exe -ArgumentList '/c', '""Vereinsverwaltung starten (Windows).bat" <nul >start.log 2>&1"' -PassThru -WindowStyle Hidden
+          $ok = $false
+          for ($i = 0; $i -lt 100; $i++) {
+            Start-Sleep -Seconds 3
+            try { $r = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:5001/ -TimeoutSec 5; if ($r.StatusCode -eq 200) { $ok = $true; break } } catch {}
+          }
+          Get-Content start.log
+          if (-not $ok) { Write-Error "Die App antwortet nicht auf http://127.0.0.1:5001"; exit 1 }
+          if (-not ($r.Content -match "Mein Verein")) { Write-Error "Dashboard von „Mein Verein e.V.“ fehlt"; exit 1 }
+          if (-not (Test-Path ".venv\.installiert")) { Write-Error "Einrichtung nicht als fertig markiert"; exit 1 }
+          Write-Host "OK: Windows-Starter richtet ein und startet die App."
+          Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
+
+  mac:
+    name: Mac (Doppelklick auf die .command)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Starter ausführen und auf die App warten
+        env:
+          BROWSER: "true"   # kein Browserfenster auf dem Testrechner
+        run: |
+          bash "./Vereinsverwaltung starten (Mac).command" > start.log 2>&1 &
+          for i in $(seq 100); do curl -fs http://127.0.0.1:5001/ > seite.html && break; sleep 3; done
+          cat start.log
+          grep -q "Mein Verein" seite.html || { echo "::error::App antwortet nicht oder Dashboard fehlt"; exit 1; }
+          test -f .venv/.installiert || { echo "::error::Einrichtung nicht als fertig markiert"; exit 1; }
+          echo "OK: Mac-Starter richtet ein und startet die App."
+
+  linux:
+    name: Linux (Startskript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Starter ausführen und auf die App warten
+        env:
+          BROWSER: "true"
+        run: |
+          ./vereinsverwaltung-starten-linux.sh > start.log 2>&1 &
+          for i in $(seq 100); do curl -fs http://127.0.0.1:5001/ > seite.html && break; sleep 3; done
+          cat start.log
+          grep -q "Mein Verein" seite.html || { echo "::error::App antwortet nicht oder Dashboard fehlt"; exit 1; }
+          echo "OK: Linux-Starter richtet ein und startet die App."
+
+  server:
+    name: Server (einrichten.sh + Docker + Caddy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Einrichten wie in docs/02 (als root)
+        run: |
+          echo "verein.localhost" | sudo ./einrichten.sh
+          sudo test -f .env
+          test "$(stat -c %u data)" = "1000" || { echo "::error::Datenordner gehört nicht dem App-Nutzer"; exit 1; }
+      - name: Starten und Erst-Einrichtung abrufen
+        run: |
+          sudo docker compose up -d --build
+          for i in $(seq 60); do
+            code=$(curl -sk -o seite.html -w "%{http_code}" -L --resolve verein.localhost:443:127.0.0.1 https://verein.localhost/ || true)
+            [ "$code" = "200" ] && break; sleep 3
+          done
+          sudo docker compose logs --tail 50
+          grep -qi "einricht" seite.html || { echo "::error::Erst-Einrichtung erscheint nicht (HTTP $code)"; exit 1; }
+          sudo docker compose exec -T app sh -c 'ls /data' | grep -q "system.db" || { echo "::error::App konnte keine Datenbank anlegen"; exit 1; }
+      - name: Erst-Einrichtung ausfüllen (Schritt 7)
+        run: |
+          U=https://verein.localhost; R="--resolve verein.localhost:443:127.0.0.1"
+          tok=$(curl -sk $R -c kekse -b kekse $U/einrichten | grep -o 'name="csrf_token" value="[^"]*"' | head -1 | sed 's/.*value="//;s/"$//')
+          test -n "$tok" || { echo "::error::Formular der Erst-Einrichtung ohne Schutz-Token"; exit 1; }
+          ziel=$(curl -sk $R -c kekse -b kekse -o /dev/null -w "%{redirect_url}" \
+            --data-urlencode "csrf_token=$tok" --data-urlencode "vereinsname=Testverein e.V." \
+            --data-urlencode "ort=Musterstadt" --data-urlencode "vereins_email=info@verein.example" \
+            --data-urlencode "email=vorstand@verein.example" --data-urlencode "passwort=Probe-Passwort-123" \
+            --data-urlencode "passwort2=Probe-Passwort-123" $U/einrichten)
+          echo "Weiterleitung nach: $ziel"
+          echo "$ziel" | grep -q "2fa" || { echo "::error::Erst-Einrichtung hat kein Konto angelegt"; exit 1; }
+          curl -sk $R -b kekse -o /dev/null -w "%{http_code}" $U/einrichten | grep -q 302 || { echo "::error::Erst-Einrichtung bleibt offen"; exit 1; }
+          echo "OK: Server-Weg läuft bis zum ersten Verwaltungskonto."

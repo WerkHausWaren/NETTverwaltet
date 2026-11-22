@@ -24,6 +24,10 @@ if [ ! -f ".venv/.installiert" ] || [ requirements.txt -nt ".venv/.installiert" 
     python -m pip install --quiet --upgrade pip
     if python -m pip install --quiet -r requirements.txt; then
         touch ".venv/.installiert"
+        echo "Fertig eingerichtet."
+    else
+        echo "⚠️  Einige Pakete konnten nicht installiert werden – Internetverbindung prüfen."
+        echo "    Beim nächsten Start wird es erneut versucht."
     fi
 fi
 

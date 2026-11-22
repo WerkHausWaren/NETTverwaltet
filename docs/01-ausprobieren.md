@@ -27,7 +27,8 @@ NETTverwaltet braucht das kostenlose Programm **Python** (Version 3.9 oder neuer
 
 1. Oben auf dieser GitHub-Seite auf den grünen Knopf **„Code“** klicken → **„Download ZIP“**.
 2. Die ZIP-Datei entpacken (Doppelklick bzw. Rechtsklick → „Alle extrahieren“).
-3. Den entpackten Ordner an einen festen Ort legen, z. B. in „Dokumente“. Dort bleiben später auch eure Daten.
+3. Den entpackten Ordner (er heißt `NETTverwaltet-main`) an einen festen Ort legen, z. B. in „Dokumente“.
+   Dort bleiben später auch eure Daten.
 
 ### Schritt 3: Starten
 
@@ -40,8 +41,14 @@ Im Ordner doppelt klicken auf:
 Beim **ersten Start** richtet sich das Programm selbst ein. Das dauert ein bis zwei Minuten und braucht kurz Internet.
 Danach öffnet sich der Browser mit dem Dashboard von „Mein Verein e.V.“.
 
-> **Mac zeigt eine Warnung** („kann nicht geöffnet werden“)? Einmal **Rechtsklick auf die Datei → Öffnen → Öffnen**.
-> Danach reicht der normale Doppelklick.
+> **Mac zeigt eine Warnung** („kann nicht geöffnet werden“ oder „Apple konnte nicht überprüfen …“)?
+> Das kommt bei Programmen aus dem Internet, die nicht über den App Store laufen. Die Warnung mit **„Fertig“**
+> schließen, dann **Systemeinstellungen → Datenschutz & Sicherheit** öffnen, ganz nach unten scrollen und bei
+> der Startdatei auf **„Dennoch öffnen“** klicken (danach Passwort oder Touch ID). Bei älteren Macs genügt
+> **Rechtsklick auf die Datei → Öffnen → Öffnen**. Das ist nur einmal nötig.
+>
+> **Windows zeigt „Der Computer wurde durch Windows geschützt“?** Auf **„Weitere Informationen“** und dann auf
+> **„Trotzdem ausführen“** klicken. Auch das ist nur einmal nötig.
 
 Ein kleines Fenster mit Text bleibt offen – das ist das laufende Programm. **Schließt ihr es, ist NETTverwaltet aus**;
 die Daten sind gespeichert. Die Adresse im Browser lautet `http://127.0.0.1:5001` – gern als Lesezeichen speichern.
@@ -54,7 +61,10 @@ Weiter geht es mit den [ersten Schritten](03-erste-schritte.md).
 ### Mit Beispieldaten üben
 
 Im Ordner `beispieldaten` liegt eine Liste mit 18 erfundenen Mitgliedern. Unter **Mitglieder → ⬆️ Import** könnt
-ihr sie einlesen und alles gefahrlos ausprobieren. Danach einfach wieder löschen.
+ihr sie einlesen und alles gefahrlos ausprobieren.
+
+Ganz von vorn anfangen? Das kleine Programmfenster schließen, den Ordner `data` löschen (oder umbenennen) und
+neu starten – dann ist NETTverwaltet wieder leer. **Achtung:** Das löscht alles, was ihr eingetragen habt.
 
 ## Wie geht es weiter?
 

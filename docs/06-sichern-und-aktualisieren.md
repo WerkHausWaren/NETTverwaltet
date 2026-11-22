@@ -8,10 +8,13 @@ die Daten eures Vereins weg. **Sichert regelmäßig und bewahrt mindestens eine 
 ## Auf dem eigenen Rechner
 
 - Die App legt beim Start automatisch eine Sicherung an, wenn die letzte älter als eine Woche ist. Die letzten
-  12 Sicherungen liegen im Ordner `data/backups` (auf dem Mac in OneDrive, falls vorhanden).
+  12 Sicherungen liegen im Ordner `data/backups`.
 - Unter **Einstellungen → 💾 Datensicherung** könnt ihr jederzeit **jetzt sichern** und eine Sicherung
   **wiederherstellen**.
-- Kopiert zusätzlich ab und zu den ganzen Ordner `data` auf einen USB-Stick oder in euren Cloud-Speicher.
+- Kopiert zusätzlich ab und zu den ganzen Ordner `data` auf einen USB-Stick oder eine externe Festplatte.
+  **Vorsicht mit Cloud-Speichern:** Die Sicherungen enthalten alle Mitgliederdaten unverschlüsselt (auch
+  Bankverbindungen). In eine Cloud gehören sie nur verschlüsselt und nur zu einem Anbieter, mit dem euer
+  Verein das datenschutzrechtlich geregelt hat.
 
 ## Auf dem Server
 

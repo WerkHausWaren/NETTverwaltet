@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Nicht als root laufen; Datenverzeichnis anlegen
-RUN useradd -m appuser \
+RUN useradd -m -u 1000 appuser \
     && mkdir -p /data \
     && chown -R appuser:appuser /data /app
 USER appuser

@@ -5,7 +5,9 @@
 | Problem | Lösung |
 |---|---|
 | „Python wurde nicht gefunden“ | Python installieren ([Anleitung](01-ausprobieren.md)). Unter Windows beim Installieren „Add Python to PATH“ anhaken und danach den Rechner neu starten. |
-| Mac: „kann nicht geöffnet werden“ | Rechtsklick auf die Startdatei → Öffnen → Öffnen. |
+| Mac: „kann nicht geöffnet werden“ / „Apple konnte nicht überprüfen …“ | Warnung mit „Fertig“ schließen → Systemeinstellungen → Datenschutz & Sicherheit → ganz unten „Dennoch öffnen“. Bei älteren Macs: Rechtsklick auf die Startdatei → Öffnen → Öffnen. |
+| Windows: „Der Computer wurde durch Windows geschützt“ | „Weitere Informationen“ → „Trotzdem ausführen“. |
+| Mac fragt nach „Befehlszeilen-Entwicklerwerkzeugen“ | Python fehlt noch. Entweder „Installieren“ wählen (dauert einige Minuten) oder Python wie in der [Anleitung](01-ausprobieren.md) installieren. Danach die Startdatei erneut doppelklicken. |
 | Der Browser zeigt „Seite nicht erreichbar“ | Läuft das kleine Programmfenster noch? Sonst neu starten. Adresse: `http://127.0.0.1:5001` |
 | Beim ersten Start bleibt es lange stehen | Beim ersten Mal werden Bausteine aus dem Internet geladen. Internetverbindung prüfen und ein paar Minuten warten. |
 | Das Programm startet, aber ein zweites Mal nicht | Vermutlich läuft es schon. Alle Programmfenster schließen und erneut starten. |

@@ -41,7 +41,14 @@ fi
 sed "s/DOMAIN_HIER/$DOMAIN/" Caddyfile.vorlage > Caddyfile
 echo "• Caddyfile für $DOMAIN geschrieben."
 
+# Datenordner anlegen und dem App-Nutzer im Container (Kennung 1000) übergeben –
+# sonst kann die App ihre Datenbank nicht anlegen („unable to open database file“).
 mkdir -p data
+if [ "$(id -u)" = "0" ]; then
+    chown -R 1000:1000 data
+elif [ "$(stat -c %u data 2>/dev/null || stat -f %u data)" != "1000" ]; then
+    echo "• Bitte einmal ausführen:  sudo chown -R 1000:1000 data"
+fi
 
 # Docker vorhanden? (nur Hinweis – die Einrichtung selbst braucht es nicht)
 if ! docker compose version >/dev/null 2>&1; then
