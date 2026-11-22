@@ -9,6 +9,15 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from ..db import (get_db_fuer, verein_db_pfad, now_iso, aktiver_verein_id,
                   setze_aktiven_verein, alle_vereine, erstelle_verein, loesche_verein)
 from ..html_sicher import zurueck as _zurueck
+from ..auth import darf_verein, ist_uebergreifend
+
+
+def _nur_uebergreifend():
+    """Antwort für Konten, die nicht vereinsübergreifend verwalten dürfen (sonst None)."""
+    if ist_uebergreifend():
+        return None
+    flash("Das darf nur das vereinsübergreifende Verwaltungskonto dieser Installation.", "fehler")
+    return redirect(url_for("vereine.liste"))
 
 bp = Blueprint("vereine", __name__, url_prefix="/vereine")
 
@@ -24,6 +33,8 @@ UEBERNEHMBAR = {
 def liste():
     vereine = []
     for v in alle_vereine():
+        if not darf_verein(v["id"]):
+            continue                      # fremde Vereine im Server-Betrieb gar nicht zeigen
         conn = get_db_fuer(v["id"])
         row = conn.execute("SELECT vereinsname, plz, ort FROM vereine WHERE id=?", (v["id"],)).fetchone()
         anzahl = conn.execute("SELECT COUNT(*) c FROM mitglieder").fetchone()["c"]
@@ -36,12 +47,15 @@ def liste():
             "mitglieder": anzahl,
         })
     return render_template("vereine/liste.html", aktiv="vereine",
-                           vereine=vereine, aktive_id=aktiver_verein_id(),
+                           vereine=vereine, aktive_id=aktiver_verein_id(), uebergreifend=ist_uebergreifend(),
                            uebernehmbar=UEBERNEHMBAR)
 
 
 @bp.route("/neu", methods=["POST"])
 def neu():
+    verboten = _nur_uebergreifend()
+    if verboten:
+        return verboten
     name = request.form.get("vereinsname", "").strip() or "Neuer Verein"
     neuer_id = erstelle_verein(name)
     if request.form.get("wechseln"):
@@ -53,7 +67,7 @@ def neu():
 @bp.route("/<int:vid>/wechseln", methods=["POST"])
 def wechseln(vid):
     namen = {v["id"]: v["vereinsname"] for v in alle_vereine()}
-    if vid in namen:
+    if vid in namen and darf_verein(vid):
         setze_aktiven_verein(vid)
         flash(f"Aktiver Verein: {namen[vid] or 'Ohne Namen'}", "info")
     return redirect(_zurueck(url_for("dashboard.index")))
@@ -61,6 +75,12 @@ def wechseln(vid):
 
 @bp.route("/<int:vid>/loeschen", methods=["POST"])
 def loeschen(vid):
+    verboten = _nur_uebergreifend()
+    if verboten:
+        return verboten
+    if vid not in {v["id"] for v in alle_vereine()}:
+        flash("Diesen Verein gibt es nicht.", "fehler")
+        return redirect(url_for("vereine.liste"))
     if len(alle_vereine()) <= 1:
         flash("Der letzte Verein kann nicht gelöscht werden.", "fehler")
         return redirect(url_for("vereine.liste"))
@@ -81,8 +101,12 @@ def uebernehmen():
     quelle = request.form.get("quelle", type=int)
     ziel = request.form.get("ziel", type=int)
     arten = request.form.getlist("arten")
-    if not quelle or not ziel or quelle == ziel:
-        flash("Bitte unterschiedliche Quelle und Ziel wählen.", "fehler")
+    verboten = _nur_uebergreifend()
+    if verboten:
+        return verboten
+    vorhanden = {v["id"] for v in alle_vereine()}
+    if not quelle or not ziel or quelle == ziel or quelle not in vorhanden or ziel not in vorhanden:
+        flash("Bitte zwei unterschiedliche, vorhandene Vereine als Quelle und Ziel wählen.", "fehler")
         return redirect(url_for("vereine.liste"))
 
     conn = get_db_fuer(ziel)

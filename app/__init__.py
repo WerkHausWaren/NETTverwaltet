@@ -6,6 +6,7 @@ from flask_login import current_user
 from flask_wtf.csrf import CSRFProtect
 
 from . import db
+from .auth import darf_verein as _darf_verein
 from .auth import init_auth
 
 csrf = CSRFProtect()
@@ -227,6 +228,10 @@ def create_app():
                 pass
             session["_aktiv_am"] = _heute
         # Mehr-Mandanten: die Sitzung bestimmt den Verein dieses Nutzers (pro Anfrage).
+        # Konten mit eigenem Verein können nie in einem anderen arbeiten (Absicherung 22.11.2026).
+        _konto_vid = getattr(current_user, "verein_id", None)
+        if _konto_vid is not None and session.get("verein_id") != _konto_vid:
+            session["verein_id"] = _konto_vid
         vid = session.get("verein_id")
         if vid is None:
             # Nach einem Remember-Cookie-Re-Login ist die Session leer -> den
@@ -337,7 +342,8 @@ def create_app():
             "aussehen_modus": _design.modus_attribut(aussehen),
             "aussehen_app_css": _design.css(aussehen_app),
             "aussehen_app_modus": _design.modus_attribut(aussehen_app),
-            "alle_vereine": db.alle_vereine(),
+            # im Server-Betrieb nur die Vereine, die die Person nutzen darf (Absicherung 22.11.2026)
+            "alle_vereine": [v for v in db.alle_vereine() if _darf_verein(v["id"])],
             "aktiver_verein_id": db.aktiver_verein_id(),
             "sync_verfuegbar": os.path.exists(os.path.join(db.DATA_DIR, "sync.json")),
             "funktionen_index": __import__("app.funktionen", fromlist=["fuer_verein"]).fuer_verein(e),

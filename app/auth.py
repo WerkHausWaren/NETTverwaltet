@@ -200,3 +200,33 @@ def rolle_aus_gruppen(gruppen, einst=None):
     if gruppe("nc_gruppe_extern", "NC_GRUPPE_EXTERN") in g and externe_ok:
         return "extern"
     return None
+
+
+# ------------------------- Mehr-Vereins-Schutz (Server) -------------------------
+def vereine_erlaubt():
+    """Welche Vereine darf die angemeldete Person nutzen? None = alle.
+
+    Lokal (ohne VV_PRODUKTION) bewusst alle – dort verwaltet eine Person mehrere Vereine.
+    Im Server-Betrieb: Konto MIT verein_id → nur dieser Verein; übergreifendes
+    Verwaltungskonto (verein_id NULL, Rolle admin) → alle. Absicherung 22.11.2026."""
+    from flask import current_app
+    from flask_login import current_user
+    if not current_app.config.get("PRODUKTION"):
+        return None
+    if not getattr(current_user, "is_authenticated", False):
+        return set()
+    vid = getattr(current_user, "verein_id", None)
+    if vid is None:
+        return None if getattr(current_user, "ist_admin", False) else set()
+    return {vid}
+
+
+def darf_verein(vid):
+    erlaubt = vereine_erlaubt()
+    return erlaubt is None or vid in erlaubt
+
+
+def ist_uebergreifend():
+    """Darf Vereine anlegen, löschen und Daten zwischen Vereinen übernehmen."""
+    return vereine_erlaubt() is None
+
