@@ -39,7 +39,9 @@ def _einloggen(row, dauer=None):
     session["auth_zeit"] = datetime.now().timestamp()
     # Verein dieser Sitzung festlegen: gewählter Verein, sonst der des Kontos.
     vid = session.pop("login_verein_id", None)
-    if vid is None and "verein_id" in row.keys():
+    # Ein Konto, das zu einem Verein gehört, landet IMMER dort – die Vereinswahl im
+    # Formular darf es nicht in einen fremden Verein bringen (Absicherung 22.11.2026).
+    if "verein_id" in row.keys() and row["verein_id"] is not None:
         vid = row["verein_id"]
     if vid is not None:
         session["verein_id"] = vid

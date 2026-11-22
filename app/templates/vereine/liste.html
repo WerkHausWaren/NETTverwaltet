@@ -5,6 +5,7 @@
     <div><h1>Meine Vereine</h1><div class="sub">Mehrere Vereine getrennt verwalten und zwischen ihnen wechseln</div></div>
 </div>
 
+{% if uebergreifend %}
 <div class="karte">
     <h2 style="margin-top:0">Neuen Verein anlegen</h2>
     <form method="post" action="{{ url_for('vereine.neu') }}">
@@ -19,6 +20,7 @@
         </div>
     </form>
 </div>
+{% endif %}
 
 <table>
     <thead><tr><th>Verein</th><th>Ort</th><th class="rechts">Mitglieder</th><th></th></tr></thead>
@@ -39,11 +41,13 @@
                         <button class="btn btn-klein">Wechseln</button>
                     </form>
                 {% endif %}
+                {% if uebergreifend %}
                     <form method="post" action="{{ url_for('vereine.loeschen', vid=v.id) }}" style="display:inline"
                           onsubmit="return confirm('Verein „{{ v.vereinsname }}“ und ALLE zugehörigen Daten unwiderruflich löschen?')">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button class="btn btn-sekundaer btn-klein">Löschen</button>
                     </form>
+                {% endif %}
                 </div>
             </td>
         </tr>
@@ -51,7 +55,7 @@
     </tbody>
 </table>
 
-{% if vereine|length > 1 %}
+{% if uebergreifend and vereine|length > 1 %}
 <div class="karte" style="margin-top:24px">
     <h2 style="margin-top:0">Daten von einem Verein übernehmen</h2>
     <p class="feld-hinweis">Kopiert ausgewählte Daten aus einem Quellverein in einen Zielverein (z.B. wenn Mitglieder in mehreren Vereinen sind).</p>
