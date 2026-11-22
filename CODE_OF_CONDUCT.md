@@ -32,8 +32,8 @@ In allen Bereichen des Projekts: Issues, Pull Requests, Discussions, Kommentare 
 
 ## Verstöße melden
 
-Wendet euch vertraulich an das Projektteam – den Herausgeber WerkHausWaren e.V.,
-Werderweg 4D, 17192 Waren (Müritz). Inhalte auf GitHub könnt ihr zusätzlich über **„…“ → „Report content“**
+Wendet euch vertraulich per E-Mail an das Projektteam: **r.marx@werkhauswaren.de**
+(Herausgeber: WerkHausWaren e.V., Werderweg 4D, 17192 Waren (Müritz)). Inhalte auf GitHub könnt ihr zusätzlich über **„…“ → „Report content“**
 direkt an GitHub melden. Wir behandeln jede Meldung vertraulich und schützen die meldende Person.
 
 ## Was dann passiert

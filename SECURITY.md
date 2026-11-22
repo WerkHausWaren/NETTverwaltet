@@ -4,6 +4,7 @@ Danke, dass du hilfst, NETTverwaltet sicher zu halten. In der Software stehen di
 
 **Bitte melde eine Sicherheitslücke nicht als öffentliches Issue.** Nutze stattdessen die vertrauliche Meldung von
 GitHub: Reiter **„Security“** → **„Report a vulnerability“**. Nur die Betreuer:innen des Projekts sehen deine Meldung.
+Geht das nicht, schreib eine E-Mail an **r.marx@werkhauswaren.de** mit dem Betreff „Sicherheit“.
 
 Hilfreich sind:
 

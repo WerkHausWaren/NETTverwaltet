@@ -91,4 +91,5 @@ Bildnachweise und verwendete Bausteine anderer Projekte: [NOTICE.md](NOTICE.md).
 ---
 
 **Herausgeber:** WerkHausWaren e.V., Werderweg 4D, 17192 Waren (Müritz), Deutschland ·
+Kontakt: r.marx@werkhauswaren.de ·
 Projektseite: https://github.com/WerkHausWaren/NETTverwaltet
