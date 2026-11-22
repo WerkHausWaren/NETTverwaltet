@@ -29,7 +29,8 @@ else
         echo "SECRET_KEY=$(openssl rand -hex 32)"
         echo "VV_KRYPTO_KEY=$(openssl rand -base64 32 | tr '+/' '-_')"
         echo "VV_BASIS_URL=https://$DOMAIN"
-        echo "VV_SYNC_TOKEN=$(openssl rand -base64 36 | tr '+/' '-_' | tr -d '=\n')"
+        # VV_SYNC_TOKEN bleibt bewusst ungesetzt: Damit wäre /sync/paket (die ganze Datenbank)
+        # per Token abrufbar. Nur setzen, wenn ein lokaler Rechner wirklich abgleichen soll.
         # Leer lassen, solange keine eigene Nextcloud angebunden ist (wichtig!)
         echo "NEXTCLOUD_URL="
     } > .env
