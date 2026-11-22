@@ -572,7 +572,7 @@ def home():
     if getattr(current_user, "is_authenticated", False):
         from .. import neuigkeiten as _neuigkeiten
         sys_neu = get_system_db()
-        zeile_neu = sys_neu.execute("SELECT COALESCE(neuigkeiten_gesehen_am,'') g FROM benutzer WHERE id=?",
+        zeile_neu = sys_neu.execute("SELECT COALESCE(neuigkeiten_gesehen_am, erstellt_am, '') g FROM benutzer WHERE id=?",
                                     (int(current_user.id),)).fetchone()
         sys_neu.close()
         neu_anzahl = _neuigkeiten.anzahl_neu(

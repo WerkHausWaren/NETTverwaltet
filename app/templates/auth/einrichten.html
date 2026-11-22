@@ -2,7 +2,7 @@
 {% block title %}Erst-Einrichtung{% endblock %}
 {% block inhalt %}
 <div class="auth-logo">🛡️</div>
-<h2 class="auth-titel">Erst-Einrichtung: Verein &amp; Notfall-Admin</h2>
+<h2 class="auth-titel">Erst-Einrichtung: Verein &amp; Verwaltungskonto</h2>
 <form method="post">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <h3 style="margin:10px 0 4px">Dein Verein</h3>
@@ -15,9 +15,9 @@
     <div class="feld"><label>Vereins-E-Mail (optional)</label>
         <input type="email" name="vereins_email" placeholder="z.B. hallo@verein.de"></div>
 
-    <h3 style="margin:16px 0 4px">Notfall-Admin</h3>
-    <p class="feld-hinweis">Dieses Konto funktioniert auch dann, wenn die Nextcloud einmal nicht erreichbar ist.
-       Bewahre E-Mail und Passwort sicher auf.</p>
+    <h3 style="margin:16px 0 4px">Dein Verwaltungskonto</h3>
+    <p class="feld-hinweis">Mit diesem Konto meldest du dich an, verwaltest alles und lädst später weitere
+       Personen ein. Bewahre E-Mail und Passwort sicher auf, am besten in einem Passwort-Manager.</p>
     <div class="feld"><label>E-Mail</label><input type="email" name="email" required></div>
     <div class="feld"><label>Passwort (mind. 8 Zeichen)</label><input type="password" name="passwort" required></div>
     <div class="feld"><label>Passwort wiederholen</label><input type="password" name="passwort2" required></div>

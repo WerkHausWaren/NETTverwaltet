@@ -27,7 +27,30 @@ Diese Befehle helfen bei der Fehlersuche (auf dem Server im Ordner `/opt/NETTver
 | Die Adresse ist im Browser nicht erreichbar | Zeigt die Adresse schon auf den Server? `ping eure-adresse.de` muss die Server-IP zeigen. Nach einer Änderung kann es bis zu einer Stunde dauern. |
 | Warnung „unsichere Verbindung“ | Das Zertifikat wird beim ersten Start geholt (1–2 Minuten). Dauert es länger: Prüfen, ob beim Server-Anbieter eine Firewall die Anschlüsse 80 und 443 sperrt. |
 | Es kommen keine E-Mails an | Einstellungen → E-Mail-Versand prüfen und die Testmail schicken. Manche Anbieter verlangen ein eigenes App-Passwort. Landen Mails im Spam, fehlen oft Absender-Einträge bei eurer Domain (SPF, DKIM) – euer E-Mail-Anbieter hilft weiter. |
-| Passwort vergessen | Auf der Anmeldeseite „Passwort vergessen“ nutzen (dafür muss der E-Mail-Versand eingerichtet sein). Hat das letzte Verwaltungskonto keinen Zugang mehr, hilft der Notfall-Zugang über die Anmeldeseite. |
+| Passwort vergessen | Auf der Anmeldeseite „Passwort vergessen“ nutzen (dafür muss der E-Mail-Versand eingerichtet sein). Kommt niemand mehr hinein – kein E-Mail-Versand, Handy mit der Zwei-Faktor-App verloren –, siehe unten „Niemand kommt mehr hinein“. |
+
+## Niemand kommt mehr hinein
+
+Wer Zugriff auf den Server hat, kann jedes Verwaltungskonto wieder freischalten. Auf dem Server eintippen:
+
+```bash
+cd /opt/NETTverwaltet
+```
+
+```bash
+docker compose exec app python konto_zuruecksetzen.py
+```
+
+Das zeigt alle Konten. Dann für das gewünschte Konto (E-Mail anpassen):
+
+```bash
+docker compose exec app python konto_zuruecksetzen.py vorstand@euer-verein.de
+```
+
+Das Programm fragt nach einem neuen Passwort und – falls eingeschaltet – ob die Zwei-Faktor-Anmeldung
+abgeschaltet werden soll. Danach könnt ihr euch sofort anmelden. Schaltet die Zwei-Faktor-Anmeldung
+anschließend gleich wieder ein. Gibt es die E-Mail-Adresse noch nicht, bietet das Programm an, ein neues
+Verwaltungskonto anzulegen.
 
 ## Weiterhin ratlos?
 

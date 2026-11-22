@@ -94,7 +94,7 @@ def handlungsbedarf(conn, vid, heute, rolle="admin"):
         try:
             from .. import neuigkeiten as _neuigkeiten
             sys_neu = get_system_db()
-            z = sys_neu.execute("SELECT COALESCE(neuigkeiten_gesehen_am,'') g FROM benutzer WHERE id=?",
+            z = sys_neu.execute("SELECT COALESCE(neuigkeiten_gesehen_am, erstellt_am, '') g FROM benutzer WHERE id=?",
                                 (int(current_user.id),)).fetchone()
             sys_neu.close()
             n = _neuigkeiten.anzahl_neu(get_einstellungen(), vorstand=vorstand or oea,

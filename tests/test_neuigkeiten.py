@@ -101,8 +101,16 @@ c = flask_app.test_client()
 c.post("/einrichten", data={"vereinsname": "Neuverein e.V.", "email": "chefin@neu.invalid",
                             "passwort": "geheim12345", "passwort2": "geheim12345"})
 t = c.get("/portal/").get_data(as_text=True)
+pruefe("seit deinem letzten Besuch" not in t,
+       "frisch eingerichteter Verein: keine alten Neuigkeiten als „neu“")
+# Ein älteres Konto, das noch nie hineingeschaut hat, sieht die Kachel dagegen
+_s = db.get_system_db()
+_s.execute("UPDATE benutzer SET erstellt_am='2026-01-01 00:00:00', neuigkeiten_gesehen_am=NULL")
+_s.commit()
+_s.close()
+t = c.get("/portal/").get_data(as_text=True)
 pruefe("Was ist neu?" in t and "seit deinem letzten Besuch" in t,
-       "Startseiten-Kachel erscheint (noch nie angeschaut)")
+       "Startseiten-Kachel erscheint (älteres Konto, noch nie angeschaut)")
 r = c.get("/portal/neuigkeiten")
 pruefe(r.status_code == 200, f"Seite lädt (ist: {r.status_code})")
 t = r.get_data(as_text=True)
