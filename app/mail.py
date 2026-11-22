@@ -83,7 +83,7 @@ def _html_zu_text(html):
     import re
     t = re.sub(r"(?i)<br\s*/?>", "\n", html or "")
     t = re.sub(r"(?i)</(p|div|li|h[1-6]|tr)>", "\n", t)
-    t = re.sub(r"<[^>]+>", "", t)
+    t = re.sub(r"<[^<>]+>", "", t)   # [^<>] statt [^>]: sonst quadratische Laufzeit bei vielen „<“
     t = (t.replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<")
          .replace("&gt;", ">").replace("&quot;", '"'))
     return re.sub(r"\n{3,}", "\n\n", t).strip()

@@ -256,7 +256,8 @@ def status_setzen(bid):
         flash("Zurück auf Entwurf gesetzt.", "erfolg")
     conn.commit()
     conn.close()
-    return redirect(request.form.get("weiter") or url_for("oea.plan"))
+    from ..html_sicher import lokales_ziel
+    return redirect(lokales_ziel(request.form.get("weiter"), url_for("oea.plan")))
 
 
 @bp.route("/<int:bid>/loeschen", methods=["POST"])

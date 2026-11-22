@@ -91,3 +91,30 @@ def html_saeubern(html):
     p.feed(str(html or ""))
     p.close()
     return "".join(p.aus)
+
+
+# ------------------------------------------------- Weiterleitungen (Open Redirect) ---
+def lokales_ziel(wert, standard):
+    """Weiterleitungsziel nur übernehmen, wenn es auf dieser Seite bleibt (kein Open Redirect).
+
+    Erlaubt: Pfade wie „/termine/5“ und absolute Links auf den eigenen Host (z. B. der Referer).
+    Abgewiesen: „//fremd.de“, „/\\fremd.de“, Steuerzeichen (Browser werten „/<Tab>/fremd.de“
+    als „//fremd.de“), Schemata wie „javascript:“ oder „https:fremd.de“. CodeQL-Triage 22.11.2026."""
+    from urllib.parse import urlsplit
+    from flask import request
+    wert = str(wert or "").strip()
+    if not wert or "\\" in wert or any(ord(c) < 32 or ord(c) == 127 for c in wert):
+        return standard
+    eigen = request.host_url                      # z. B. „https://verein.example/“ (mit Schrägstrich)
+    if wert.startswith(eigen):
+        return wert
+    teile = urlsplit(wert)
+    if teile.scheme or teile.netloc or not wert.startswith("/") or wert.startswith("//"):
+        return standard
+    return wert
+
+
+def zurueck(standard):
+    """Zur vorigen Seite zurück – aber nur, wenn sie zu dieser Seite gehört."""
+    from flask import request
+    return lokales_ziel(request.referrer, standard)

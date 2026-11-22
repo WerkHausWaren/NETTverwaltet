@@ -194,7 +194,8 @@ def topf_neu(gid=None):
         flash("Fördertopf gespeichert. 🎯", "erfolg")
     conn.commit()
     conn.close()
-    return redirect(request.form.get("weiter") or url_for("foerderung.toepfe"))
+    from ..html_sicher import lokales_ziel
+    return redirect(lokales_ziel(request.form.get("weiter"), url_for("foerderung.toepfe")))
 
 
 @bp.route("/projekt/neu", methods=["GET", "POST"])

@@ -257,7 +257,9 @@ function kachelWahl(el){
     el.classList.add('gewaehlt');
     document.getElementById('konto_id').value = el.dataset.konto;
     var sel = document.getElementById('kontoSelect'); if(sel) sel.value = el.dataset.konto;
-    document.getElementById('gewaehltHinweis').innerHTML = '✅ Kategorie: <strong>'+el.textContent.trim()+'</strong>';
+    var hinweis = document.getElementById('gewaehltHinweis'), fett = document.createElement('strong');
+    fett.textContent = el.textContent.trim();          // als Text, nie als HTML
+    hinweis.textContent = '✅ Kategorie: '; hinweis.appendChild(fett);
 }
 (function(){ var m='einfach'; try{ m=localStorage.getItem('finanzModus')||'einfach'; }catch(e){} setModus(m);
     // Wenn das gewählte Jahr das laufende ist: Datum auf heute vorbelegen

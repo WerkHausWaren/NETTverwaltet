@@ -10,6 +10,7 @@ from ..db import get_db, get_einstellungen, now_iso, aktiver_verein_id
 from ..funktionen import wer
 from .. import xlsx, speicher, carddav
 from ..kontakte_sync import abgleich as nc_abgleich
+from ..html_sicher import zurueck as _zurueck
 
 bp = Blueprint("mitglieder", __name__, url_prefix="/mitglieder")
 
@@ -958,4 +959,4 @@ def mandate_nachtragen():
               "noch keine kennen.", "erfolg")
     else:
         flash("Es war nichts nachzutragen – alle Mandate sind vollständig.", "info")
-    return redirect(request.referrer or url_for("mitglieder.liste"))
+    return redirect(_zurueck(url_for("mitglieder.liste")))

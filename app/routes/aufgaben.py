@@ -12,6 +12,7 @@ from ..db import get_db, get_db_fuer, get_einstellungen, aktiver_verein_id, now_
 from ..funktionen import wer
 from .. import erwaehnungen, ics_export
 from .. import db as _db
+from ..html_sicher import zurueck as _zurueck
 
 bp = Blueprint("aufgaben", __name__, url_prefix="/aufgaben")
 
@@ -234,7 +235,7 @@ def erledigt(aid):
                 session["aufgabe_feier"] = 1
         conn.commit()
     conn.close()
-    return redirect(request.referrer or url_for("aufgaben.index"))
+    return redirect(_zurueck(url_for("aufgaben.index")))
 
 
 @bp.route("/<int:aid>/kopieren", methods=["POST"])
