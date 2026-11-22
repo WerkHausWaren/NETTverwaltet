@@ -26,6 +26,7 @@ Mehr zum Aufbau: [docs/entwicklung.md](docs/entwicklung.md).
 
 ## Ein paar Regeln
 
+- **Miteinander:** Es gilt unser [Verhaltenskodex](CODE_OF_CONDUCT.md).
 - **Sprache:** Oberfläche und Texte auf Deutsch, in einfacher Sprache und gegendert (z. B. „Helfer:innen“,
   „Kassenwart:in“).
 - **Datenschutz zuerst:** Neue Funktionen zeigen öffentlich nur, was ausdrücklich öffentlich sein soll.
